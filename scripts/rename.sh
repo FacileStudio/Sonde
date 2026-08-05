@@ -155,6 +155,10 @@ for candidate in README.md CLAUDE.md apps/api/README.md apps/client/README.md; d
 	[ -f "$candidate" ] && doc_files="$doc_files $candidate"
 done
 
+# docker-compose.yml carries the public hostname and the Traefik router names,
+# so it has to follow the slug or a fork deploys itself onto app.facile.studio.
+[ -f docker-compose.yml ] && doc_files="$doc_files docker-compose.yml"
+
 for file in $doc_files; do
 	rewrite "$file" \
 		-e '/<!-- fork:begin -->/,/<!-- fork:end -->/d' \
