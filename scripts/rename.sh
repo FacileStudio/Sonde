@@ -67,7 +67,7 @@ if printf '%s' "$new_name" | grep -q '\.\.'; then
 	fail "'$new_name' is not a plausible repository name (contains '..')"
 fi
 case "$new_name" in
-*[.\-_]) fail "'$new_name' is not a plausible repository name (trailing punctuation)" ;;
+*[._-]) fail "'$new_name' is not a plausible repository name (trailing punctuation)" ;;
 esac
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git repository"
@@ -93,6 +93,16 @@ new_slug="$(printf '%s' "$new_name" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9
 
 port_offset="$(printf '%s' "$new_slug" | cksum | awk '{print $1}')"
 db_port=$((port_base + port_offset % port_span))
+
+pg_up="scripts/postgres-up.sh"
+old_db_port="$port_base"
+old_db_name="api"
+if [ -f "$pg_up" ]; then
+	found_port="$(sed -n 's/^port="\${POSTGRES_PORT:-\([0-9]\{1,\}\)}"$/\1/p' "$pg_up" | head -n 1)"
+	found_name="$(sed -n 's/^database="\${POSTGRES_DB:-\([A-Za-z0-9_]\{1,\}\)}"$/\1/p' "$pg_up" | head -n 1)"
+	[ -n "$found_port" ] && old_db_port="$found_port"
+	[ -n "$found_name" ] && old_db_name="$found_name"
+fi
 
 if [ "$old_module" = "$new_module" ]; then
 	printf 'rename: already renamed to %s - nothing to do\n' "$new_name"
@@ -139,6 +149,7 @@ done
 
 for file in $doc_files; do
 	rewrite "$file" \
+		-e '/<!-- fork:begin -->/,/<!-- fork:end -->/d' \
 		-e "s|$(escape_dots "$old_repo")|$new_name|g" \
 		-e "s|$(escape_dots "$old_slug")|$new_slug|g" || true
 done
@@ -150,11 +161,11 @@ done
 
 for file in $db_files; do
 	rewrite "$file" \
-		-e "s|:$port_base/api|:$db_port/$new_slug|g" \
-		-e "s|POSTGRES_DB:-api}|POSTGRES_DB:-$new_slug}|g" \
-		-e "s|POSTGRES_PORT:-$port_base}|POSTGRES_PORT:-$db_port}|g" \
-		-e "s|127\\.0\\.0\\.1:$port_base|127.0.0.1:$db_port|g" \
-		-e "s|port $port_base|port $db_port|g" || true
+		-e "s|:$old_db_port/$old_db_name|:$db_port/$new_slug|g" \
+		-e "s|POSTGRES_DB:-$old_db_name}|POSTGRES_DB:-$new_slug}|g" \
+		-e "s|POSTGRES_PORT:-$old_db_port}|POSTGRES_PORT:-$db_port}|g" \
+		-e "s|127\\.0\\.0\\.1:$old_db_port|127.0.0.1:$db_port|g" \
+		-e "s|port $old_db_port|port $db_port|g" || true
 done
 
 printf '\nRenamed %s -> %s\n\n' "$old_repo" "$new_name"

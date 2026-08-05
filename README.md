@@ -8,6 +8,7 @@ GoSvelteBoilerplate is a small monorepo with:
 The repo is managed with [`mise`](https://mise.jdx.dev/) so tool versions and common tasks are shared from the repository itself.
 That includes a `mise`-managed Postgres toolchain for the local dev database.
 
+<!-- fork:begin -->
 ## Fork This Template
 
 Run the rename script first. It is not optional: a fresh fork inherits the Go module path
@@ -36,6 +37,7 @@ Then configure the rest by hand:
 - delete the demo domain: `modules/events`, `modules/tickets`, `internal/ticketcode`,
   `cmd/seed`, `schemas/event.go`, `schemas/ticket.go`, and their registrations in `main.go`
 
+<!-- fork:end -->
 ## Quick Start
 
 1. Install and activate `mise` for your shell.

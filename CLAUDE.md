@@ -2,6 +2,7 @@
 
 Monorepo boilerplate for a Go API + SvelteKit frontend, managed with mise.
 
+<!-- fork:begin -->
 ## Forking
 
 A fresh fork inherits the module path `github.com/FacileStudio/GoSvelteBoilerplate/apps/api`,
@@ -9,6 +10,7 @@ which is wrong for every project that is not this one. Run `scripts/rename.sh <N
 clean tree before doing anything else - it rewrites `go.mod`, every scoped Go import, the
 docs, and the dev database name/port. See the README for the full checklist.
 
+<!-- fork:end -->
 ## Tech Stack
 
 - **API** (`apps/api`): Go 1.24, Chi router, GORM + Postgres, DB-backed session tokens
