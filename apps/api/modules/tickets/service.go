@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/errors"
 	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/ticketcode"
 	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/modules/events"
 	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/schemas"
+	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

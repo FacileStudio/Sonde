@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/authcontext"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/errors"
+	"github.com/FacileStudio/tronc/errors"
 )
 
 type Controller struct {

@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
+	github.com/FacileStudio/tronc v0.3.0
 	github.com/go-chi/chi/v5 v5.2.3
 	golang.org/x/crypto v0.42.0
 	gorm.io/driver/postgres v1.6.0

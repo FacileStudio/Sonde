@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/httpjson"
+	"github.com/FacileStudio/tronc/httpjson"
 
 	"github.com/go-chi/chi/v5"
 )
