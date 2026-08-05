@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { backend } from '$lib/backend';
-
-	const tokenStorageKey = 'chime.frontend.token';
+	import { backend, tokenStorageKey } from '$lib/backend';
 
 	let email = $state('');
 	let password = $state('');

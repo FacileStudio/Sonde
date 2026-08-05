@@ -104,6 +104,14 @@ if [ -f "$pg_up" ]; then
 	[ -n "$found_name" ] && old_db_name="$found_name"
 fi
 
+token_file="apps/client/src/lib/backend.ts"
+old_token_key="app.token"
+if [ -f "$token_file" ]; then
+	found_token_key="$(sed -n "s/^export const tokenStorageKey = '\([A-Za-z0-9._-]\{1,\}\)';\$/\1/p" "$token_file" | head -n 1)"
+	[ -n "$found_token_key" ] && old_token_key="$found_token_key"
+fi
+new_token_key="$new_slug.token"
+
 if [ "$old_module" = "$new_module" ]; then
 	printf 'rename: already renamed to %s - nothing to do\n' "$new_name"
 	exit 0
@@ -168,10 +176,16 @@ for file in $db_files; do
 		-e "s|port $old_db_port|port $db_port|g" || true
 done
 
+if [ -f "$token_file" ]; then
+	rewrite "$token_file" \
+		-e "s|^export const tokenStorageKey = '$(escape_dots "$old_token_key")';\$|export const tokenStorageKey = '$new_token_key';|" || true
+fi
+
 printf '\nRenamed %s -> %s\n\n' "$old_repo" "$new_name"
 printf '  go module   %s\n' "$new_module"
 printf '  go files    %d rewritten (package roots: %s)\n' "$go_files_changed" "$(printf '%s' "$pkg_dirs" | tr '\n' ' ')"
 printf '  dev db      %s on 127.0.0.1:%d\n' "$new_slug" "$db_port"
+printf '  token key   %s\n' "$new_token_key"
 printf '  overrides   POSTGRES_DB / POSTGRES_PORT\n'
 printf '\nFiles changed:\n'
 for file in $changed_files; do

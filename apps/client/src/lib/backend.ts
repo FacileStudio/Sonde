@@ -1,6 +1,8 @@
 const backendBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
 	'http://localhost:4000';
 
+export const tokenStorageKey = 'app.token';
+
 export type AuthResponse = {
 	user_id: string;
 	token: string;

@@ -1,13 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { CalendarClock, KeyRound, ScanQrCode, Ticket, UserRound } from 'lucide-svelte';
-	import { backend, type EventRecord, type ValidateTicketResponse } from '$lib/backend';
+	import {
+		backend,
+		tokenStorageKey,
+		type EventRecord,
+		type ValidateTicketResponse
+	} from '$lib/backend';
 	import Button from '$lib/components/ui/button.svelte';
 	import Card from '$lib/components/ui/card.svelte';
 	import Input from '$lib/components/ui/input.svelte';
 	import Label from '$lib/components/ui/label.svelte';
-
-	const tokenStorageKey = 'chime.frontend.token';
 
 	let token = $state('');
 	let email = $state('');
