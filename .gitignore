@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Local dev state (mise-managed Postgres)
+.local/
+
+# Go build/module caches (sandboxed GOCACHE / GOMODCACHE)
+apps/api/.gocache/
+apps/api/.gomodcache/
+
+# Vestigial Encore scaffold repo, kept only for recovery
+apps/api/.git.encore-scaffold.bak/

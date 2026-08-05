@@ -1,0 +1,32 @@
+[tools]
+node = "22.22.1"
+
+[env]
+NODE_BIN = { value = "{{tools.node.path}}/bin/node", tools = true }
+NODE_DIR = { value = "{{tools.node.path}}/bin", tools = true }
+NPM_CLI = { value = "{{tools.node.path}}/lib/node_modules/npm/bin/npm-cli.js", tools = true }
+
+[tasks.install]
+description = "Install frontend dependencies"
+sources = ["package.json", "package-lock.json"]
+run = 'PATH="$NODE_DIR:$PATH" "$NODE_BIN" "$NPM_CLI" ci'
+
+[tasks.build]
+description = "Build the frontend"
+depends = [":install"]
+run = 'PATH="$NODE_DIR:$PATH" "$NODE_BIN" "$NPM_CLI" run build'
+
+[tasks.check]
+description = "Run the frontend checks"
+depends = [":install"]
+run = 'PATH="$NODE_DIR:$PATH" "$NODE_BIN" "$NPM_CLI" run check'
+
+[tasks.dev]
+description = "Start the frontend dev server"
+depends = [":install"]
+run = 'PATH="$NODE_DIR:$PATH" "$NODE_BIN" "$NPM_CLI" run dev'
+
+[tasks.preview]
+description = "Preview the production frontend build"
+depends = [":build"]
+run = 'PATH="$NODE_DIR:$PATH" "$NODE_BIN" "$NPM_CLI" run preview'

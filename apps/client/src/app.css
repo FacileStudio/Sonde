@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+	--background: oklch(0.98 0.01 95);
+	--foreground: oklch(0.22 0.02 40);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.22 0.02 40);
+	--primary: oklch(0.58 0.17 37);
+	--primary-foreground: oklch(0.99 0.01 90);
+	--secondary: oklch(0.93 0.03 85);
+	--secondary-foreground: oklch(0.28 0.03 35);
+	--muted: oklch(0.95 0.01 85);
+	--muted-foreground: oklch(0.5 0.02 50);
+	--border: oklch(0.88 0.02 80);
+	--input: oklch(0.91 0.02 82);
+	--ring: oklch(0.65 0.13 32);
+	--destructive: oklch(0.62 0.22 25);
+	--destructive-foreground: oklch(0.98 0.01 95);
+	--radius: 1rem;
+}
+
+:global(body) {
+	margin: 0;
+	min-height: 100vh;
+	background:
+		radial-gradient(circle at top left, oklch(0.96 0.04 75) 0, transparent 28%),
+		radial-gradient(circle at top right, oklch(0.93 0.05 30) 0, transparent 22%),
+		linear-gradient(180deg, oklch(0.99 0.01 90), oklch(0.96 0.01 85));
+	color: var(--foreground);
+	font-family:
+		"Iowan Old Style",
+		"Palatino Linotype",
+		"Book Antiqua",
+		Palatino,
+		serif;
+}
+
+:global(*) {
+	box-sizing: border-box;
+	border-color: var(--border);
+}
+
+:global(button),
+:global(input),
+:global(textarea) {
+	font: inherit;
+}

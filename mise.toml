@@ -1,0 +1,41 @@
+experimental_monorepo_root = true
+
+[settings]
+experimental = true
+lockfile = true
+
+[monorepo]
+config_roots = ["apps/api", "apps/client"]
+
+[tools]
+go = "1.24"
+node = "22.22.1"
+"asdf:mise-plugins/mise-postgres" = "14.22"
+
+[tasks.bootstrap]
+description = "Install monorepo dependencies"
+depends = ["//apps/api:deps", "//apps/client:install"]
+run = "true"
+
+[tasks.db-up]
+description = "Start the repo-local Postgres dev database"
+run = "sh ./scripts/postgres-up.sh"
+
+[tasks.db-down]
+description = "Stop the repo-local Postgres dev database"
+run = "sh ./scripts/postgres-down.sh"
+
+[tasks.build]
+description = "Build the API and client"
+depends = ["//apps/api:build", "//apps/client:build"]
+run = "true"
+
+[tasks.check]
+description = "Run API and client checks"
+depends = ["//apps/api:check", "//apps/client:check"]
+run = "true"
+
+[tasks.dev]
+description = "Run the API and client development servers"
+depends = ["//apps/api:dev", "//apps/client:dev"]
+run = "true"

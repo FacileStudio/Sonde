@@ -1,0 +1,58 @@
+[tools]
+go = "1.24"
+
+[env]
+GO_BIN = { value = "{{tools.go.path}}/bin/go", tools = true }
+
+[tasks.deps]
+description = "Download Go module dependencies"
+sources = ["go.mod", "go.sum"]
+run = '"$GO_BIN" mod download'
+
+[tasks.build]
+description = "Build the API binary at ./bin/api"
+depends = [":deps"]
+run = ["mkdir -p bin", '"$GO_BIN" build -o bin/api .']
+
+[tasks.check]
+description = "Format, vet, and test the API"
+depends = [":deps"]
+run = ['"$GO_BIN" fmt ./...', '"$GO_BIN" vet ./...', '"$GO_BIN" test ./...']
+
+[tasks.dev]
+description = "Run the API with local defaults"
+depends = [":deps"]
+run = '''
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
+DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgres@127.0.0.1:5433/api?sslmode=disable}"
+PORT="${PORT:-4000}"
+LOG_LEVEL="${LOG_LEVEL:-info}"
+CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}"
+
+echo "starting api on :$PORT"
+echo "DATABASE_URL=$DATABASE_URL"
+echo "PORT=$PORT"
+echo "LOG_LEVEL=$LOG_LEVEL"
+echo "CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS"
+
+exec env \
+  DATABASE_URL="$DATABASE_URL" \
+  PORT="$PORT" \
+  LOG_LEVEL="$LOG_LEVEL" \
+  CORS_ALLOWED_ORIGINS="$CORS_ALLOWED_ORIGINS" \
+  "$GO_BIN" run .
+'''
+
+[tasks.test]
+description = "Run Go tests"
+depends = [":deps"]
+run = '"$GO_BIN" test ./...'
+
+[tasks.tidy]
+description = "Sync go.mod and go.sum"
+run = '"$GO_BIN" mod tidy'
