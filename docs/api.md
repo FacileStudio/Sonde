@@ -23,10 +23,15 @@ Half of it is the demo domain and is meant to be deleted.
 | GET | `/ready` | none | `{"status":"ready"}`, or 503 `{"status":"not_ready"}` if the database ping fails |
 | GET | `/api/health` | none | Same as `/health` |
 | GET | `/api/ready` | none | Same as `/ready` |
-| GET | `/docs` | none | Generated documentation for every registered module |
+| GET | `/docs` | none | The API reference — Scalar UI over the generated OpenAPI document |
+| GET | `/docs/openapi.json` | none | The OpenAPI 3.1 document itself |
 
-`/docs` is assembled in `main.go` from each module's exported `Documentation` value, so a new
-module documents itself by declaring one in `documentation.go` and being added to that list.
+Both are served by `tronc/apiref`, mounted from `main.go` on the root router. The document is
+generated from the route registry `registry()` assembles out of each module's exported
+`Documentation` value, so a new module documents itself by declaring one in `documentation.go`
+and being added to that list. `apps/api/apiref_test.go` walks the live router and fails if a
+mounted route is missing from the registry, so the reference cannot silently drift from the
+code.
 
 ## Auth
 
@@ -100,7 +105,8 @@ func RegisterRoutes(router chi.Router, service *Service, authService *auth.Servi
 ```
 
 Then call `widgets.RegisterRoutes(r, …)` from `main.go` **inside** `router.Route("/api", …)`,
-and add `widgets.Documentation` to the `/docs` payload. Paths are relative to `/api` — never
+and add `widgets.Documentation` to `registry()`. Skipping that second step fails
+`TestEveryRouteIsDocumented`. Paths are relative to `/api` — never
 repeat the prefix, or the client ends up calling `/api/api/widgets`, which
 `scripts/verify-deploy.sh` checks for on purpose.
 

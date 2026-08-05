@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -20,15 +21,81 @@ import (
 	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/schemas"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
+	"github.com/FacileStudio/tronc/apiref"
 	"github.com/FacileStudio/tronc/health"
 	"github.com/FacileStudio/tronc/healthcheck"
-	"github.com/FacileStudio/tronc/httpjson"
 	"github.com/FacileStudio/tronc/httpx"
 	"github.com/FacileStudio/tronc/logger"
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
 	"github.com/FacileStudio/tronc/spa"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
+
+// apiTitle names this API in the reference page and the OpenAPI document.
+// scripts/rename.sh rewrites this line when a fork is retargeted, so keep it a
+// single const on one line.
+const apiTitle = "GoSvelteBoilerplate API"
+
+const apiDescription = "Authentication, users, and a demo ticketing domain."
+
+// registry is the hand-written route inventory the reference is generated from.
+// Each module owns its own entry; adding a route without adding it here fails
+// TestEveryRouteIsDocumented.
+func registry() documentation.Response {
+	return documentation.Response{
+		Modules: []documentation.Module{
+			auth.Documentation,
+			events.Documentation,
+			tickets.Documentation,
+			users.Documentation,
+		},
+	}
+}
+
+func refConfig() apiref.Config {
+	return apiref.Config{
+		Title:       apiTitle,
+		Description: apiDescription,
+		Servers:     []string{"/api"},
+		Registry:    registry(),
+	}
+}
+
+// buildRouter assembles the router the server serves. It is a function rather
+// than inline in main so a test can walk the real route table; it tolerates a
+// nil database because no service touches the handle until a request arrives.
+func buildRouter(db *gorm.DB, sqlDB *sql.DB, appLogger *slog.Logger, corsOrigins []string) chi.Router {
+	authService := auth.NewService(db)
+	eventService := events.NewService(db)
+	ticketService := tickets.NewService(db, eventService)
+	userService := users.NewService(db)
+
+	router := httpx.NewRouter(httpx.Config{
+		Logger: appLogger,
+		CORS: troncmiddleware.CORSConfig{
+			AllowedOrigins: corsOrigins,
+		},
+	})
+
+	health.Mount(router, health.DB(sqlDB))
+	apiref.Mount(router, refConfig())
+
+	router.Route("/api", func(r chi.Router) {
+		auth.RegisterRoutes(r, authService)
+		events.RegisterRoutes(r, eventService, authService)
+		tickets.RegisterRoutes(r, ticketService, authService)
+		users.RegisterRoutes(r, userService, authService)
+	})
+
+	clientDir := spa.DirFromEnv()
+	if spa.Available(clientDir) {
+		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
+		appLogger.Info("serving client", slog.String("dir", clientDir))
+	}
+
+	return router
+}
 
 func main() {
 	if healthcheck.Handle(os.Args) {
@@ -77,43 +144,7 @@ func main() {
 		}
 	}()
 
-	authService := auth.NewService(db)
-	eventService := events.NewService(db)
-	ticketService := tickets.NewService(db, eventService)
-	userService := users.NewService(db)
-	docs := documentation.Response{
-		Modules: []documentation.Module{
-			auth.Documentation,
-			events.Documentation,
-			tickets.Documentation,
-			users.Documentation,
-		},
-	}
-
-	router := httpx.NewRouter(httpx.Config{
-		Logger: appLogger,
-		CORS: troncmiddleware.CORSConfig{
-			AllowedOrigins: appEnv.CORSAllowedOrigins,
-		},
-	})
-
-	health.Mount(router, health.DB(sqlDB))
-	router.Get("/docs", func(w http.ResponseWriter, request *http.Request) {
-		httpjson.WriteJSON(w, http.StatusOK, docs)
-	})
-
-	router.Route("/api", func(r chi.Router) {
-		auth.RegisterRoutes(r, authService)
-		events.RegisterRoutes(r, eventService, authService)
-		tickets.RegisterRoutes(r, ticketService, authService)
-		users.RegisterRoutes(r, userService, authService)
-	})
-
-	clientDir := spa.DirFromEnv()
-	if spa.Available(clientDir) {
-		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
-		appLogger.Info("serving client", slog.String("dir", clientDir))
-	}
+	router := buildRouter(db, sqlDB, appLogger, appEnv.CORSAllowedOrigins)
 
 	addr := ":" + appEnv.Port
 	server := &http.Server{

@@ -1,35 +1,16 @@
+// Package docs names the route-registry types each module fills in.
+//
+// They are aliases for tronc/apiref, so a module's documentation.go stays
+// written against a local package while apiref owns the shape and renders it as
+// OpenAPI behind the reference page at /docs.
 package docs
 
-type Response struct {
-	Modules []Module `json:"modules"`
-}
+import "github.com/FacileStudio/tronc/apiref"
 
-type Module struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Routes      []Route `json:"routes"`
-}
-
-type Route struct {
-	Method       string  `json:"method"`
-	Path         string  `json:"path"`
-	Summary      string  `json:"summary"`
-	Description  string  `json:"description"`
-	Auth         string  `json:"auth"`
-	PathParams   []Field `json:"path_params,omitempty"`
-	RequestBody  string  `json:"request_body,omitempty"`
-	ResponseBody string  `json:"response_body,omitempty"`
-	Errors       []Error `json:"errors,omitempty"`
-}
-
-type Field struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-}
-
-type Error struct {
-	Status      int    `json:"status"`
-	Code        string `json:"code"`
-	Description string `json:"description"`
-}
+type (
+	Response = apiref.Registry
+	Module   = apiref.Module
+	Route    = apiref.Route
+	Field    = apiref.Field
+	Error    = apiref.Error
+)

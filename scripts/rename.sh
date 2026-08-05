@@ -185,6 +185,15 @@ if [ -f "$token_file" ]; then
 		-e "s|^export const tokenStorageKey = '$(escape_dots "$old_token_key")';\$|export const tokenStorageKey = '$new_token_key';|" || true
 fi
 
+# The Go rewrite above only touches import paths, so the API reference at /docs
+# would keep the template's name in its title and its browser tab. It is a
+# single-line const in main.go precisely so this sed can find it.
+ref_file="apps/api/main.go"
+if [ -f "$ref_file" ]; then
+	rewrite "$ref_file" \
+		-e "s|^const apiTitle = \"$(escape_dots "$old_repo") API\"\$|const apiTitle = \"$new_name API\"|" || true
+fi
+
 printf '\nRenamed %s -> %s\n\n' "$old_repo" "$new_name"
 printf '  go module   %s\n' "$new_module"
 printf '  go files    %d rewritten (package roots: %s)\n' "$go_files_changed" "$(printf '%s' "$pkg_dirs" | tr '\n' ' ')"
@@ -200,4 +209,5 @@ printf '  git remote set-url origin git@github.com:%s/%s.git\n' "$module_owner" 
 printf '  mise //apps/api:tidy\n'
 printf '  mise run db-up && mise run dev\n'
 printf '  review CLAUDE.md and the READMEs for prose that still describes the template\n'
+printf '  set apiDescription in apps/api/main.go - only the title is rewritten\n'
 printf '  delete the demo domain (modules/events, modules/tickets, internal/ticketcode, cmd/seed, schemas/event.go, schemas/ticket.go)\n'
