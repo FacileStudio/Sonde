@@ -5,6 +5,11 @@ GoSvelteBoilerplate is a small monorepo with:
 - `apps/api`: Go API
 - `apps/client`: SvelteKit frontend
 
+Deployed, the two ship as **one container**: the root `Dockerfile` builds the client with
+bun and the API with Go, and the Go binary serves `/api` plus the static SPA behind a single
+Traefik router. See "Deployment shape" in `CLAUDE.md` and the header comment in
+`docker-compose.yml` before changing anything about routing.
+
 The repo is managed with [`mise`](https://mise.jdx.dev/) so tool versions and common tasks are shared from the repository itself.
 The dev database is **not** a mise tool: `mise run db-up` uses Docker if it is available and
 falls back to Postgres binaries on your `PATH`. Keeping it out of `[tools]` is deliberate — see
@@ -101,7 +106,7 @@ mise run dev                 # run API + client dev servers
 mise run build               # build API + client
 mise run check               # run API + client checks
 mise //apps/api:build        # build apps/api/bin/api
-docker build -f apps/api/Dockerfile -t gosvelteboilerplate-api .
+docker build -t gosvelteboilerplate .   # one image: API + built client
 mise //apps/api:dev          # run only the API
 mise //apps/client:dev       # run only the frontend
 mise //apps/client:build     # build only the frontend

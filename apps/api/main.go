@@ -26,6 +26,8 @@ import (
 	"github.com/FacileStudio/tronc/httpx"
 	"github.com/FacileStudio/tronc/logger"
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
+	"github.com/FacileStudio/tronc/spa"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -100,10 +102,18 @@ func main() {
 		httpjson.WriteJSON(w, http.StatusOK, docs)
 	})
 
-	auth.RegisterRoutes(router, authService)
-	events.RegisterRoutes(router, eventService, authService)
-	tickets.RegisterRoutes(router, ticketService, authService)
-	users.RegisterRoutes(router, userService, authService)
+	router.Route("/api", func(r chi.Router) {
+		auth.RegisterRoutes(r, authService)
+		events.RegisterRoutes(r, eventService, authService)
+		tickets.RegisterRoutes(r, ticketService, authService)
+		users.RegisterRoutes(r, userService, authService)
+	})
+
+	clientDir := spa.DirFromEnv()
+	if spa.Available(clientDir) {
+		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
+		appLogger.Info("serving client", slog.String("dir", clientDir))
+	}
 
 	addr := ":" + appEnv.Port
 	server := &http.Server{

@@ -1,28 +1,37 @@
 # Deployment shape for every Facile Go service. `scripts/rename.sh` rewrites the
 # slug and the module path on fork; the routing below is what must NOT change.
 #
-# The suite standard is one public hostname per app:
+# The suite standard is ONE container and ONE public hostname per app:
 #
-#   <app>.facile.studio        -> the client
-#   <app>.facile.studio/api/*  -> the API, matched by Traefik and forwarded here
+#   <app>.facile.studio        -> the Go binary, which serves both halves
+#   <app>.facile.studio/api/*  -> the API routes, mounted under router.Route("/api", ...)
+#   everything else            -> the built SvelteKit SPA, served by tronc/spa
 #
-# A backend never gets its own hostname. That keeps every browser request
-# same-origin, so CORS is unnecessary, cookies stay first-party in Safari, and
-# the built client image carries no environment-specific API URL.
+# There is no client container and no second Traefik router. The root `Dockerfile`
+# builds the client with bun, builds the API with Go, and copies both into one
+# distroless image: the binary at /api, the SPA at /client. `spa.DirFromEnv()`
+# reads CLIENT_DIR and falls back to ./client, which resolves to /client in the
+# image, so nothing has to be configured here.
 #
-# The API is `expose`d and never `ports`-published: only Traefik reaches it, over
-# the shared dokploy-network.
+# Consequences, all of them deliberate:
 #
-# `stripprefix` below is correct for this boilerplate because its routes are
-# registered at the root (`/auth/login`, not `/api/auth/login`). If a fork mounts
-# its routes under `router.Route("/api", ...)` instead, DELETE the stripprefix
-# middleware and its reference, or every route will 404. Sablier and Plume are
-# the two apps in that second family.
+#   - No PathPrefix and no stripprefix. A single router takes the whole host and
+#     the Go router decides what is API and what is SPA. The routes live under
+#     /api in main.go, so the prefix must reach the binary intact - putting a
+#     stripprefix middleware back would 404 every route.
+#   - Every browser request is same-origin, so CORS is unnecessary in production,
+#     cookies stay first-party in Safari, and the client build carries no
+#     environment-specific API URL. The client calls `/api`, relative, always.
+#   - The service is `expose`d and never `ports`-published: only Traefik reaches
+#     it, over the shared dokploy-network.
 #
 # Compose labels REPLACE what Dokploy injects for a service, they do not merge
 # with it. Declaring labels here therefore takes full ownership of this service's
-# routing — which is what we want for the API, and why the client service is left
-# for the panel unless you declare it fully here too.
+# routing, which is exactly what we want.
+#
+# If a fork needs a route that is neither /api nor the SPA (Nuage serves /webdav
+# that way), add another router with its own rule pointing at the same service.
+# Do not add a second service.
 
 services:
   db:
@@ -46,7 +55,7 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
+      dockerfile: Dockerfile
     expose:
       - "4000"
     networks:
@@ -55,17 +64,15 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: dokploy-network
-      traefik.http.routers.gosvelteboilerplate-api-web.rule: "Host(`gosvelteboilerplate.facile.studio`) && PathPrefix(`/api`)"
-      traefik.http.routers.gosvelteboilerplate-api-web.entrypoints: web
-      traefik.http.routers.gosvelteboilerplate-api-web.middlewares: redirect-to-https@file
-      traefik.http.routers.gosvelteboilerplate-api-web.service: gosvelteboilerplate-api-svc
-      traefik.http.routers.gosvelteboilerplate-api-secure.rule: "Host(`gosvelteboilerplate.facile.studio`) && PathPrefix(`/api`)"
-      traefik.http.routers.gosvelteboilerplate-api-secure.entrypoints: websecure
-      traefik.http.routers.gosvelteboilerplate-api-secure.tls.certresolver: letsencrypt
-      traefik.http.routers.gosvelteboilerplate-api-secure.middlewares: gosvelteboilerplate-strip-api
-      traefik.http.routers.gosvelteboilerplate-api-secure.service: gosvelteboilerplate-api-svc
-      traefik.http.middlewares.gosvelteboilerplate-strip-api.stripprefix.prefixes: /api
-      traefik.http.services.gosvelteboilerplate-api-svc.loadbalancer.server.port: "4000"
+      traefik.http.routers.gosvelteboilerplate-web.rule: "Host(`gosvelteboilerplate.facile.studio`)"
+      traefik.http.routers.gosvelteboilerplate-web.entrypoints: web
+      traefik.http.routers.gosvelteboilerplate-web.middlewares: redirect-to-https@file
+      traefik.http.routers.gosvelteboilerplate-web.service: gosvelteboilerplate-svc
+      traefik.http.routers.gosvelteboilerplate-secure.rule: "Host(`gosvelteboilerplate.facile.studio`)"
+      traefik.http.routers.gosvelteboilerplate-secure.entrypoints: websecure
+      traefik.http.routers.gosvelteboilerplate-secure.tls.certresolver: letsencrypt
+      traefik.http.routers.gosvelteboilerplate-secure.service: gosvelteboilerplate-svc
+      traefik.http.services.gosvelteboilerplate-svc.loadbalancer.server.port: "4000"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-gosvelteboilerplate}?sslmode=disable
       PORT: "4000"
@@ -87,15 +94,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  # The client is served at Host(`gosvelteboilerplate.facile.studio`) with no path predicate, so
-  # Traefik hands it everything the /api router did not match. Add it here with
-  # the same label shape once the fork has an apps/client/Dockerfile; until then
-  # its routing is panel-managed.
-  #
-  # Build it with a RELATIVE API base URL — `/api`, never an absolute host — so
-  # the image is identical in every environment, and add a vite dev proxy for
-  # `/api` so local development takes the same path as production.
 
 networks:
   dokploy-network:

@@ -1,5 +1,4 @@
-const backendBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
-	'http://localhost:4000';
+const backendBaseUrl = '/api';
 
 export const tokenStorageKey = 'app.token';
 

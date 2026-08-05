@@ -51,29 +51,36 @@ mise //apps/api:build      # build ./bin/api
 
 ## Docker
 
-Build the production image from the repo root so Docker can access the shared `mise` config and lockfile:
+There is no `apps/api/Dockerfile`. The repo ships **one** image, built from the root
+`Dockerfile`, holding both the API binary and the built SvelteKit client:
 
 ```bash
-docker build -f apps/api/Dockerfile -t gosvelteboilerplate-api .
+docker build -t gosvelteboilerplate .
 ```
 
+The binary serves `/api/*` from its own routes and everything else from the static client in
+`CLIENT_DIR` (default `./client`). See "Deployment shape" in the root `CLAUDE.md`.
+
 ## API
+
+Every application route lives under `/api`; `/health`, `/ready` and `/docs` stay at the root
+so the SPA catch-all cannot shadow them.
 
 Auth:
 
 ```bash
-curl -sS -X POST http://localhost:4000/auth/register \
+curl -sS -X POST http://localhost:4000/api/auth/register \
   -H 'content-type: application/json' \
   -d '{"email":"me@example.com","password":"password123"}'
 
-curl -sS -X POST http://localhost:4000/auth/login \
+curl -sS -X POST http://localhost:4000/api/auth/login \
   -H 'content-type: application/json' \
   -d '{"email":"me@example.com","password":"password123"}'
 
-curl -sS http://localhost:4000/users/me \
+curl -sS http://localhost:4000/api/users/me \
   -H "Authorization: Bearer $TOKEN"
 
-curl -sS -X PATCH http://localhost:4000/users/me \
+curl -sS -X PATCH http://localhost:4000/api/users/me \
   -H 'content-type: application/json' \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"email":"updated@example.com","password":"newpassword123"}'
@@ -82,11 +89,11 @@ curl -sS -X PATCH http://localhost:4000/users/me \
 Events (demo domain):
 
 ```bash
-curl -sS http://localhost:4000/events
+curl -sS http://localhost:4000/api/events
 
-curl -sS http://localhost:4000/events/$EVENT_ID
+curl -sS http://localhost:4000/api/events/$EVENT_ID
 
-curl -sS -X POST http://localhost:4000/events \
+curl -sS -X POST http://localhost:4000/api/events \
   -H 'content-type: application/json' \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"name":"My Event","starts":"2030-01-01T18:00:00Z","ends":"2030-01-01T21:00:00Z"}'
@@ -95,14 +102,14 @@ curl -sS -X POST http://localhost:4000/events \
 Tickets (demo domain):
 
 ```bash
-curl -sS -X POST http://localhost:4000/events/$EVENT_ID/tickets \
+curl -sS -X POST http://localhost:4000/api/events/$EVENT_ID/tickets \
   -H "Authorization: Bearer $TOKEN"
 
-curl -sS -X POST http://localhost:4000/tickets/validate \
+curl -sS -X POST http://localhost:4000/api/tickets/validate \
   -H 'content-type: application/json' \
   -d '{"code":"'"$CODE"'"}'
 
-curl -sS -X POST http://localhost:4000/tickets/checkin \
+curl -sS -X POST http://localhost:4000/api/tickets/checkin \
   -H 'content-type: application/json' \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"code":"'"$CODE"'"}'
