@@ -155,7 +155,7 @@ for file in $doc_files; do
 done
 
 db_files=""
-for candidate in scripts/postgres-up.sh apps/api/mise.toml apps/api/.env.example apps/api/.env README.md CLAUDE.md; do
+for candidate in scripts/postgres-up.sh scripts/postgres-down.sh apps/api/mise.toml apps/api/.env.example apps/api/.env README.md CLAUDE.md; do
 	[ -f "$candidate" ] && db_files="$db_files $candidate"
 done
 

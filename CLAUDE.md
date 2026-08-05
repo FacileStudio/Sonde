@@ -15,7 +15,7 @@ docs, and the dev database name/port. See the README for the full checklist.
 
 - **API** (`apps/api`): Go 1.24, Chi router, GORM + Postgres, DB-backed session tokens
 - **Client** (`apps/client`): SvelteKit, Svelte 5 (runes), Tailwind CSS v4, Vite 7, TypeScript
-- **Tooling**: mise (monorepo mode, experimental), mise-managed Postgres 14 for local dev
+- **Tooling**: mise (monorepo mode, experimental); dev Postgres via Docker, falling back to `PATH` binaries
 - **Containerization**: Multi-stage Dockerfile (Debian slim build, distroless runtime)
 
 ## Prerequisites
@@ -118,7 +118,8 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Defaults ar
 - **Client UI components**: Hand-rolled Svelte 5 components in `apps/client/src/lib/components/ui/` (button, card, input, label). Uses `class-variance-authority` + `clsx` + `tailwind-merge` for style composition.
 - **Svelte runes**: Runes mode is force-enabled for all non-node_modules files in `svelte.config.js`.
 - **No test framework in client**: The client currently has no test runner configured.
-- **Local Postgres**: Managed by mise via scripts in `scripts/`. Data stored in `.local/postgres/`. Runs on port 5433 (not the default 5432) to avoid conflicts. `POSTGRES_PORT` and `POSTGRES_DB` override the defaults; `scripts/rename.sh` derives both from the project name so forks do not collide.
+- **Local Postgres**: `scripts/postgres-up.sh` picks a provider automatically — Docker (named volume, Postgres 16) if the daemon is up, otherwise `initdb`/`pg_ctl` from `PATH` with data in `.local/postgres/`. Runs on port 5433 (not the default 5432) to avoid conflicts. `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_IMAGE` and `POSTGRES_PROVIDER` override the defaults; `scripts/rename.sh` derives the port and name from the project name so forks do not collide.
+- **Never put a database in `[tools]`.** `mise run` resolves every tool in the merged config before running any task body, so an uninstallable pin disables the whole task runner — `mise run check` included. The old `asdf:mise-plugins/mise-postgres@14.22` pin did exactly that: it builds from source and fails on macOS, so the quality gate could never start.
 
 ## Gotchas
 

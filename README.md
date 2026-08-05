@@ -6,7 +6,9 @@ GoSvelteBoilerplate is a small monorepo with:
 - `apps/client`: SvelteKit frontend
 
 The repo is managed with [`mise`](https://mise.jdx.dev/) so tool versions and common tasks are shared from the repository itself.
-That includes a `mise`-managed Postgres toolchain for the local dev database.
+The dev database is **not** a mise tool: `mise run db-up` uses Docker if it is available and
+falls back to Postgres binaries on your `PATH`. Keeping it out of `[tools]` is deliberate — see
+"Dev database" below.
 
 <!-- fork:begin -->
 ## Fork This Template
@@ -65,9 +67,28 @@ Then configure the rest by hand:
    mise run dev
    ```
 
-The repo Postgres task starts a local cluster on `127.0.0.1:5433`. Override the port and
-database name with `POSTGRES_PORT` and `POSTGRES_DB`. Copy `apps/api/.env.example` to
-`apps/api/.env` if you want local overrides.
+## Dev database
+
+`mise run db-up` starts Postgres on `127.0.0.1:5433` and picks a provider automatically:
+
+| Provider | When it is used | Where the data lives |
+|---|---|---|
+| `docker` | Docker is installed and running | named volume `<db>_dev_pgdata`, Postgres 16 |
+| `local` | no Docker, but `initdb`/`pg_ctl`/`psql` are on `PATH` | `.local/postgres/` |
+
+Force one with `POSTGRES_PROVIDER=docker` or `POSTGRES_PROVIDER=local`. Override the port,
+database name and image with `POSTGRES_PORT`, `POSTGRES_DB` and `POSTGRES_IMAGE`. Copy
+`apps/api/.env.example` to `apps/api/.env` if you want local overrides.
+
+Docker is preferred because it matches the deployed Postgres 16; the `local` fallback exists so
+a machine without a container runtime is not stuck. If neither is present, `db-up` says so and
+tells you what to install.
+
+> **Postgres is deliberately not in `[tools]`.** `mise run` resolves *every* tool in the merged
+> config before it runs *any* task body, so a Postgres pin that fails to install takes the whole
+> task runner down with it — including `mise run check`. This template previously pinned
+> `asdf:mise-plugins/mise-postgres@14.22`, which builds from source and could not install on
+> macOS, so the quality gate could never run. Do not put a database back in `[tools]`.
 
 ## Common Commands
 

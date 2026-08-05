@@ -10,7 +10,6 @@ config_roots = ["apps/api", "apps/client"]
 [tools]
 go = "1.24"
 node = "22.22.1"
-"asdf:mise-plugins/mise-postgres" = "14.22"
 
 [tasks.bootstrap]
 description = "Install monorepo dependencies"
