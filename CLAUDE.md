@@ -1,10 +1,17 @@
-# FDT (GoSvelteBoilerplate)
+# GoSvelteBoilerplate
 
 Monorepo boilerplate for a Go API + SvelteKit frontend, managed with mise.
 
+## Forking
+
+A fresh fork inherits the module path `github.com/FacileStudio/GoSvelteBoilerplate/apps/api`,
+which is wrong for every project that is not this one. Run `scripts/rename.sh <NewName>` on a
+clean tree before doing anything else - it rewrites `go.mod`, every scoped Go import, the
+docs, and the dev database name/port. See the README for the full checklist.
+
 ## Tech Stack
 
-- **API** (`apps/api`): Go 1.24, Chi router, GORM + Postgres, JWT auth
+- **API** (`apps/api`): Go 1.24, Chi router, GORM + Postgres, DB-backed session tokens
 - **Client** (`apps/client`): SvelteKit, Svelte 5 (runes), Tailwind CSS v4, Vite 7, TypeScript
 - **Tooling**: mise (monorepo mode, experimental), mise-managed Postgres 14 for local dev
 - **Containerization**: Multi-stage Dockerfile (Debian slim build, distroless runtime)
@@ -49,7 +56,7 @@ mise //apps/client:check      # svelte-check
 ### Docker
 
 ```sh
-docker build -f apps/api/Dockerfile -t fdt-api .   # build from repo root
+docker build -f apps/api/Dockerfile -t gosvelteboilerplate-api .   # build from repo root
 ```
 
 ## Project Structure
@@ -58,10 +65,10 @@ docker build -f apps/api/Dockerfile -t fdt-api .   # build from repo root
 .
 ├── apps/
 │   ├── api/                  # Go API
-│   │   ├── cmd/seed/         # DB seed script
+│   │   ├── cmd/seed/         # DB seed script (demo domain)
 │   │   ├── internal/         # Shared internal packages
 │   │   │   ├── authcontext/  # Request-scoped auth context
-│   │   │   ├── authcrypto/   # Password hashing + JWT tokens
+│   │   │   ├── authcrypto/   # argon2id password hashing + random session tokens
 │   │   │   ├── database/     # GORM database connection
 │   │   │   ├── documentation/# Auto-docs type definitions
 │   │   │   ├── env/          # Environment config loader
@@ -69,11 +76,11 @@ docker build -f apps/api/Dockerfile -t fdt-api .   # build from repo root
 │   │   │   ├── httpjson/     # JSON response helpers
 │   │   │   ├── logger/       # slog-based logger
 │   │   │   ├── middleware/    # CORS, auth, logging middleware
-│   │   │   └── ticketcode/   # Ticket code generation
+│   │   │   └── ticketcode/   # Ticket code generation (demo domain)
 │   │   ├── modules/          # Feature modules (controller/service/router/types/docs per module)
 │   │   │   ├── auth/
-│   │   │   ├── events/
-│   │   │   ├── tickets/
+│   │   │   ├── events/        # demo domain
+│   │   │   ├── tickets/       # demo domain
 │   │   │   └── users/
 │   │   ├── schemas/          # GORM models + auto-migration
 │   │   ├── main.go           # Entrypoint
@@ -85,8 +92,7 @@ docker build -f apps/api/Dockerfile -t fdt-api .   # build from repo root
 │       │   └── routes/       # SvelteKit file-based routing
 │       ├── svelte.config.js
 │       └── vite.config.ts
-├── packages/                 # Shared packages (currently empty)
-├── scripts/                  # postgres-up.sh / postgres-down.sh
+├── scripts/                  # rename.sh / postgres-up.sh / postgres-down.sh
 ├── mise.toml                 # Root mise config (monorepo orchestration)
 └── mise.lock
 ```
@@ -110,11 +116,11 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Defaults ar
 - **Client UI components**: Hand-rolled Svelte 5 components in `apps/client/src/lib/components/ui/` (button, card, input, label). Uses `class-variance-authority` + `clsx` + `tailwind-merge` for style composition.
 - **Svelte runes**: Runes mode is force-enabled for all non-node_modules files in `svelte.config.js`.
 - **No test framework in client**: The client currently has no test runner configured.
-- **Local Postgres**: Managed by mise via scripts in `scripts/`. Data stored in `.local/postgres/`. Runs on port 5433 (not the default 5432) to avoid conflicts.
+- **Local Postgres**: Managed by mise via scripts in `scripts/`. Data stored in `.local/postgres/`. Runs on port 5433 (not the default 5432) to avoid conflicts. `POSTGRES_PORT` and `POSTGRES_DB` override the defaults; `scripts/rename.sh` derives both from the project name so forks do not collide.
 
 ## Gotchas
 
-- The `apps/api` directory has its own `.git` — it was likely initialized as a standalone repo. Be aware of this if working with git from the monorepo root.
-- The `packages/` directory exists but is empty. It is reserved for future shared packages.
+- **Auth is not JWT.** `authcrypto.NewToken()` mints 32 random bytes, base64url-encoded. The token is stored verbatim in the `sessions` table with a 30-day expiry and presented as `Authorization: Bearer <token>`. There is no signing key and nothing to decode - revocation is a row delete.
+- **`modules/events`, `modules/tickets`, `internal/ticketcode`, `cmd/seed`, `schemas/event.go` and `schemas/ticket.go` are leftover demo domain**, not template features. Delete them in a fork.
 - The API has a `/docs` endpoint that returns auto-generated JSON documentation for all modules.
 - The API has `/health` and `/ready` endpoints for container orchestration.

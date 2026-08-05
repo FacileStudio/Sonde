@@ -5,9 +5,9 @@ data_root=".local/postgres"
 data_dir="$data_root/data"
 log_file="$data_root/postgres.log"
 host="127.0.0.1"
-port="5433"
+port="${POSTGRES_PORT:-5433}"
 user="postgres"
-database="api"
+database="${POSTGRES_DB:-api}"
 
 if ! command -v mise >/dev/null 2>&1; then
   echo "mise is required for db:up" >&2

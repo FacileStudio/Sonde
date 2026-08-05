@@ -1,6 +1,6 @@
 # Client
 
-SvelteKit frontend for the FDT monorepo.
+SvelteKit frontend for the GoSvelteBoilerplate monorepo.
 
 ## Quick Start
 

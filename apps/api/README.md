@@ -1,11 +1,16 @@
 # API
 
-Small Go backend for authentication, events, and ticket check-in.
+Small Go backend: a Chi router, GORM models, and a session-based auth module.
 
 Built with:
 - Chi for routing
 - GORM + Postgres for persistence
-- JWT auth for protected endpoints
+- Opaque bearer tokens for protected endpoints - `authcrypto.NewToken()` mints 32 random
+  bytes, stored in the `sessions` table with a 30-day expiry. Not JWT: nothing is signed
+  and nothing is decodable, so revoking a session is a row delete.
+
+The `events` and `tickets` modules (plus `internal/ticketcode`, `cmd/seed`, and the matching
+schemas) are leftover demo domain, not features of the template. Delete them in a fork.
 
 ## Quick Start
 
@@ -49,7 +54,7 @@ mise //apps/api:build      # build ./bin/api
 Build the production image from the repo root so Docker can access the shared `mise` config and lockfile:
 
 ```bash
-docker build -f apps/api/Dockerfile -t fdt-api .
+docker build -f apps/api/Dockerfile -t gosvelteboilerplate-api .
 ```
 
 ## API
@@ -74,7 +79,7 @@ curl -sS -X PATCH http://localhost:4000/users/me \
   -d '{"email":"updated@example.com","password":"newpassword123"}'
 ```
 
-Events:
+Events (demo domain):
 
 ```bash
 curl -sS http://localhost:4000/events
@@ -87,7 +92,7 @@ curl -sS -X POST http://localhost:4000/events \
   -d '{"name":"My Event","starts":"2030-01-01T18:00:00Z","ends":"2030-01-01T21:00:00Z"}'
 ```
 
-Tickets:
+Tickets (demo domain):
 
 ```bash
 curl -sS -X POST http://localhost:4000/events/$EVENT_ID/tickets \
