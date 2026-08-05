@@ -35,6 +35,11 @@ description = "Run API and client checks"
 depends = ["//apps/api:check", "//apps/client:check"]
 run = "true"
 
+[tasks.format]
+description = "Format the sources in place"
+depends = ["//apps/api:format"]
+run = "true"
+
 [tasks.dev]
 description = "Run the API and client development servers"
 depends = ["//apps/api:dev", "//apps/client:dev"]
