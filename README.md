@@ -1,26 +1,38 @@
 # GoSvelteBoilerplate
 
-GoSvelteBoilerplate is a small monorepo with:
+The template every Facile Go service is forked from: a Go API and a SvelteKit client that
+deploy as one container behind one Traefik router on one hostname.
 
-- `apps/api`: Go API
-- `apps/client`: SvelteKit frontend
+Fork it, run `scripts/rename.sh`, delete the demo domain, and you have a working app with the
+suite's deployment shape, quality gate and chassis already wired. What is in here is not a
+suggestion — a fork that deviates from the routing shape breaks in production, which is why
+`docker-compose.yml` carries a header comment longer than the file.
 
-Deployed, the two ship as **one container**: the root `Dockerfile` builds the client with
-bun and the API with Go, and the Go binary serves `/api` plus the static SPA behind a single
-Traefik router. See "Deployment shape" in `CLAUDE.md` and the header comment in
-`docker-compose.yml` before changing anything about routing.
+## What it does
 
-The repo is managed with [`mise`](https://mise.jdx.dev/) so tool versions and common tasks are shared from the repository itself.
-The dev database is **not** a mise tool: `mise run db-up` uses Docker if it is available and
-falls back to Postgres binaries on your `PATH`. Keeping it out of `[tools]` is deliberate — see
-"Dev database" below.
+- Ships a Go API and a SvelteKit client as a single distroless image, no client container
+- Routes `/api/*` to the API and everything else to the SPA, from one Go router
+- Provides auth out of the box: argon2id passwords and DB-backed session tokens
+- Auto-migrates GORM models on startup and serves generated module docs at `/docs`
+- Runs a repo-local dev Postgres through Docker, falling back to `PATH` binaries
+- Enforces a quality gate — gofmt, vet, test, svelte-check — from a pre-push hook
+- Renames itself into a new project in one pass: module path, imports, docs, dev database
 
-<!-- fork:begin -->
-## Fork This Template
+## Stack
 
-Run the rename script first. It is not optional: a fresh fork inherits the Go module path
-`github.com/FacileStudio/GoSvelteBoilerplate/apps/api`, which is wrong for your project and
-breaks any attempt to import your packages from elsewhere in the suite.
+| Layer | Tech |
+|---|---|
+| API | Go 1.24, Chi v5, GORM + PostgreSQL 16, [tronc](https://github.com/FacileStudio/tronc) 0.6.0 |
+| Client | SvelteKit 2 (`adapter-static`), Svelte 5 (runes forced on), Tailwind CSS 4, Vite 7 |
+| Deploy | One multi-stage Dockerfile, Docker Compose, distroless `:nonroot` behind Traefik |
+| Runtime | mise (monorepo mode), bun 1.3.11 for the client |
+
+`tronc` supplies `env`, `errors`, `httpjson`, `logger`, `middleware`, `httpx`, `health`,
+`healthcheck` and `spa`. Do not reimplement any of them locally.
+
+## Quick start
+
+Forking is the first thing you do, before anything else:
 
 ```sh
 git clone git@github.com:FacileStudio/GoSvelteBoilerplate.git MyProject
@@ -28,92 +40,73 @@ cd MyProject
 scripts/rename.sh MyProject
 ```
 
-The script requires a clean git tree and rewrites, in one pass:
-
-- the module path in `apps/api/go.mod` to `github.com/FacileStudio/MyProject/apps/api`
-- every scoped Go import of the old module path
-- the template name across the README files and `CLAUDE.md`
-- the dev database name and port, derived from your project name, so two forks can run
-  `mise run db-up` at the same time without colliding
-
-Then configure the rest by hand:
-
-- `git remote set-url origin` to your own repository
-- `mise //apps/api:tidy` to resettle `go.sum`
-- `apps/api/.env` (copied from `.env.example`) for local overrides
-- delete the demo domain: `modules/events`, `modules/tickets`, `internal/ticketcode`,
-  `cmd/seed`, `schemas/event.go`, `schemas/ticket.go`, and their registrations in `main.go`
+<!-- fork:begin -->
+`scripts/rename.sh` is **not optional**. A fresh fork inherits the Go module path
+`github.com/FacileStudio/GoSvelteBoilerplate/apps/api`, which is wrong for every project that
+is not this one. Skipping it is what produced seven forks with a bare or borrowed module path
+and made a shared Go module impossible across the suite. Full checklist:
+[docs/development.md](docs/development.md).
 
 <!-- fork:end -->
-## Quick Start
-
-1. Install and activate `mise` for your shell.
-2. Trust this repository config:
-
-   ```sh
-   mise trust
-   ```
-
-3. Install the repo toolchains:
-
-   ```sh
-   mise install
-   ```
-
-4. Start the repo-local dev Postgres database:
-
-   ```sh
-   mise run db-up
-   ```
-
-5. Start both apps:
-
-   ```sh
-   mise run dev
-   ```
-
-## Dev database
-
-`mise run db-up` starts Postgres on `127.0.0.1:5433` and picks a provider automatically:
-
-| Provider | When it is used | Where the data lives |
-|---|---|---|
-| `docker` | Docker is installed and running | named volume `<db>_dev_pgdata`, Postgres 16 |
-| `local` | no Docker, but `initdb`/`pg_ctl`/`psql` are on `PATH` | `.local/postgres/` |
-
-Force one with `POSTGRES_PROVIDER=docker` or `POSTGRES_PROVIDER=local`. Override the port,
-database name and image with `POSTGRES_PORT`, `POSTGRES_DB` and `POSTGRES_IMAGE`. Copy
-`apps/api/.env.example` to `apps/api/.env` if you want local overrides.
-
-Docker is preferred because it matches the deployed Postgres 16; the `local` fallback exists so
-a machine without a container runtime is not stuck. If neither is present, `db-up` says so and
-tells you what to install.
-
-> **Postgres is deliberately not in `[tools]`.** `mise run` resolves *every* tool in the merged
-> config before it runs *any* task body, so a Postgres pin that fails to install takes the whole
-> task runner down with it — including `mise run check`. This template previously pinned
-> `asdf:mise-plugins/mise-postgres@14.22`, which builds from source and could not install on
-> macOS, so the quality gate could never run. Do not put a database back in `[tools]`.
-
-## Common Commands
+Then get it running:
 
 ```sh
-mise tasks ls --all          # show all repo and app tasks
-mise run bootstrap           # install app dependencies
-mise run db-up              # start the repo-local Postgres database on 127.0.0.1:5433
-mise run db-down            # stop the repo-local Postgres database
-mise run dev                 # run API + client dev servers
-mise run build               # build API + client
-mise run check               # run API + client checks
-mise //apps/api:build        # build apps/api/bin/api
-docker build -t gosvelteboilerplate .   # one image: API + built client
-mise //apps/api:dev          # run only the API
-mise //apps/client:dev       # run only the frontend
-mise //apps/client:build     # build only the frontend
+mise trust && mise install
+mise run bootstrap
+mise run hooks
+mise run db-up
+mise run dev
 ```
 
-If your local `mise` install does not pick up monorepo tasks automatically, enable experimental features in your shell before running commands:
+The API listens on `:4000`, the client dev server on `:5173`, and Vite proxies `/api` to the
+API so local and production take the same relative path.
 
 ```sh
-export MISE_EXPERIMENTAL=1
+mise run check          # the quality gate: gofmt, vet, test, svelte-check
+mise run build          # build both apps
+docker build -t myproject .
 ```
+
+## Configuration
+
+The API is configured entirely through the environment. Defaults for local development live
+in the `apps/api` dev task; copy `apps/api/.env.example` to `apps/api/.env` for overrides.
+
+| Variable | What it does |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. The only required variable |
+| `PORT` | API listen port, default `4000` |
+| `LOG_LEVEL` | `debug`, `info`, `warn` or `error` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origins. Dead weight in production — the client is same-origin |
+| `CLIENT_DIR` | Where the built SPA lives. Set by the image layout, not by hand |
+
+Full reference: [docs/configuration.md](docs/configuration.md).
+
+## Structure
+
+```
+apps/
+  api/       Go API — modules/ (auth, users, and the demo domain), schemas/ (GORM), internal/
+  client/    SvelteKit frontend, adapter-static, built into apps/client/build
+scripts/     rename.sh, check.sh, postgres-up.sh, postgres-down.sh, verify-deploy.sh
+docs/        Architecture, configuration, development, deployment, API
+Dockerfile   The only Dockerfile: builds both apps into one image
+```
+
+`docker-compose.yml` is the canonical deployment shape. Read its header comment before
+changing anything about routing.
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [Architecture](docs/architecture.md) | Request flow, the module pattern, data model, auth |
+| [Configuration](docs/configuration.md) | Every environment variable and default |
+| [Development](docs/development.md) | Forking, the rename script, the dev database, the quality gate |
+| [Deployment](docs/deployment.md) | The one-container shape, Traefik routing, verifying a deploy |
+| [API](docs/api.md) | HTTP endpoints and payloads |
+
+---
+
+Part of the [Facile Suite](https://facile.studio) — self-hosted tools for creative studios
+and freelancers. One login, zero cloud dependency.
