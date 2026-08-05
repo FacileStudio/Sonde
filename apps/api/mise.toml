@@ -3,7 +3,6 @@ go = "1.24"
 
 [env]
 GO_BIN = { value = "{{tools.go.path}}/bin/go", tools = true }
-GOFMT_BIN = { value = "{{tools.go.path}}/bin/gofmt", tools = true }
 
 [tasks.deps]
 description = "Download Go module dependencies"
@@ -16,34 +15,12 @@ depends = [":deps"]
 run = ["mkdir -p bin", '"$GO_BIN" build -o bin/api .']
 
 [tasks.check]
-description = "Check formatting, vet, and test the API without modifying files"
-depends = [":deps"]
-run = '''
-status=0
-
-echo "==> gofmt -l"
-unformatted="$("$GOFMT_BIN" -l . | grep -v '^vendor/' || true)"
-if [ -n "$unformatted" ]; then
-  echo "gofmt: the following files are not formatted (run 'mise run format'):"
-  echo "$unformatted"
-  status=1
-fi
-
-echo "==> go vet ./..."
-"$GO_BIN" vet ./... || status=1
-
-echo "==> go test ./..."
-"$GO_BIN" test ./... || status=1
-
-if [ "$status" -ne 0 ]; then
-  echo "api check failed"
-fi
-exit "$status"
-'''
+description = "Check formatting, vet and test the API without modifying files"
+run = "sh ../../scripts/check.sh --go-only"
 
 [tasks.format]
 description = "Format the API sources in place"
-run = '"$GO_BIN" fmt ./...'
+run = "sh ../../scripts/check.sh --format"
 
 [tasks.dev]
 description = "Run the API with local defaults"

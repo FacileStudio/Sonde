@@ -30,14 +30,20 @@ depends = ["//apps/api:build", "//apps/client:build"]
 run = "true"
 
 [tasks.check]
-description = "Run API and client checks"
-depends = ["//apps/api:check", "//apps/client:check"]
-run = "true"
+description = "Run the full quality gate: the Go module, then the client"
+run = "sh ./scripts/check.sh"
+
+[tasks.check-go]
+description = "Run the Go half of the quality gate"
+run = "sh ./scripts/check.sh --go-only"
 
 [tasks.format]
-description = "Format the sources in place"
-depends = ["//apps/api:format"]
-run = "true"
+description = "Format the Go sources in place"
+run = "sh ./scripts/check.sh --format"
+
+[tasks.hooks]
+description = "Enable the tracked git hooks in this clone"
+run = "git config core.hooksPath .githooks"
 
 [tasks.dev]
 description = "Run the API and client development servers"
