@@ -159,6 +159,12 @@ done
 # so it has to follow the slug or a fork deploys itself onto app.facile.studio.
 [ -f docker-compose.yml ] && doc_files="$doc_files docker-compose.yml"
 
+# app.html carries the tab title, the description and the absolute og:image and
+# og:url. Those have to be absolute for social scrapers, which means a fork that
+# skips this ships the template's name and links every preview at the template's
+# hostname. Same substitution as the docs: repo name and slug.
+[ -f apps/client/src/app.html ] && doc_files="$doc_files apps/client/src/app.html"
+
 for file in $doc_files; do
 	rewrite "$file" \
 		-e '/<!-- fork:begin -->/,/<!-- fork:end -->/d' \
