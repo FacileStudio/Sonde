@@ -40,7 +40,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-gosvelteboilerplate}
+      POSTGRES_DB: ${POSTGRES_DB:-sonde}
     expose:
       - "5432"
     volumes:
@@ -64,17 +64,17 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: dokploy-network
-      traefik.http.routers.gosvelteboilerplate-web.rule: "Host(`gosvelteboilerplate.facile.studio`)"
-      traefik.http.routers.gosvelteboilerplate-web.entrypoints: web
-      traefik.http.routers.gosvelteboilerplate-web.middlewares: redirect-to-https@file
-      traefik.http.routers.gosvelteboilerplate-web.service: gosvelteboilerplate-svc
-      traefik.http.routers.gosvelteboilerplate-secure.rule: "Host(`gosvelteboilerplate.facile.studio`)"
-      traefik.http.routers.gosvelteboilerplate-secure.entrypoints: websecure
-      traefik.http.routers.gosvelteboilerplate-secure.tls.certresolver: letsencrypt
-      traefik.http.routers.gosvelteboilerplate-secure.service: gosvelteboilerplate-svc
-      traefik.http.services.gosvelteboilerplate-svc.loadbalancer.server.port: "4000"
+      traefik.http.routers.sonde-web.rule: "Host(`sonde.facile.studio`)"
+      traefik.http.routers.sonde-web.entrypoints: web
+      traefik.http.routers.sonde-web.middlewares: redirect-to-https@file
+      traefik.http.routers.sonde-web.service: sonde-svc
+      traefik.http.routers.sonde-secure.rule: "Host(`sonde.facile.studio`)"
+      traefik.http.routers.sonde-secure.entrypoints: websecure
+      traefik.http.routers.sonde-secure.tls.certresolver: letsencrypt
+      traefik.http.routers.sonde-secure.service: sonde-svc
+      traefik.http.services.sonde-svc.loadbalancer.server.port: "4000"
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-gosvelteboilerplate}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sonde}?sslmode=disable
       PORT: "4000"
       APP_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -101,4 +101,4 @@ networks:
 
 volumes:
   db_data:
-    name: gosvelteboilerplate_db_data
+    name: sonde_db_data

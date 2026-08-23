@@ -1,6 +1,6 @@
 # Client
 
-SvelteKit frontend for the GoSvelteBoilerplate monorepo.
+SvelteKit frontend for the Sonde monorepo.
 
 ## Quick Start
 

@@ -55,7 +55,7 @@ There is no `apps/api/Dockerfile`. The repo ships **one** image, built from the 
 `Dockerfile`, holding both the API binary and the built SvelteKit client:
 
 ```bash
-docker build -t gosvelteboilerplate .
+docker build -t sonde .
 ```
 
 The binary serves `/api/*` from its own routes and everything else from the static client in

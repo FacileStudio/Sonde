@@ -2,10 +2,10 @@
 set -eu
 
 host="127.0.0.1"
-port="${POSTGRES_PORT:-5433}"
+port="${POSTGRES_PORT:-5603}"
 user="postgres"
 password="postgres"
-database="${POSTGRES_DB:-api}"
+database="${POSTGRES_DB:-sonde}"
 image="${POSTGRES_IMAGE:-postgres:16-alpine}"
 provider="${POSTGRES_PROVIDER:-auto}"
 

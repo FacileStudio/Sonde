@@ -1,6 +1,6 @@
 const backendBaseUrl = '/api';
 
-export const tokenStorageKey = 'app.token';
+export const tokenStorageKey = 'sonde.token';
 
 export type AuthResponse = {
 	user_id: string;

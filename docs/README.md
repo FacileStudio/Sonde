@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate — Documentation
+# Sonde — Documentation
 
 | Page | What's in it |
 |---|---|

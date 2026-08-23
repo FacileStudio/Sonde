@@ -3,7 +3,7 @@ package tickets
 import (
 	"context"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/authcontext"
+	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/tronc/errors"
 )
 

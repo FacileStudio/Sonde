@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate — API
+# Sonde — API
 
 Every route the template serves, read from `apps/api/main.go` and each module's `router.go`.
 Half of it is the demo domain and is meant to be deleted.

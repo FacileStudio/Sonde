@@ -1,6 +1,6 @@
 package users
 
-import documentation "github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/documentation"
+import documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 
 var Documentation = documentation.Module{
 	Name:        "users",

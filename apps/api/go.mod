@@ -1,4 +1,4 @@
-module github.com/FacileStudio/GoSvelteBoilerplate/apps/api
+module github.com/FacileStudio/Sonde/apps/api
 
 go 1.25.0
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-database="${POSTGRES_DB:-api}"
+database="${POSTGRES_DB:-sonde}"
 provider="${POSTGRES_PROVIDER:-auto}"
 
 data_dir=".local/postgres/data"

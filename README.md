@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate
+# Sonde
 
 The template every Facile Go service is forked from: a Go API and a SvelteKit client that
 deploy as one container behind one Traefik router on one hostname.
@@ -35,19 +35,11 @@ suggestion — a fork that deviates from the routing shape breaks in production,
 Forking is the first thing you do, before anything else:
 
 ```sh
-git clone git@github.com:FacileStudio/GoSvelteBoilerplate.git MyProject
+git clone git@github.com:FacileStudio/Sonde.git MyProject
 cd MyProject
 scripts/rename.sh MyProject
 ```
 
-<!-- fork:begin -->
-`scripts/rename.sh` is **not optional**. A fresh fork inherits the Go module path
-`github.com/FacileStudio/GoSvelteBoilerplate/apps/api`, which is wrong for every project that
-is not this one. Skipping it is what produced seven forks with a bare or borrowed module path
-and made a shared Go module impossible across the suite. Full checklist:
-[docs/development.md](docs/development.md).
-
-<!-- fork:end -->
 Then get it running:
 
 ```sh

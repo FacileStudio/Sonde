@@ -1,16 +1,7 @@
-# GoSvelteBoilerplate
+# Sonde
 
 Monorepo boilerplate for a Go API + SvelteKit frontend, managed with mise.
 
-<!-- fork:begin -->
-## Forking
-
-A fresh fork inherits the module path `github.com/FacileStudio/GoSvelteBoilerplate/apps/api`,
-which is wrong for every project that is not this one. Run `scripts/rename.sh <NewName>` on a
-clean tree before doing anything else - it rewrites `go.mod`, every scoped Go import, the
-docs, and the dev database name/port. See the README for the full checklist.
-
-<!-- fork:end -->
 ## Tech Stack
 
 - **API** (`apps/api`): Go 1.24, Chi router, GORM + Postgres, DB-backed session tokens
@@ -31,7 +22,7 @@ All commands run from the repo root unless noted.
 ```sh
 mise trust && mise install    # one-time setup: trust config + install toolchains
 mise run bootstrap            # install all app dependencies (Go modules + bun)
-mise run db-up                # start local Postgres on 127.0.0.1:5433
+mise run db-up                # start local Postgres on 127.0.0.1:5603
 mise run db-down              # stop local Postgres
 mise run dev                  # run API (port 4000) + client (port 5173) concurrently
 mise run build                # build both apps
@@ -59,7 +50,7 @@ mise //apps/client:check      # svelte-check
 ### Docker
 
 ```sh
-docker build -t gosvelteboilerplate .   # one image, built from the repo root
+docker build -t sonde .   # one image, built from the repo root
 ```
 
 ## Deployment shape (one container)
@@ -69,8 +60,8 @@ This is the suite standard and the reason forks inherit this repo. **Do not devi
 A deployed app is **one container behind one Traefik router on one hostname**:
 
 ```
-gosvelteboilerplate.facile.studio        -> the Go binary
-gosvelteboilerplate.facile.studio/api/*  -> the API routes
+sonde.facile.studio        -> the Go binary
+sonde.facile.studio/api/*  -> the API routes
 everything else                          -> the built SvelteKit SPA
 ```
 
@@ -145,7 +136,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Defaults ar
 
 | Variable               | Default                                            | Description                     |
 |------------------------|----------------------------------------------------|---------------------------------|
-| `DATABASE_URL`         | `postgres://postgres:postgres@127.0.0.1:5433/api?sslmode=disable` | Postgres connection string |
+| `DATABASE_URL`         | `postgres://postgres:postgres@127.0.0.1:5603/sonde?sslmode=disable` | Postgres connection string |
 | `PORT`                 | `4000`                                             | API listen port                 |
 | `LOG_LEVEL`            | `info`                                             | `debug`, `info`, `warn`, `error`|
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,...,http://localhost:5173`   | Comma-separated allowed origins. Dead weight in production: the deployed client is same-origin |
@@ -162,7 +153,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Defaults ar
 - **Client UI components**: Hand-rolled Svelte 5 components in `apps/client/src/lib/components/ui/` (button, card, input, label). Uses `class-variance-authority` + `clsx` + `tailwind-merge` for style composition.
 - **Svelte runes**: Runes mode is force-enabled for all non-node_modules files in `svelte.config.js`.
 - **No test framework in client**: The client currently has no test runner configured.
-- **Local Postgres**: `scripts/postgres-up.sh` picks a provider automatically — Docker (named volume, Postgres 16) if the daemon is up, otherwise `initdb`/`pg_ctl` from `PATH` with data in `.local/postgres/`. Runs on port 5433 (not the default 5432) to avoid conflicts. `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_IMAGE` and `POSTGRES_PROVIDER` override the defaults; `scripts/rename.sh` derives the port and name from the project name so forks do not collide.
+- **Local Postgres**: `scripts/postgres-up.sh` picks a provider automatically — Docker (named volume, Postgres 16) if the daemon is up, otherwise `initdb`/`pg_ctl` from `PATH` with data in `.local/postgres/`. Runs on port 5603 (not the default 5432) to avoid conflicts. `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_IMAGE` and `POSTGRES_PROVIDER` override the defaults; `scripts/rename.sh` derives the port and name from the project name so forks do not collide.
 - **Never put a database in `[tools]`.** `mise run` resolves every tool in the merged config before running any task body, so an uninstallable pin disables the whole task runner — `mise run check` included. The old `asdf:mise-plugins/mise-postgres@14.22` pin did exactly that: it builds from source and fails on macOS, so the quality gate could never start.
 
 ## Gotchas

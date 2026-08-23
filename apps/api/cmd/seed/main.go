@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/authcrypto"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/database"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/env"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/ticketcode"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/schemas"
+	"github.com/FacileStudio/Sonde/apps/api/internal/authcrypto"
+	"github.com/FacileStudio/Sonde/apps/api/internal/database"
+	"github.com/FacileStudio/Sonde/apps/api/internal/env"
+	"github.com/FacileStudio/Sonde/apps/api/internal/ticketcode"
+	"github.com/FacileStudio/Sonde/apps/api/schemas"
 
 	"gorm.io/gorm"
 )

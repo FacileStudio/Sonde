@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/middleware"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/modules/auth"
+	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
+	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 

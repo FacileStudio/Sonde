@@ -21,7 +21,7 @@ Sonde reuses the suite's existing plumbing instead of rebuilding Kuma's notifica
 
 ## Approach
 
-Fork `GoSvelteBoilerplate` (already cloned at `~/Projects/Facile/Code/Sonde`, pre-rename),
+Fork `Sonde` (already cloned at `~/Projects/Facile/Code/Sonde`, pre-rename),
 run `scripts/rename.sh Sonde`, then build the Go-family standard app: tronc middleware +
 error envelope, tronc/migrate goose migrations, porte (`oidc` + `local` kits on one session
 manager), GORM + Postgres 16, SvelteKit 5 + muse client. The only genuinely new code is the

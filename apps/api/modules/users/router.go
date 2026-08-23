@@ -3,8 +3,8 @@ package users
 import (
 	"net/http"
 
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/internal/middleware"
-	"github.com/FacileStudio/GoSvelteBoilerplate/apps/api/modules/auth"
+	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
+	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/tronc/httpjson"
 
 	"github.com/go-chi/chi/v5"

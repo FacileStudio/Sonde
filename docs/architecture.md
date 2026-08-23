@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate — Architecture
+# Sonde — Architecture
 
 How one Go binary ends up serving both an API and a SvelteKit client, and the module pattern
 every fork is expected to follow.

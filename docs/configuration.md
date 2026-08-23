@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate — Configuration
+# Sonde — Configuration
 
 Every variable the API actually reads, where the local defaults come from, and the knobs the
 dev database and the rename script expose.
@@ -38,7 +38,7 @@ There is no `.env` loading in the Go code. Local defaults come from the `dev` ta
 fallbacks:
 
 ```sh
-DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5433/api?sslmode=disable
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5603/sonde?sslmode=disable
 PORT=4000
 LOG_LEVEL=info
 CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173

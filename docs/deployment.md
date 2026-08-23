@@ -1,4 +1,4 @@
-# GoSvelteBoilerplate — Deployment
+# Sonde — Deployment
 
 The one-container shape every Facile Go service inherits, why it is shaped that way, and how
 to check a deploy actually works.
