@@ -69,7 +69,11 @@
 {#if !monitor || !value}
 	<div class="flex justify-center py-16"><Spinner /></div>
 {:else}
-	<PageHeader title={monitor.name} description={monitor.target || 'Push heartbeat'} back={{ href: '/', label: 'Monitors' }}>
+	<PageHeader
+		title={monitor.name}
+		description={monitor.target || 'Push heartbeat'}
+		back={{ href: '/', label: 'Monitors' }}
+	>
 		{#snippet actions()}
 			<Button variant="danger" onclick={remove}>Delete</Button>
 		{/snippet}
@@ -110,7 +114,9 @@
 				{:else}
 					<ul class="flex flex-col gap-2">
 						{#each incidents as incident (incident.id)}
-							<li class="flex flex-col gap-0.5 border-l-2 pl-3 {incident.resolved_at ? 'border-fc-border' : 'border-fc-danger'}">
+							<li class="flex flex-col gap-0.5 border-l-2 pl-3 {incident.resolved_at
+								? 'border-fc-border'
+								: 'border-fc-danger'}">
 								<span class="text-fc-sm text-fc-fg">{incident.cause}</span>
 								<span class="text-fc-xs text-fc-fg-muted">
 									{new Date(incident.opened_at).toLocaleString()}

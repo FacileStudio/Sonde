@@ -127,16 +127,20 @@ func (s *Store) Create(ctx context.Context, ownerID int64, in Input) (*schemas.M
 	}
 
 	monitor := &schemas.Monitor{
-		OwnerID:         ownerID,
-		Slug:            in.Slug,
-		Name:            in.Name,
-		Type:            in.Type,
-		Target:          in.Target,
-		IntervalSeconds: in.IntervalSeconds,
-		TimeoutSeconds:  in.TimeoutSeconds,
-		ExpectedStatus:  in.ExpectedStatus,
-		ExpectedKeyword: in.ExpectedKeyword,
-		Enabled:         true,
+		OwnerID: ownerID,
+		Slug:    in.Slug,
+		Name:    in.Name,
+		Type:    in.Type,
+		Target:  in.Target,
+		MonitorSchedule: schemas.MonitorSchedule{
+			IntervalSeconds: in.IntervalSeconds,
+			TimeoutSeconds:  in.TimeoutSeconds,
+		},
+		MonitorExpectation: schemas.MonitorExpectation{
+			ExpectedStatus:  in.ExpectedStatus,
+			ExpectedKeyword: in.ExpectedKeyword,
+		},
+		Enabled: true,
 	}
 	if monitor.Type == TypePush {
 		token, err := newPushToken()

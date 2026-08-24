@@ -39,7 +39,11 @@
 	<title>New monitor — Sonde</title>
 </svelte:head>
 
-<PageHeader title="New monitor" description="Choose what to watch and how often." back={{ href: '/', label: 'Monitors' }} />
+<PageHeader
+	title="New monitor"
+	description="Choose what to watch and how often."
+	back={{ href: '/', label: 'Monitors' }}
+/>
 
 <Card class="max-w-2xl p-6">
 	<form onsubmit={submit}>

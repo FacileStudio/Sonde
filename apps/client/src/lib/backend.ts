@@ -156,6 +156,16 @@ function download(path: string, filename: string) {
 	});
 }
 
+async function toError(response: Response, fallback: string): Promise<Error> {
+	let payload: ApiErrorPayload | undefined;
+	try {
+		payload = (await response.json()) as ApiErrorPayload;
+	} catch {
+		payload = undefined;
+	}
+	return new Error(payload?.error?.message || fallback);
+}
+
 export const backend = {
 	baseUrl: backendBaseUrl,
 	authConfig() {
@@ -214,15 +224,7 @@ export const backend = {
 	},
 	publicStatusPage(slug: string) {
 		return fetch(`${backendBaseUrl}/public/status/${slug}`).then(async (response) => {
-			if (!response.ok) {
-				let payload: ApiErrorPayload | undefined;
-				try {
-					payload = (await response.json()) as ApiErrorPayload;
-				} catch {
-					payload = undefined;
-				}
-				throw new Error(payload?.error?.message || 'Status page not found');
-			}
+			if (!response.ok) throw await toError(response, 'Status page not found');
 			return (await response.json()) as PublicStatusPage;
 		});
 	}

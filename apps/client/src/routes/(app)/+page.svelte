@@ -48,7 +48,10 @@
 {:else}
 	<div class="flex flex-col gap-2">
 		{#each monitors as monitor (monitor.id)}
-			<Card class="cursor-pointer p-4 transition-colors hover:bg-fc-surface-hover" onclick={() => goto(`/monitors/${monitor.id}`)}>
+			<Card
+				class="cursor-pointer p-4 transition-colors hover:bg-fc-surface-hover"
+				onclick={() => goto(`/monitors/${monitor.id}`)}
+			>
 				<div class="flex items-center gap-3">
 					<StatusDot tone={dotTone(monitor)} pulse={monitor.enabled} />
 					<div class="min-w-0 flex-1">
@@ -60,7 +63,11 @@
 							{/if}
 						</div>
 						<div class="truncate text-fc-xs text-fc-fg-muted">
-							{monitor.target || `push token ${monitor.push_token ? '••••' + monitor.push_token.slice(-4) : '—'} · every ${monitor.interval_seconds}s`}
+							{#if monitor.target}
+							{monitor.target}
+						{:else}
+							push heartbeat · every {monitor.interval_seconds}s
+						{/if}
 						</div>
 					</div>
 				</div>

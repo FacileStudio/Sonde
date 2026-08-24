@@ -114,14 +114,22 @@
 							<li class="flex items-center gap-2 rounded border border-fc-border px-2 py-1.5">
 								<span class="flex-1 truncate text-fc-sm text-fc-fg">{monitor?.name ?? `#${id}`}</span>
 								<Button type="button" variant="ghost" size="sm" disabled={index === 0} onclick={() => move(id, -1)}>↑</Button>
-								<Button type="button" variant="ghost" size="sm" disabled={index === picked.length - 1} onclick={() => move(id, 1)}>↓</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									disabled={index === picked.length - 1}
+									onclick={() => move(id, 1)}>↓</Button>
 								<Button type="button" variant="ghost" size="sm" onclick={() => toggle(id)}>✕</Button>
 							</li>
 						{/each}
 					</ul>
 				{/if}
 				{#each monitors.filter((m) => !picked.includes(m.id)) as monitor (monitor.id)}
-					<label class="flex cursor-pointer items-center gap-2 rounded border border-fc-border px-2 py-1.5 hover:bg-fc-surface-hover">
+					<label
+					class="flex cursor-pointer items-center gap-2 rounded border border-fc-border px-2 py-1.5
+						hover:bg-fc-surface-hover"
+				>
 						<Checkbox checked={false} onchange={() => toggle(monitor.id)} />
 						<span class="text-fc-sm text-fc-fg">{monitor.name}</span>
 					</label>
