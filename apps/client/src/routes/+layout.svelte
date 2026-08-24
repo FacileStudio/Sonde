@@ -1,6 +1,8 @@
 <script lang="ts">
 	import '../app.css';
 
+	void import('iconify-icon');
+
 	let { children } = $props();
 </script>
 
