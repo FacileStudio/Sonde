@@ -2,6 +2,7 @@ package env
 
 import (
 	"fmt"
+	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ type Config struct {
 	LogLevel           string
 	JournalURL         string
 	JournalToken       string
+	RawRetentionDays   int
 }
 
 func Load() (Config, error) {
@@ -27,8 +29,9 @@ func Load() (Config, error) {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		}),
-		JournalURL:   os.Getenv("JOURNAL_URL"),
-		JournalToken: os.Getenv("JOURNAL_TOKEN"),
+		JournalURL:       os.Getenv("JOURNAL_URL"),
+		JournalToken:     os.Getenv("JOURNAL_TOKEN"),
+		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
 	}
 
 	if env.DatabaseURL == "" {
@@ -47,6 +50,18 @@ func Load() (Config, error) {
 	}
 
 	return env, nil
+}
+
+func intOrDefault(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return fallback
+	}
+	return parsed
 }
 
 func valueOrDefault(key string, fallback string) string {
