@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,14 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
+	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
-	"github.com/FacileStudio/Sonde/apps/api/modules/events"
-	"github.com/FacileStudio/Sonde/apps/api/modules/tickets"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
-	"github.com/FacileStudio/Sonde/apps/api/schemas"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
 	"github.com/FacileStudio/tronc/apiref"
@@ -27,6 +28,7 @@ import (
 	"github.com/FacileStudio/tronc/httpx"
 	"github.com/FacileStudio/tronc/logger"
 	troncmiddleware "github.com/FacileStudio/tronc/middleware"
+	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/spa"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -37,17 +39,16 @@ import (
 // single const on one line.
 const apiTitle = "Sonde API"
 
-const apiDescription = "Authentication, users, and a demo ticketing domain."
+const apiDescription = "Uptime monitoring: probes, incidents, push heartbeats."
 
-// registry is the hand-written route inventory the reference is generated from.
-// Each module owns its own entry; adding a route without adding it here fails
-// TestEveryRouteIsDocumented.
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
 func registry() documentation.Response {
 	return documentation.Response{
 		Modules: []documentation.Module{
 			auth.Documentation,
-			events.Documentation,
-			tickets.Documentation,
+			checker.Documentation,
 			users.Documentation,
 		},
 	}
@@ -65,10 +66,8 @@ func refConfig() apiref.Config {
 // buildRouter assembles the router the server serves. It is a function rather
 // than inline in main so a test can walk the real route table; it tolerates a
 // nil database because no service touches the handle until a request arrives.
-func buildRouter(db *gorm.DB, sqlDB *sql.DB, appLogger *slog.Logger, corsOrigins []string) chi.Router {
+func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appLogger *slog.Logger, corsOrigins []string) chi.Router {
 	authService := auth.NewService(db)
-	eventService := events.NewService(db)
-	ticketService := tickets.NewService(db, eventService)
 	userService := users.NewService(db)
 
 	router := httpx.NewRouter(httpx.Config{
@@ -83,8 +82,7 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, appLogger *slog.Logger, corsOrigins
 
 	router.Route("/api", func(r chi.Router) {
 		auth.RegisterRoutes(r, authService)
-		events.RegisterRoutes(r, eventService, authService)
-		tickets.RegisterRoutes(r, ticketService, authService)
+		checker.RegisterHeartbeat(r, engine)
 		users.RegisterRoutes(r, userService, authService)
 	})
 
@@ -129,13 +127,27 @@ func main() {
 		return
 	}
 
-	if err := schemas.Migrate(db); err != nil {
-		appLogger.Error("failed to run migrations", slog.Any("error", err))
-		return
-	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		appLogger.Error("failed to access database handle", slog.Any("error", err))
+		return
+	}
+
+	migrations, err := fs.Sub(migrationsFS, "migrations")
+	if err != nil {
+		appLogger.Error("failed to locate embedded migrations", slog.Any("error", err))
+		return
+	}
+	migrateConfig := migrate.Config{DB: sqlDB, FS: migrations, Logger: appLogger}
+	if handled, err := migrate.Command(context.Background(), os.Args, migrateConfig); handled {
+		if err != nil {
+			appLogger.Error("migrate", slog.Any("error", err))
+			os.Exit(1)
+		}
+		return
+	}
+	if err := migrate.Run(context.Background(), migrateConfig); err != nil {
+		appLogger.Error("failed to run migrations", slog.Any("error", err))
 		return
 	}
 	defer func() {
@@ -144,7 +156,19 @@ func main() {
 		}
 	}()
 
-	router := buildRouter(db, sqlDB, appLogger, appEnv.CORSAllowedOrigins)
+	engine := checker.NewGorm(db, checker.WithLogger(appLogger))
+	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
+
+	backgroundCtx, stopBackground := context.WithCancel(context.Background())
+	defer stopBackground()
+	go func() {
+		if err := engine.Run(backgroundCtx); err != nil {
+			appLogger.Error("checker stopped", slog.Any("error", err))
+		}
+	}()
+	go pruner.Loop(backgroundCtx)
+
+	router := buildRouter(db, sqlDB, engine, appLogger, appEnv.CORSAllowedOrigins)
 
 	addr := ":" + appEnv.Port
 	server := &http.Server{
@@ -174,6 +198,7 @@ func main() {
 		shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
+		stopBackground()
 		if err := server.Shutdown(shutdownContext); err != nil {
 			appLogger.Error("server shutdown failed", slog.Any("error", err))
 			return

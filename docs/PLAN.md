@@ -105,8 +105,9 @@ which this plan extends with a `monitor` object type and the `sonde` app name.
 ### Track E — events (needs B; coordinate with enveloppe repo)
 
 14. `enveloppe` repo (cross-repo PR) — add `sonde` to the app list, add `monitor` object type
-    + payload shape (monitor_id, facile_id, slug, name, status, latency_ms, error), pin
-    envelope version bump. Both TS and Go halves, identical JSON keys. [events]
+    + payload shape (monitor_id, facile_id, slug, name, status, latency_ms, error), additive
+    only (no envelope version bump — repo precedent: Mycelium addition kept `EventVersion`).
+    Both TS and Go halves, identical JSON keys. [events]
 15. `apps/api/internal/events/` — `antenne-client` (Go, pinned
     `github:FacileStudio/antenne-client` commit) emitting `FacileEvent` envelopes on incident
     open/resolve. Actor identity: the monitor's owner email (monitors always have an owner;

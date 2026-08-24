@@ -14,7 +14,7 @@ import (
 )
 
 func testRouter() chi.Router {
-	return buildRouter(nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	return buildRouter(nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 }
 
 // A hand-written registry rots the moment a route is added without it, which is
