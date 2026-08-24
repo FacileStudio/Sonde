@@ -53,15 +53,17 @@ func (s *fakeSource) ListEnabled(context.Context) ([]schemas.Monitor, error) {
 
 func httpMonitor(target string, interval time.Duration) schemas.Monitor {
 	return schemas.Monitor{
-		ID:              1,
-		Slug:            "web",
-		Name:            "Web",
-		Type:            monitors.TypeHTTP,
-		Target:          target,
-		IntervalSeconds: int(interval / time.Second),
-		TimeoutSeconds:  1,
-		ExpectedStatus:  200,
-		Enabled:         true,
+		ID:     1,
+		Slug:   "web",
+		Name:   "Web",
+		Type:   monitors.TypeHTTP,
+		Target: target,
+		MonitorSchedule: schemas.MonitorSchedule{
+			IntervalSeconds: int(interval / time.Second),
+			TimeoutSeconds:  1,
+		},
+		MonitorExpectation: schemas.MonitorExpectation{ExpectedStatus: 200},
+		Enabled:            true,
 	}
 }
 
@@ -180,7 +182,8 @@ func TestHeartbeatRecordsAndResolves(t *testing.T) {
 	token := "tok-123"
 	push := schemas.Monitor{
 		ID: 7, Slug: "cron", Name: "Cron", Type: monitors.TypePush,
-		IntervalSeconds: 60, Enabled: true, PushToken: &token,
+		MonitorSchedule: schemas.MonitorSchedule{IntervalSeconds: 60},
+		Enabled:         true, PushToken: &token,
 	}
 	recorder := &fakeRecorder{}
 	engine := New(&fakeSource{monitors: []schemas.Monitor{push}}, recorder, WithSweepInterval(50*time.Millisecond), WithLogger(quietLogger()))

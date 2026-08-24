@@ -2,6 +2,7 @@ package schemas
 
 import "time"
 
+// User is a Sonde account; passwords hash through porte's argon2id kit.
 type User struct {
 	ID           int64     `gorm:"column:id;primaryKey"`
 	Email        string    `gorm:"column:email;uniqueIndex"`
