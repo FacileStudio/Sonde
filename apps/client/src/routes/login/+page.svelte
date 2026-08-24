@@ -1,100 +1,152 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { backend, tokenStorageKey } from '$lib/backend';
+	import { Button, Card, Field, Input, Alert, Spinner } from '@facile/muse';
+	import { backend, ssoLoginUrl } from '$lib/backend';
 
 	let email = $state('');
 	let password = $state('');
-	let message = $state('');
+	let name = $state('');
+	let mode = $state<'login' | 'register'>('login');
+	let ssoOnly = $state(false);
+	let ssoEnabled = $state(false);
+	let allowRegistration = $state(false);
 	let busy = $state(false);
+	let error = $state('');
 
-	async function handleLogin(event: SubmitEvent) {
-		event.preventDefault();
-		busy = true;
-		message = '';
+	onMount(async () => {
+		const refused = new URLSearchParams(location.search).get('error');
+		if (refused) error = refused;
+
 		try {
-			const response = await backend.login(email, password);
-			localStorage.setItem(tokenStorageKey, response.token);
-			await goto('/');
-		} catch (error) {
-			message = error instanceof Error ? error.message : 'Authentication failed.';
+			await backend.me();
+			goto('/');
+		} catch {
+			try {
+				const cfg = await backend.authConfig();
+				ssoOnly = cfg.sso_only;
+				ssoEnabled = cfg.oidc_enabled;
+				allowRegistration = cfg.allow_registration;
+			} catch {
+				ssoOnly = false;
+			}
+		}
+	});
+
+	async function submit(event: SubmitEvent) {
+		event.preventDefault();
+		if (busy) return;
+		busy = true;
+		error = '';
+		try {
+			if (mode === 'register') {
+				await fetch('/api/auth/register', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'X-Facile-CSRF': '1' },
+					body: JSON.stringify({ email, name, password })
+				});
+			}
+			const response = await fetch('/api/auth/login', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email, password })
+			});
+			if (!response.ok) {
+				const payload = (await response.json().catch(() => undefined)) as
+					| { error?: { message?: string } }
+					| undefined;
+				throw new Error(payload?.error?.message ?? 'Authentication failed.');
+			}
+			goto('/');
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Authentication failed.';
 			busy = false;
 		}
 	}
-
-	const inputClass =
-		'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
-	const labelClass = 'text-sm font-medium leading-none';
-	const primaryButtonClass =
-		'inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50';
 </script>
 
 <svelte:head>
-	<title>Log in — App</title>
+	<title>Log in — Sonde</title>
 </svelte:head>
 
-<div class="flex min-h-screen">
-	<div class="hidden lg:flex lg:w-1/2 flex-col bg-black px-12 py-10">
-		<a href="/" class="flex items-center gap-3 mb-auto">
-			<span class="text-xl font-bold font-heading tracking-tight text-white">App</span>
-		</a>
-		<div class="mb-auto">
-			<h2 class="text-4xl font-bold font-heading text-white leading-tight tracking-tight">
-				Your app.<br />Your server.
-			</h2>
-			<p class="mt-4 text-sm text-white/50 max-w-xs leading-relaxed">
-				A self-hosted Go + SvelteKit starter by Facile.
-			</p>
+<div class="flex min-h-dvh items-center justify-center bg-fc-page px-4">
+	<div class="w-full max-w-sm">
+		<div class="mb-8 text-center">
+			<h1 class="text-fc-xl font-semibold text-fc-fg">Sonde</h1>
+			<p class="text-fc-sm text-fc-fg-muted">Uptime monitoring for the Facile Suite</p>
 		</div>
-		<p class="text-xs text-white/30">© {new Date().getFullYear()} App by Facile.</p>
-	</div>
 
-	<div class="flex w-full lg:w-1/2 flex-col items-center justify-center px-8 py-12 bg-background">
-		<div class="w-full max-w-sm">
-			<div class="mb-8">
-				<h1 class="text-2xl font-bold font-heading tracking-tight text-foreground">Welcome back</h1>
-				<p class="mt-1.5 text-sm text-muted-foreground">Log in to your App account.</p>
-			</div>
+		<Card class="p-6">
+			{#if error}
+				<Alert tone="danger" class="mb-4">{error}</Alert>
+			{/if}
 
-			<form class="space-y-4" onsubmit={handleLogin}>
-				<div class="space-y-1.5">
-					<label for="email" class={labelClass}>Email</label>
-					<input
-						id="email"
-						type="email"
-						bind:value={email}
-						placeholder="you@example.com"
-						autocomplete="email"
-						required
-						disabled={busy}
-						class={inputClass}
-					/>
-				</div>
-				<div class="space-y-1.5">
-					<label for="password" class={labelClass}>Password</label>
-					<input
-						id="password"
-						type="password"
-						bind:value={password}
-						placeholder="••••••••"
-						autocomplete="current-password"
-						required
-						disabled={busy}
-						class={inputClass}
-					/>
-				</div>
+			{#if ssoEnabled}
+				<a href={ssoLoginUrl} class="block">
+					<Button type="button" class="w-full" disabled={busy}>Sign in with SSO</Button>
+				</a>
+			{/if}
 
-				{#if message}
-					<p
-						class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-					>
-						{message}
-					</p>
+			{#if !ssoOnly}
+				{#if ssoEnabled}
+					<div class="my-4 flex items-center gap-3">
+						<div class="h-px flex-1 bg-fc-border"></div>
+						<span class="text-fc-xs text-fc-fg-muted">or</span>
+						<div class="h-px flex-1 bg-fc-border"></div>
+					</div>
 				{/if}
 
-				<button type="submit" disabled={busy} class={primaryButtonClass}>
-					{busy ? 'Logging in…' : 'Log in'}
-				</button>
-			</form>
-		</div>
+				<form onsubmit={submit} class="flex flex-col gap-4">
+					{#if mode === 'register'}
+						<Field label="Name">
+							{#snippet children({ id })}
+								<Input {id} bind:value={name} autocomplete="name" required />
+							{/snippet}
+						</Field>
+					{/if}
+					<Field label="Email">
+						{#snippet children({ id })}
+							<Input
+								{id}
+								type="email"
+								bind:value={email}
+								autocomplete="email"
+								required
+							/>
+						{/snippet}
+					</Field>
+					<Field label="Password">
+						{#snippet children({ id })}
+							<Input
+								{id}
+								type="password"
+								bind:value={password}
+								autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
+								required
+							/>
+						{/snippet}
+					</Field>
+					<Button type="submit" disabled={busy}>
+						{#if busy}
+							<Spinner class="mr-2" />
+						{/if}
+						{mode === 'register' ? 'Create account' : 'Sign in'}
+					</Button>
+				</form>
+
+				{#if allowRegistration}
+					<button
+						type="button"
+						class="mt-4 w-full text-center text-fc-sm text-fc-fg-muted hover:text-fc-fg"
+						onclick={() => {
+							mode = mode === 'login' ? 'register' : 'login';
+							error = '';
+						}}
+					>
+						{mode === 'login' ? 'No account yet? Register' : 'Already registered? Sign in'}
+					</button>
+				{/if}
+			{/if}
+		</Card>
 	</div>
 </div>
