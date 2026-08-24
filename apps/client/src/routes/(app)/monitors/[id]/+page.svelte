@@ -58,7 +58,7 @@
 	async function remove() {
 		if (!confirm(`Delete monitor "${monitor?.name}"? Its history goes with it.`)) return;
 		await backend.deleteMonitor(monitorId).catch(() => undefined);
-		goto('/');
+		goto('/monitors');
 	}
 </script>
 
@@ -72,7 +72,7 @@
 	<PageHeader
 		title={monitor.name}
 		description={monitor.target || 'Push heartbeat'}
-		back={{ href: '/', label: 'Monitors' }}
+		back={{ href: '/monitors', label: 'Monitors' }}
 	>
 		{#snippet actions()}
 			<Button variant="danger" onclick={remove}>Delete</Button>

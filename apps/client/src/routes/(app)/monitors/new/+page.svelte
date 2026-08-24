@@ -42,7 +42,7 @@
 <PageHeader
 	title="New monitor"
 	description="Choose what to watch and how often."
-	back={{ href: '/', label: 'Monitors' }}
+	back={{ href: '/monitors', label: 'Monitors' }}
 />
 
 <Card class="max-w-2xl p-6">

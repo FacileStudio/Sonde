@@ -1,7 +1,7 @@
 {
-  "name": "GoSvelteBoilerplate",
-  "short_name": "GoSvelteBoilerplate",
-  "description": "A Facile Studio app.",
+  "name": "Sonde",
+  "short_name": "Sonde",
+  "description": "Self-hosted uptime monitoring for the Facile Suite.",
   "icons": [
     {
       "src": "/icon-192.png",

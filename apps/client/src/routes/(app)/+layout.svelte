@@ -27,11 +27,11 @@
 	}
 
 	const pages = [
-		{ label: 'Monitors', href: '/', icon: 'activity' },
-		{ label: 'Incidents', href: '/incidents', icon: 'alert' },
-		{ label: 'Status pages', href: '/status-pages', icon: 'globe' },
-		{ label: 'Settings', href: '/settings', icon: 'settings' }
-	].map((entry) => ({ ...entry, active: page.url.pathname === entry.href }));
+		{ label: 'Monitors', href: '/monitors', icon: 'solar:monitor-linear' },
+		{ label: 'Incidents', href: '/incidents', icon: 'solar:danger-triangle-linear' },
+		{ label: 'Status pages', href: '/status-pages', icon: 'solar:global-linear' },
+		{ label: 'Settings', href: '/settings', icon: 'solar:settings-linear' }
+	].map((entry) => ({ ...entry, active: page.url.pathname.startsWith(entry.href) }));
 </script>
 
 <svelte:head>
@@ -40,7 +40,12 @@
 
 <div class="flex min-h-dvh bg-fc-page">
 	<div class="hidden sm:block">
-		<SideBar title="Sonde" icon="activity" {pages} user={user ? { name: user.email } : undefined} />
+		<SideBar
+			title="Sonde"
+			icon="solar:radar-2-bold-duotone"
+			{pages}
+			user={user ? { name: user.email } : undefined}
+		/>
 	</div>
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header
