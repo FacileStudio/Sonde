@@ -2,18 +2,11 @@
 CREATE TABLE users (
     id            BIGSERIAL PRIMARY KEY,
     email         TEXT        NOT NULL UNIQUE,
+    name          TEXT        NOT NULL DEFAULT '',
+    is_admin      BOOLEAN     NOT NULL DEFAULT false,
     password_hash TEXT        NOT NULL DEFAULT '',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-CREATE TABLE sessions (
-    token      TEXT        PRIMARY KEY,
-    user_id    BIGINT      NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_sessions_user ON sessions (user_id);
 
 CREATE TABLE monitors (
     id               BIGSERIAL PRIMARY KEY,
@@ -99,5 +92,4 @@ DROP TABLE IF EXISTS checks_daily;
 DROP TABLE IF EXISTS checks_hourly;
 DROP TABLE IF EXISTS checks_raw;
 DROP TABLE IF EXISTS monitors;
-DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -17,11 +18,17 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
+	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
+	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/local"
+	"github.com/FacileStudio/porte/oidc"
+	portepg "github.com/FacileStudio/porte/pg"
+	"github.com/FacileStudio/porte/session"
 	"github.com/FacileStudio/tronc/apiref"
 	"github.com/FacileStudio/tronc/health"
 	"github.com/FacileStudio/tronc/healthcheck"
@@ -66,24 +73,74 @@ func refConfig() apiref.Config {
 // buildRouter assembles the router the server serves. It is a function rather
 // than inline in main so a test can walk the real route table; it tolerates a
 // nil database because no service touches the handle until a request arrives.
-func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appLogger *slog.Logger, corsOrigins []string) chi.Router {
-	authService := auth.NewService(db)
+//
+// One session manager owns one sessions table, and both kits issue through it:
+// a password login and a federated one are the same row, the same cookie and
+// the same logout.
+func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.Config, appLogger *slog.Logger) (chi.Router, error) {
+	identityStore := portepg.New(sqlDB)
+	userStore := auth.NewUserStore(db)
+
+	sessions, err := session.New(appEnv.Porte, session.Deps{
+		Sessions: identityStore.Sessions(),
+		Logger:   appLogger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure sessions: %w", err)
+	}
+
+	kit, err := oidc.New(context.Background(), appEnv.Porte, oidc.Deps{
+		Users:       userStore,
+		Identities:  identityStore.Identities(),
+		Codes:       identityStore.LoginCodes(),
+		Sessions:    sessions,
+		Logger:      appLogger,
+		ConfigExtra: auth.ConfigExtra(appEnv.AllowRegistration),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure authentication: %w", err)
+	}
+	if kit.Enabled() {
+		appLogger.Info("single sign-on enabled",
+			slog.String("issuer", appEnv.Porte.Issuer),
+			slog.Bool("sso_only", appEnv.Porte.SSOOnly))
+	}
+
+	passwords, err := local.New(local.Config{AllowRegistration: appEnv.AllowRegistration}, local.Deps{
+		Users:      userStore,
+		Identities: identityStore.Identities(),
+		Sessions:   sessions,
+		Logger:     appLogger,
+		Count:      userStore.CountUsers,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure the password login: %w", err)
+	}
+
+	authService := auth.NewService(db, passwords)
 	userService := users.NewService(db)
 
 	router := httpx.NewRouter(httpx.Config{
 		Logger: appLogger,
 		CORS: troncmiddleware.CORSConfig{
-			AllowedOrigins: corsOrigins,
+			AllowedOrigins: appEnv.CORSAllowedOrigins,
 		},
 	})
 
 	health.Mount(router, health.DB(sqlDB))
 	apiref.Mount(router, refConfig())
 
+	requireAuth := middleware.RequireAuth(sessions, authService)
+	clearCookie := func(w http.ResponseWriter, r *http.Request) {
+		sessions.ClearCookie(w, r, porte.SessionCookieName)
+	}
+
 	router.Route("/api", func(r chi.Router) {
-		auth.RegisterRoutes(r, authService)
+		sessions.Mount(r)
+		kit.Mount(r)
+		auth.RegisterRoutes(r, authService, appEnv.Porte.SSOOnly, requireAuth, clearCookie)
 		checker.RegisterHeartbeat(r, engine)
-		users.RegisterRoutes(r, userService, authService)
+		users.RegisterRoutes(r, userService, requireAuth)
 	})
 
 	clientDir := spa.DirFromEnv()
@@ -92,7 +149,7 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appLogger *
 		appLogger.Info("serving client", slog.String("dir", clientDir))
 	}
 
-	return router
+	return router, nil
 }
 
 func main() {
@@ -168,7 +225,11 @@ func main() {
 	}()
 	go pruner.Loop(backgroundCtx)
 
-	router := buildRouter(db, sqlDB, engine, appLogger, appEnv.CORSAllowedOrigins)
+	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
+	if err != nil {
+		appLogger.Error("failed to build the router", slog.Any("error", err))
+		return
+	}
 
 	addr := ":" + appEnv.Port
 	server := &http.Server{

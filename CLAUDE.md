@@ -158,7 +158,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Defaults ar
 
 ## Gotchas
 
-- **Auth is not JWT.** `authcrypto.NewToken()` mints 32 random bytes, base64url-encoded. The token is stored verbatim in the `sessions` table with a 30-day expiry and presented as `Authorization: Bearer <token>`. There is no signing key and nothing to decode - revocation is a row delete.
+- **Auth is porte.** One session manager owns `porte_sessions`; both `porte/local` (argon2id passwords) and `porte/oidc` (PKCE against Authentik) issue through it, so both land in the same cookie/bearer session. Cookie-authenticated mutations require `X-Facile-CSRF`; bearer requests are exempt. See `docs/AUTH.md`.
 - **`modules/events`, `modules/tickets`, `internal/ticketcode`, `cmd/seed`, `schemas/event.go` and `schemas/ticket.go` are leftover demo domain**, not template features. Delete them in a fork.
 - The API has a `/docs` endpoint that returns auto-generated JSON documentation for all modules. It sits at the root, not under `/api`, so its URL survives the SPA catch-all.
 - The API has `/health` and `/ready` endpoints for container orchestration, also at the root.

@@ -22,9 +22,15 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 		return nil, errors.Unauthorized("missing auth")
 	}
 
+	user, err := controller.service.userByID(context, identity.UserID)
+	if err != nil {
+		return nil, err
+	}
 	return &MeResponse{User: User{
-		ID:    identity.UserID,
-		Email: identity.Email,
+		ID:      user.ID,
+		Email:   user.Email,
+		Name:    user.Name,
+		IsAdmin: user.IsAdmin,
 	}}, nil
 }
 
@@ -42,23 +48,31 @@ func (controller *Controller) updateMe(context context.Context, req *UpdateReque
 		}
 		email = &normalized
 	}
-
-	var password *string
-	if req.Password != nil {
-		if len(*req.Password) < 8 {
-			return nil, errors.Invalid("password must be at least 8 characters")
-		}
-		password = req.Password
+	name := strings.TrimSpace(deref(req.Name))
+	if req.Name != nil && name == "" {
+		return nil, errors.Invalid("invalid name")
 	}
 
-	if email == nil && password == nil {
+	if email == nil && req.Name == nil {
 		return nil, errors.Invalid("at least one field must be provided")
 	}
 
-	user, err := controller.service.updateUser(context, identity.UserID, email, password)
+	user, err := controller.service.updateUser(context, identity.UserID, email, name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MeResponse{User: *user}, nil
+	return &MeResponse{User: User{
+		ID:      user.ID,
+		Email:   user.Email,
+		Name:    user.Name,
+		IsAdmin: user.IsAdmin,
+	}}, nil
+}
+
+func deref(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

@@ -1,8 +1,10 @@
 package users
 
 type User struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
+	ID      int64  `json:"id"`
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	IsAdmin bool   `json:"is_admin"`
 }
 
 type MeResponse struct {
@@ -10,6 +12,6 @@ type MeResponse struct {
 }
 
 type UpdateRequest struct {
-	Email    *string `json:"email"`
-	Password *string `json:"password"`
+	Email *string `json:"email"`
+	Name  *string `json:"name"`
 }
