@@ -2,10 +2,12 @@ package env
 
 import (
 	"fmt"
-	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
+	"github.com/FacileStudio/porte"
 )
 
 type Config struct {
@@ -16,6 +18,8 @@ type Config struct {
 	JournalURL         string
 	JournalToken       string
 	RawRetentionDays   int
+	AllowRegistration  bool
+	Porte              porte.Config
 }
 
 func Load() (Config, error) {
@@ -34,6 +38,31 @@ func Load() (Config, error) {
 		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
 	}
 
+	var err error
+	if env.AllowRegistration, err = boolOrDefault("ALLOW_REGISTRATION", true); err != nil {
+		return Config{}, err
+	}
+
+	env.Porte = porte.Config{
+		Issuer:       os.Getenv("OIDC_ISSUER"),
+		ClientID:     os.Getenv("OIDC_CLIENT_ID"),
+		ClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
+		RedirectURL:  os.Getenv("OIDC_REDIRECT_URL"),
+		SuccessURL:   os.Getenv("OIDC_SUCCESS_URL"),
+	}
+	var ssoOnly bool
+	if ssoOnly, err = boolOrDefault("SSO_ONLY", false); err != nil {
+		return Config{}, err
+	}
+	env.Porte.SSOOnly = ssoOnly
+
+	if env.Porte.SSOOnly && !env.Porte.Enabled() {
+		return Config{}, fmt.Errorf("SSO_ONLY=true with no OIDC_ISSUER leaves no way to sign in")
+	}
+	if err := env.Porte.Validate(); err != nil {
+		return Config{}, err
+	}
+
 	if env.DatabaseURL == "" {
 		return Config{}, fmt.Errorf("DATABASE_URL is required")
 	}
@@ -50,6 +79,18 @@ func Load() (Config, error) {
 	}
 
 	return env, nil
+}
+
+func boolOrDefault(key string, fallback bool) (bool, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean", key)
+	}
+	return parsed, nil
 }
 
 func intOrDefault(key string, fallback int) int {

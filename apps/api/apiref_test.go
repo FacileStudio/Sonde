@@ -9,12 +9,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/FacileStudio/Sonde/apps/api/internal/env"
 	"github.com/FacileStudio/tronc/apiref"
 	"github.com/go-chi/chi/v5"
 )
 
 func testRouter() chi.Router {
-	return buildRouter(nil, nil, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	router, err := buildRouter(nil, nil, nil, env.Config{}, logger)
+	if err != nil {
+		panic(err)
+	}
+	return router
 }
 
 // A hand-written registry rots the moment a route is added without it, which is

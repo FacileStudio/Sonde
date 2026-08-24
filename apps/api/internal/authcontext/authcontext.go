@@ -3,8 +3,9 @@ package authcontext
 import "context"
 
 type Identity struct {
-	UserID string
-	Email  string
+	UserID  int64
+	Email   string
+	IsAdmin bool
 }
 
 type contextKey struct{}
