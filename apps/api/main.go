@@ -18,8 +18,11 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
+	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
 	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
+	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
+	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
@@ -56,6 +59,8 @@ func registry() documentation.Response {
 		Modules: []documentation.Module{
 			auth.Documentation,
 			checker.Documentation,
+			httpapi.Documentation,
+			httpapi.StatusPagesDocumentation,
 			users.Documentation,
 		},
 	}
@@ -119,6 +124,7 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.
 
 	authService := auth.NewService(db, passwords)
 	userService := users.NewService(db)
+	httpService := httpapi.New(db, monitors.NewStore(db), uptime.NewService(db))
 
 	router := httpx.NewRouter(httpx.Config{
 		Logger: appLogger,
@@ -141,6 +147,7 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.
 		auth.RegisterRoutes(r, authService, appEnv.Porte.SSOOnly, requireAuth, clearCookie)
 		checker.RegisterHeartbeat(r, engine)
 		users.RegisterRoutes(r, userService, requireAuth)
+		httpapi.RegisterRoutes(r, httpService, requireAuth)
 	})
 
 	clientDir := spa.DirFromEnv()
