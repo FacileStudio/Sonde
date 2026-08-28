@@ -33,7 +33,7 @@ func (r *GormRecorder) RecordCheck(ctx context.Context, monitorID int64, ok bool
 		}
 		return tx.Exec(`
 INSERT INTO checks_hourly (monitor_id, bucket_start, total, failed, avg_latency_ms)
-SELECT ?, date_trunc('hour', ?), 1, ?, ?
+SELECT ?, date_trunc('hour', ?::timestamptz), 1, ?, ?
 ON CONFLICT (monitor_id, bucket_start) DO UPDATE SET
     total = checks_hourly.total + 1,
     failed = checks_hourly.failed + EXCLUDED.failed,
