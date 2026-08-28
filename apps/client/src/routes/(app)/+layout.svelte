@@ -2,7 +2,7 @@
 	import { onMount, setContext } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
+	import { Button, EmptyState, MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
 
 	let { children } = $props();
@@ -10,6 +10,7 @@
 	let user = $state<AuthUser | null>(null);
 	let checked = $state(false);
 	let collapsed = $state(false);
+	let unreachable = $state(false);
 	let scroller = $state<HTMLElement | null>(null);
 
 	function setUser(next: AuthUser) {
@@ -54,7 +55,9 @@
 			const status = (err as { status?: number }).status;
 			if (status === 401 || status === 403) {
 				goto(`/login?next=${encodeURIComponent(page.url.pathname)}`);
+				return;
 			}
+			unreachable = true;
 		}
 	});
 
@@ -88,6 +91,14 @@
 				<PageTransition key={page.url.pathname}>
 					{@render children()}
 				</PageTransition>
+			{:else if unreachable}
+				<EmptyState
+					icon={icons.error}
+					title="Sonde is not answering"
+					description="The server did not return your account. It may be restarting, or the connection dropped. You are still signed in."
+				>
+					<Button icon={icons.refresh} onclick={() => location.reload()}>Try again</Button>
+				</EmptyState>
 			{:else}
 				<div class="flex min-h-[50dvh] items-center justify-center">
 					<Spinner />
