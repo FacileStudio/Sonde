@@ -1,79 +1,78 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { Badge, Button, Card, Checkbox, EmptyState, Field, Input, PageHeader, Spinner } from '@facile/muse';
+	import {
+		Alert,
+		Badge,
+		Button,
+		ConfirmModal,
+		EmptyState,
+		PageHeader,
+		Skeleton,
+		Table,
+		icons,
+		toast
+	} from '@facile/muse';
+	import StatusPageDrawer from '$lib/components/StatusPageDrawer.svelte';
 	import { backend, type Monitor, type StatusPage } from '$lib/backend';
 
-	let pages = $state<StatusPage[] | null>(null);
+	let pages = $state<StatusPage[]>([]);
 	let monitors = $state<Monitor[]>([]);
+	let loading = $state(true);
 	let error = $state('');
-	let busy = $state(false);
 
-	let slug = $state('');
-	let title = $state('');
-	let picked = $state<number[]>([]);
+	let drawerOpen = $state(false);
 	let editing = $state<StatusPage | null>(null);
+	let pendingDelete = $state<StatusPage | null>(null);
+	let confirmOpen = $state(false);
 
 	onMount(async () => {
 		try {
 			[pages, monitors] = await Promise.all([backend.listStatusPages(), backend.listMonitors()]);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load status pages.';
+		} finally {
+			loading = false;
 		}
 	});
 
-	function startEdit(existing: StatusPage) {
-		editing = existing;
-		slug = existing.slug;
-		title = existing.title;
-		picked = existing.monitors.map((line) => line.id);
-	}
-
-	function reset() {
+	function openCreate() {
 		editing = null;
-		slug = '';
-		title = '';
-		picked = [];
+		drawerOpen = true;
 	}
 
-	function toggle(id: number) {
-		picked = picked.includes(id) ? picked.filter((v) => v !== id) : [...picked, id];
+	function openEdit(existing: StatusPage) {
+		editing = existing;
+		drawerOpen = true;
 	}
 
-	function move(id: number, delta: number) {
-		const index = picked.indexOf(id);
-		const target = index + delta;
-		if (index < 0 || target < 0 || target >= picked.length) return;
-		const next = [...picked];
-		next.splice(index, 1);
-		next.splice(target, 0, id);
-		picked = next;
+	function onSaved(saved: StatusPage) {
+		const known = pages.some((entry) => entry.id === saved.id);
+		pages = known
+			? pages.map((entry) => (entry.id === saved.id ? saved : entry))
+			: [...pages, saved];
+		toast.success(known ? `${saved.title} saved.` : `${saved.title} is live at /status/${saved.slug}.`);
+		editing = null;
 	}
 
-	async function submit(event: SubmitEvent) {
-		event.preventDefault();
-		if (busy) return;
-		busy = true;
-		error = '';
+	function askDelete(existing: StatusPage) {
+		pendingDelete = existing;
+		confirmOpen = true;
+	}
+
+	async function confirmDelete() {
+		const existing = pendingDelete;
+		if (!existing) return;
 		try {
-			if (editing) {
-				await backend.updateStatusPage(editing.id, { slug, title, monitor_ids: picked });
-			} else {
-				await backend.createStatusPage({ slug, title, monitor_ids: picked });
-			}
-			reset();
-			pages = await backend.listStatusPages();
+			await backend.deleteStatusPage(existing.id);
+			pages = pages.filter((entry) => entry.id !== existing.id);
+			pendingDelete = null;
+			toast.success(`${existing.title} taken down.`);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to save status page.';
-		} finally {
-			busy = false;
+			const message = err instanceof Error ? err.message : 'Could not delete the status page.';
+			toast.danger(message);
+			error = message;
+			throw err;
 		}
-	}
-
-	async function remove(existing: StatusPage) {
-		if (!confirm(`Delete status page "${existing.title}"?`)) return;
-		await backend.deleteStatusPage(existing.id).catch(() => undefined);
-		pages = await backend.listStatusPages();
 	}
 </script>
 
@@ -81,100 +80,89 @@
 	<title>Status pages — Sonde</title>
 </svelte:head>
 
-<PageHeader
-	title="Status pages"
-	description="Public pages showing which of your projects are up."
-/>
+<div class="flex flex-col gap-10">
+	<PageHeader
+		title="Status pages"
+		description="Public pages showing which of your projects are up. No account needed to read them."
+	>
+		{#snippet actions()}
+			<Button icon={icons.plus} onclick={openCreate}>New status page</Button>
+		{/snippet}
+	</PageHeader>
 
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-	<Card class="p-6">
-		<form onsubmit={submit} class="flex flex-col gap-4">
-			<h2 class="font-medium text-fc-fg">{editing ? `Edit "${editing.title}"` : 'New status page'}</h2>
-			{#if error}
-				<div class="rounded-md border border-fc-border bg-fc-danger/10 p-3 text-fc-sm text-fc-danger">
-					{error}
-				</div>
-			{/if}
-			<Field label="Title">
-				{#snippet children({ id })}
-					<Input {id} bind:value={title} placeholder="Acme status" required />
-				{/snippet}
-			</Field>
-			<Field label="Slug">
-				{#snippet children({ id })}
-					<Input {id} bind:value={slug} placeholder="acme" required />
-				{/snippet}
-			</Field>
-			<div class="flex flex-col gap-2">
-				<span class="text-fc-sm font-medium text-fc-fg">Monitors (order matters)</span>
-				{#if picked.length > 0}
-					<ul class="flex flex-col gap-1">
-						{#each picked as id, index (id)}
-							{@const monitor = monitors.find((m) => m.id === id)}
-							<li class="flex items-center gap-2 rounded border border-fc-border px-2 py-1.5">
-								<span class="flex-1 truncate text-fc-sm text-fc-fg">{monitor?.name ?? `#${id}`}</span>
-								<Button type="button" variant="ghost" size="sm" disabled={index === 0} onclick={() => move(id, -1)}>↑</Button>
+	{#if error}
+		<Alert tone="danger" title="Could not load status pages">{error}</Alert>
+	{:else if loading}
+		<div class="flex flex-col gap-2">
+			<Skeleton class="h-10 w-full" />
+			<Skeleton class="h-10 w-full" />
+		</div>
+	{:else if pages.length === 0}
+		<EmptyState
+			icon={icons.globe}
+			title="No public pages yet"
+			description="Publish a page so clients can see uptime without an account."
+		>
+			<Button variant="outline" icon={icons.plus} onclick={openCreate}>Create a status page</Button>
+		</EmptyState>
+	{:else}
+		<Table>
+			<thead>
+				<tr>
+					<th scope="col">Title</th>
+					<th scope="col">Address</th>
+					<th scope="col">Monitors</th>
+					<th scope="col"><span class="sr-only">Actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each pages as existing (existing.id)}
+					<tr>
+						<td class="max-w-xs truncate font-medium text-fc-fg">{existing.title}</td>
+						<td><Badge tone="neutral">/status/{existing.slug}</Badge></td>
+						<td class="text-fc-fg-muted">{existing.monitors.length}</td>
+						<td>
+							<div class="flex justify-end gap-1">
 								<Button
-									type="button"
 									variant="ghost"
 									size="sm"
-									disabled={index === picked.length - 1}
-									onclick={() => move(id, 1)}>↓</Button>
-								<Button type="button" variant="ghost" size="sm" onclick={() => toggle(id)}>✕</Button>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-				{#each monitors.filter((m) => !picked.includes(m.id)) as monitor (monitor.id)}
-					<label
-					class="flex cursor-pointer items-center gap-2 rounded border border-fc-border px-2 py-1.5
-						hover:bg-fc-surface-hover"
-				>
-						<Checkbox checked={false} onchange={() => toggle(monitor.id)} />
-						<span class="text-fc-sm text-fc-fg">{monitor.name}</span>
-					</label>
-				{/each}
-			</div>
-			<div class="flex gap-2">
-				<Button type="submit" disabled={busy}>{editing ? 'Save changes' : 'Create page'}</Button>
-				{#if editing}
-					<Button type="button" variant="outline" onclick={reset}>Cancel</Button>
-				{/if}
-			</div>
-		</form>
-	</Card>
-
-	<div class="flex flex-col gap-2">
-		{#if !pages}
-			<div class="flex justify-center py-16"><Spinner /></div>
-		{:else if pages.length === 0}
-			<EmptyState
-				icon="globe"
-				title="No public pages yet"
-				description="Publish a page so clients can see uptime without an account."
-			/>
-		{:else}
-			{#each pages as existing (existing.id)}
-				<Card class="p-4">
-					<div class="flex items-center gap-3">
-						<div class="min-w-0 flex-1">
-							<div class="flex items-center gap-2">
-								<span class="truncate font-medium text-fc-fg">{existing.title}</span>
-								<Badge tone="neutral">/{existing.slug}</Badge>
+									href={`/status/${existing.slug}`}
+									target="_blank"
+									rel="noopener"
+								>
+									View
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={icons.edit}
+									aria-label={`Edit ${existing.title}`}
+									onclick={() => openEdit(existing)}
+								/>
+								<Button
+									variant="ghost-danger"
+									size="sm"
+									icon={icons.remove}
+									aria-label={`Delete ${existing.title}`}
+									onclick={() => askDelete(existing)}
+								/>
 							</div>
-							<div class="text-fc-xs text-fc-fg-muted">{existing.monitors.length} monitors</div>
-						</div>
-						<a href={`/status/${existing.slug}`} target="_blank">
-							<Button variant="outline" size="sm">View</Button>
-						</a>
-						<Button variant="ghost" size="sm" onclick={() => startEdit(existing)}>Edit</Button>
-						<Button variant="ghost" size="sm" onclick={() => remove(existing)}>✕</Button>
-					</div>
-				</Card>
-			{/each}
-			<p class="text-fc-xs text-fc-fg-muted">
-				Public URL: <code>{`${window.location.origin}/status/<slug>`}</code>
-			</p>
-		{/if}
-	</div>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</Table>
+	{/if}
 </div>
+
+<StatusPageDrawer bind:open={drawerOpen} {monitors} {editing} {onSaved} />
+
+<ConfirmModal
+	bind:open={confirmOpen}
+	tone="danger"
+	title={pendingDelete ? `Delete ${pendingDelete.title}?` : 'Delete status page?'}
+	description="The public address stops resolving immediately. The monitors it lists are untouched."
+	confirmLabel="Delete page"
+	onConfirm={confirmDelete}
+	onCancel={() => (pendingDelete = null)}
+/>
