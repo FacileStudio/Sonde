@@ -135,6 +135,40 @@ func TestARecoveryIsNullErrorOnTheUpChannel(t *testing.T) {
 	}
 }
 
+// The key has to identify the incident, not the instant the publisher happened
+// to run: a key that is unique per call deduplicates nothing while the field
+// promises it does. Both ends of one outage carry it, and a later outage of the
+// same monitor gets its own.
+func TestTheIdempotencyKeyIdentifiesTheIncident(t *testing.T) {
+	emitter := &fakeEmitter{}
+	publisher := newPublisher(emitter, fakeOwners{})
+
+	outage := time.Now().Add(-time.Hour)
+	down := checker.Transition{MonitorID: 7, Slug: "web", Name: "Web", IncidentAt: outage}
+	up := checker.Transition{MonitorID: 7, Slug: "web", Name: "Web", Up: true, IncidentAt: outage}
+	later := checker.Transition{MonitorID: 7, Slug: "web", Name: "Web", IncidentAt: time.Now()}
+
+	publisher.publish(context.Background(), down)
+	publisher.publish(context.Background(), down)
+	publisher.publish(context.Background(), up)
+	publisher.publish(context.Background(), later)
+
+	keys := make([]string, 0, 4)
+	for _, payload := range emitter.payloads {
+		keys = append(keys, decodeEvent(t, payload).IdempotencyKey)
+	}
+
+	if keys[0] != keys[1] {
+		t.Errorf("a redelivered outage changed key: %q then %q", keys[0], keys[1])
+	}
+	if keys[2] == keys[0] {
+		t.Errorf("the recovery reused the outage key %q", keys[0])
+	}
+	if keys[3] == keys[0] {
+		t.Errorf("a second outage reused the first outage's key %q", keys[0])
+	}
+}
+
 // A failing emit, or an owner lookup that errors, must not stop the consumer:
 // the checker keeps producing transitions and nothing may back up behind them.
 func TestAFailingEmitDoesNotStallTheConsumer(t *testing.T) {

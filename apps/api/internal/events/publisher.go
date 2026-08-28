@@ -6,6 +6,7 @@ package events
 import (
 	"context"
 	"log/slog"
+	"math"
 	"strconv"
 	"time"
 
@@ -29,6 +30,22 @@ const (
 	statusDown = "down"
 
 	ownerLookupTimeout = 3 * time.Second
+
+	// antenne-client registers over HTTP with http.DefaultClient, which has
+	// no timeout, so a host that drops packets never returns. That call is
+	// on the boot path ahead of the router, so an unbounded wait means the
+	// API never listens and never answers /health.
+	connectTimeout = 10 * time.Second
+
+	// antenne-client stops reconnecting for good once its attempt budget is
+	// spent: it reports "max reconnection attempts reached" and schedules
+	// nothing further, with no way back short of a new client. Its default of
+	// 20 is about 7.5 minutes of backoff, so a routine Antenne redeploy would
+	// end event publishing for the life of this process. A monitor has to keep
+	// reporting when the things around it restart, so the budget is the
+	// practical equivalent of unbounded: backoff caps at 30s, which is a retry
+	// every half minute for longer than any deployment will live.
+	reconnectAttempts = math.MaxInt32
 )
 
 // Config is the Antenne connection, read from the environment. An empty
@@ -89,11 +106,15 @@ func New(ctx context.Context, config Config, owners Owners, logger *slog.Logger)
 		Secret:     config.Secret,
 		InstanceID: config.InstanceID,
 		Events:     antenne.EventConfig{Emit: []string{ChannelDown, ChannelUp}},
-	}, antenne.WithOnError(func(err error) {
-		logger.Warn("antenne connection", slog.Any("error", err))
-	}))
+	},
+		antenne.WithMaxReconnect(reconnectAttempts),
+		antenne.WithOnError(func(err error) {
+			logger.Warn("antenne connection", slog.Any("error", err))
+		}))
 
-	if err := client.Connect(ctx); err != nil {
+	dial, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	if err := client.Connect(dial); err != nil {
 		client.Disconnect()
 		logger.Warn("antenne unreachable, monitor events are off", slog.Any("error", err))
 		return nil
@@ -133,6 +154,11 @@ func (p *Publisher) publish(ctx context.Context, transition checker.Transition) 
 
 	payload := p.payload(ctx, transition, status)
 	now := time.Now().UTC()
+	// Keyed on the incident, not on the moment of the call. A wall clock in
+	// the key is unique by construction and deduplicates nothing, which is
+	// worse than no key at all because the field promises otherwise. The
+	// outage and its recovery share one incident timestamp, so a redelivery
+	// of either collapses onto the first.
 	event := enveloppe.Event[Payload]{
 		Version:        enveloppe.EventVersion,
 		App:            enveloppe.AppSonde,
@@ -141,7 +167,7 @@ func (p *Publisher) publish(ctx context.Context, transition checker.Transition) 
 		FacileID:       payload.FacileID,
 		Payload:        payload,
 		Timestamp:      now.Format(time.RFC3339),
-		IdempotencyKey: payload.MonitorID + ":" + status + ":" + strconv.FormatInt(now.UnixMilli(), 10),
+		IdempotencyKey: payload.MonitorID + ":" + status + ":" + strconv.FormatInt(transition.IncidentAt.UnixMilli(), 10),
 	}
 
 	if err := p.emitter.EmitNow(channel, event); err != nil {
