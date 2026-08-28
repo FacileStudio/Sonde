@@ -44,11 +44,22 @@ func (r *fakeRecorder) ResolveIncidents(_ context.Context, _ int64) error {
 }
 
 type fakeSource struct {
+	mu       sync.Mutex
 	monitors []schemas.Monitor
 }
 
 func (s *fakeSource) ListEnabled(context.Context) ([]schemas.Monitor, error) {
-	return s.monitors, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]schemas.Monitor(nil), s.monitors...), nil
+}
+
+// set is what the API does from the engine's point of view: the enabled set in
+// the database changed.
+func (s *fakeSource) set(monitors ...schemas.Monitor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.monitors = monitors
 }
 
 func httpMonitor(target string, interval time.Duration) schemas.Monitor {
@@ -192,7 +203,11 @@ func TestHeartbeatRecordsAndResolves(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- engine.Run(ctx) }()
-	waitFor(t, 5*time.Second, func() bool { return len(engine.states) == 1 })
+	waitFor(t, 5*time.Second, func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		return len(engine.states) == 1
+	})
 
 	if err := engine.Heartbeat(ctx, token); err != nil {
 		t.Fatalf("Heartbeat() = %v, want nil", err)
@@ -245,6 +260,106 @@ func TestHeartbeatRecordsAndResolves(t *testing.T) {
 	}
 }
 
+// The engine's monitor set is the database's, not whatever it happened to read
+// at boot. Without reconciliation a monitor created through the API is never
+// probed until the process restarts, and a disabled one is probed forever.
+func TestTheEngineConvergesOnTheMonitorSet(t *testing.T) {
+	var mu sync.Mutex
+	hits := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		mu.Lock()
+		hits[request.URL.Path]++
+		mu.Unlock()
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	count := func(path string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		return hits[path]
+	}
+
+	first := httpMonitor(server.URL+"/first", time.Second)
+	source := &fakeSource{monitors: []schemas.Monitor{first}}
+
+	before := runtime.NumGoroutine()
+
+	// Keep-alive connections outlive the engine and would be counted as
+	// leaked goroutines by the check at the end of this test.
+	engine := New(source, &fakeRecorder{},
+		WithLogger(quietLogger()),
+		WithHTTPClient(&http.Client{Transport: &http.Transport{DisableKeepAlives: true}}),
+		WithSweepInterval(time.Second),
+		WithReloadInterval(50*time.Millisecond))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- engine.Run(ctx) }()
+
+	waitFor(t, 5*time.Second, func() bool { return count("/first") > 0 })
+
+	second := httpMonitor(server.URL+"/second", time.Second)
+	second.ID = 2
+	second.Slug = "second"
+	source.set(first, second)
+
+	waitFor(t, 5*time.Second, func() bool { return count("/second") > 0 })
+
+	source.set(second)
+
+	waitFor(t, 5*time.Second, func() bool {
+		engine.mu.Lock()
+		defer engine.mu.Unlock()
+		_, still := engine.states[first.ID]
+		return !still
+	})
+
+	settled := count("/first")
+	time.Sleep(2500 * time.Millisecond)
+	if after := count("/first"); after != settled {
+		t.Fatalf("the retired monitor was probed %d more times after being disabled", after-settled)
+	}
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("engine.Run() = %v", err)
+	}
+	waitFor(t, 10*time.Second, func() bool { return runtime.NumGoroutine() <= before+2 })
+}
+
+// A deleted push monitor's token must stop working, or the heartbeat route
+// keeps accepting a credential the database no longer knows about.
+func TestARetiredPushMonitorLosesItsToken(t *testing.T) {
+	token := "tok-retired"
+	push := schemas.Monitor{
+		ID: 9, Slug: "cron", Name: "Cron", Type: monitors.TypePush,
+		MonitorSchedule: schemas.MonitorSchedule{IntervalSeconds: 60},
+		Enabled:         true, PushToken: &token,
+	}
+	source := &fakeSource{monitors: []schemas.Monitor{push}}
+	engine := New(source, &fakeRecorder{},
+		WithLogger(quietLogger()),
+		WithSweepInterval(time.Hour),
+		WithReloadInterval(50*time.Millisecond))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- engine.Run(ctx) }()
+
+	waitFor(t, 5*time.Second, func() bool { return engine.Heartbeat(ctx, token) == nil })
+
+	source.set()
+
+	waitFor(t, 5*time.Second, func() bool { return engine.Heartbeat(ctx, token) != nil })
+
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("engine.Run() = %v", err)
+	}
+}
+
 func TestTransitionChannelOverflowIsNotFatal(t *testing.T) {
 	engine := New(&fakeSource{}, &fakeRecorder{}, WithLogger(quietLogger()))
 	for i := 0; i < maxTransitionsBuffer*3; i++ {
@@ -252,5 +367,16 @@ func TestTransitionChannelOverflowIsNotFatal(t *testing.T) {
 	}
 	if len(engine.transitions) != cap(engine.transitions) {
 		t.Fatalf("channel holds %d, want full buffer of %d", len(engine.transitions), cap(engine.transitions))
+	}
+}
+
+// Events are off by default, and a bounded channel nobody drains would warn on
+// every state change once it filled.
+func TestDisabledTransitionsQueueNothing(t *testing.T) {
+	engine := New(&fakeSource{}, &fakeRecorder{}, WithLogger(quietLogger()), WithoutTransitions())
+	engine.emit(Transition{MonitorID: 1})
+
+	if engine.Transitions() != nil {
+		t.Fatal("Transitions() returned a channel while transitions are disabled")
 	}
 }

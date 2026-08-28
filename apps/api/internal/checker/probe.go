@@ -20,13 +20,20 @@ type probeResult struct {
 	tlsExpiresAt *time.Time
 }
 
+// probe takes its own copy of the monitor under the lock: a reconciliation can
+// rewrite state.monitor at any moment, and one probe has to run against one
+// consistent target, timeout and expectation.
 func (e *Engine) probe(ctx context.Context, state *monitorState) {
+	e.mu.Lock()
+	monitor := state.monitor
+	e.mu.Unlock()
+
 	var result probeResult
-	switch state.monitor.Type {
+	switch monitor.Type {
 	case "http":
-		result = e.probeHTTP(ctx, state.monitor)
+		result = e.probeHTTP(ctx, monitor)
 	case "tcp":
-		result = e.probeTCP(ctx, state.monitor)
+		result = e.probeTCP(ctx, monitor)
 	default:
 		return
 	}
