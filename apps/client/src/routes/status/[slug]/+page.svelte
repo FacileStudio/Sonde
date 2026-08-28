@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import {
 		Alert,
@@ -17,6 +16,7 @@
 	let data = $state<PublicStatusPage | null>(null);
 	let loading = $state(true);
 	let error = $state('');
+	let fetchedAt = $state<Date | null>(null);
 
 	let slug = $derived(page.params.slug ?? '');
 
@@ -48,14 +48,32 @@
 
 	const percent = (value: number | null) => (value === null ? '—' : `${value.toFixed(2)}%`);
 
-	onMount(async () => {
+	const REFRESH_MS = 60_000;
+
+	async function load(target: string) {
 		try {
-			data = await backend.publicStatusPage(slug);
+			data = await backend.publicStatusPage(target);
+			error = '';
+			fetchedAt = new Date();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'No public status page lives at this address.';
 		} finally {
 			loading = false;
 		}
+	}
+
+	/*
+	 * Keyed on the slug, not run once on mount: SvelteKit reuses this component across
+	 * /status/a -> /status/b, so a one-shot fetch left b showing a's monitors. The interval is
+	 * what makes the "live" claim in the header true on a wall display nobody reloads.
+	 */
+	$effect(() => {
+		const target = slug;
+		loading = true;
+		data = null;
+		void load(target);
+		const timer = setInterval(() => void load(target), REFRESH_MS);
+		return () => clearInterval(timer);
 	});
 </script>
 
@@ -65,7 +83,9 @@
 
 <div class="min-h-dvh bg-fc-page px-4 py-10">
 	<div class="mx-auto flex w-full max-w-3xl flex-col gap-10">
-		{#if error}
+		<!-- `&& !data` because a background refresh that fails must not replace a page that is
+		     rendering fine with "Page not found". The header keeps saying when it last read. -->
+		{#if error && !data}
 			<EmptyState
 				icon={icons.globe}
 				title="Page not found"
@@ -81,30 +101,35 @@
 			<header class="flex flex-col gap-1 text-center">
 				<h1 class="text-fc-2xl font-semibold text-fc-fg">{data.title}</h1>
 				<p class="text-fc-sm text-fc-fg-muted">
-					Live status, updated every time Sonde runs a check.
+					{fetchedAt
+						? `Read at ${fetchedAt.toLocaleTimeString()}, and again every minute.`
+						: 'Refreshed every minute.'}
 				</p>
 			</header>
 
-			<Alert
-				tone={down > 0 ? 'danger' : unknown > 0 ? 'warning' : 'success'}
-				title={down > 0
-					? 'Some systems are down'
-					: unknown > 0
-						? 'Some systems have not reported yet'
-						: 'All systems operational'}
-			>
-				{down > 0
-					? `${down} of ${monitors.length} services are failing their checks. We are on it.`
-					: `${up} of ${monitors.length} services are answering normally.`}
-			</Alert>
-
 			{#if monitors.length === 0}
+				<!-- The verdict only exists when there is something to judge. With no monitors,
+				     down and unknown are both 0 and the success branch cheerfully announced
+				     "0 of 0 services answering normally" above the empty state. -->
 				<EmptyState
 					icon={icons.monitor}
 					title="Nothing published yet"
 					description="This status page has no monitors on it."
 				/>
 			{:else}
+				<Alert
+					tone={down > 0 ? 'danger' : unknown > 0 ? 'warning' : 'success'}
+					title={down > 0
+						? 'Some systems are down'
+						: unknown > 0
+							? 'Some systems have not reported yet'
+							: 'All systems operational'}
+				>
+					{down > 0
+						? `${down} of ${monitors.length} services are failing their checks. We are on it.`
+						: `${up} of ${monitors.length} services are answering normally.`}
+				</Alert>
+
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
 					<StatCard label="Operational" value={`${up} / ${monitors.length}`} />
 					<StatCard
