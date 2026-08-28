@@ -28,15 +28,22 @@
 		return page.url.pathname === href || page.url.pathname.startsWith(href + '/');
 	}
 
+	/* Every /status-pages route on the API sits behind requireAdmin (internal/httpapi/router.go),
+	   so the row is only a route a member can actually walk. The page itself refuses too, for
+	   anyone arriving on a link. */
 	const navPages = $derived([
 		{ href: '/monitors', label: 'Monitors', icon: icons.monitor, active: isActive('/monitors') },
 		{ href: '/incidents', label: 'Incidents', icon: icons.warning, active: isActive('/incidents') },
-		{
-			href: '/status-pages',
-			label: 'Status pages',
-			icon: icons.globe,
-			active: isActive('/status-pages')
-		}
+		...(user?.is_admin
+			? [
+					{
+						href: '/status-pages',
+						label: 'Status pages',
+						icon: icons.globe,
+						active: isActive('/status-pages')
+					}
+				]
+			: [])
 	]);
 
 	/* The email is the fallback for a missing name, not the name itself. Sonde's API returns

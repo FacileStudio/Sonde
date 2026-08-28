@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import {
 		Alert,
 		Badge,
@@ -53,9 +52,10 @@
 			pendingDelete = null;
 			toast.success(`${monitor.name} deleted.`);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Could not delete the monitor.';
-			toast.danger(message);
-			error = message;
+			/* The toast is the whole report. `error` means "the list never loaded" and is the
+			   first render branch, so writing a failed delete into it replaces the table the
+			   user is still looking at with a load error that did not happen. */
+			toast.danger(err instanceof Error ? err.message : 'Could not delete the monitor.');
 			throw err;
 		}
 	}
@@ -112,7 +112,7 @@
 								<StatusDot tone={monitor.enabled ? 'success' : 'neutral'} />
 								<a
 									href={`/monitors/${monitor.id}`}
-									class="truncate font-medium text-fc-fg hover:underline"
+									class="truncate font-medium text-fc-fg underline underline-offset-4 hover:text-fc-accent"
 								>
 									{monitor.name}
 								</a>
@@ -131,7 +131,7 @@
 									size="sm"
 									icon={icons.edit}
 									aria-label={`Open ${monitor.name}`}
-									onclick={() => goto(`/monitors/${monitor.id}`)}
+									href={`/monitors/${monitor.id}`}
 								/>
 								<Button
 									variant="ghost-danger"

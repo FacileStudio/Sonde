@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { getContext, onMount } from 'svelte';
 	import {
 		Alert,
 		Badge,
@@ -13,7 +13,13 @@
 		toast
 	} from '@facile/muse';
 	import StatusPageDrawer from '$lib/components/StatusPageDrawer.svelte';
-	import { backend, type Monitor, type StatusPage } from '$lib/backend';
+	import { backend, type AuthUser, type Monitor, type StatusPage } from '$lib/backend';
+
+	const app = getContext<{ user: AuthUser | null }>('app');
+
+	/* Every status-page route on the API is behind requireAdmin. Fetching as a member gets a
+	   raw "administrator role required", so say it here instead of asking and being refused. */
+	const isAdmin = $derived(Boolean(app.user?.is_admin));
 
 	let pages = $state<StatusPage[]>([]);
 	let monitors = $state<Monitor[]>([]);
@@ -26,6 +32,10 @@
 	let confirmOpen = $state(false);
 
 	onMount(async () => {
+		if (!isAdmin) {
+			loading = false;
+			return;
+		}
 		try {
 			[pages, monitors] = await Promise.all([backend.listStatusPages(), backend.listMonitors()]);
 		} catch (err) {
@@ -68,9 +78,10 @@
 			pendingDelete = null;
 			toast.success(`${existing.title} taken down.`);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Could not delete the status page.';
-			toast.danger(message);
-			error = message;
+			/* The toast is the whole report. `error` means "the list never loaded" and is the
+			   first render branch, so writing a failed delete into it replaces the table the
+			   user is still looking at with a load error that did not happen. */
+			toast.danger(err instanceof Error ? err.message : 'Could not delete the status page.');
 			throw err;
 		}
 	}
@@ -86,11 +97,19 @@
 		description="Public pages showing which of your projects are up. No account needed to read them."
 	>
 		{#snippet actions()}
-			<Button icon={icons.plus} onclick={openCreate}>New status page</Button>
+			{#if isAdmin}
+				<Button icon={icons.plus} onclick={openCreate}>New status page</Button>
+			{/if}
 		{/snippet}
 	</PageHeader>
 
-	{#if error}
+	{#if !isAdmin}
+		<EmptyState
+			icon={icons.shield}
+			title="Administrators only"
+			description="Status pages are managed by whoever runs this instance. Ask them for access, or for a link to a page that is already published."
+		/>
+	{:else if error}
 		<Alert tone="danger" title="Could not load status pages">{error}</Alert>
 	{:else if loading}
 		<div class="flex flex-col gap-2">

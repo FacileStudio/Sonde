@@ -46,6 +46,10 @@
 			: ''
 	);
 
+	/* -f so a refused heartbeat is a non-zero exit the cron daemon reports, -sS so it stays
+	   quiet until it fails. */
+	const heartbeatCommand = $derived(heartbeatUrl ? `curl -fsS -X POST ${heartbeatUrl}` : '');
+
 	onMount(async () => {
 		try {
 			const loaded = await backend.getMonitor(monitorId);
@@ -93,9 +97,9 @@
 			toast.success(`${monitor?.name ?? 'Monitor'} deleted.`);
 			goto('/monitors');
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Could not delete the monitor.';
-			toast.danger(message);
-			error = message;
+			/* `error` is the load failure, and it has no dismissal. A failed delete leaves the
+			   monitor on screen and intact, so the toast is the right and only report. */
+			toast.danger(err instanceof Error ? err.message : 'Could not delete the monitor.');
 			throw err;
 		}
 	}
@@ -159,11 +163,17 @@
 		</div>
 
 		{#if heartbeatUrl}
+			<!-- POST only. internal/checker/push.go registers no GET, and a GET falls through to
+			     the SPA catch-all and answers 200 with HTML, so a curl line without -X POST
+			     reports success while the monitor goes down. -->
 			<Section
 				title="Heartbeat"
-				description="Have the job POST or GET this URL every interval. Silence past the interval opens an incident."
+				description="Have the job POST this URL every interval. A GET answers 200 without recording anything, so the method matters. Silence past the interval opens an incident."
 			>
-				<SecretField label="Heartbeat URL" value={heartbeatUrl} />
+				<div class="flex flex-col gap-4">
+					<SecretField label="Heartbeat URL" value={heartbeatUrl} />
+					<SecretField label="Cron command" value={heartbeatCommand} />
+				</div>
 			</Section>
 		{/if}
 
