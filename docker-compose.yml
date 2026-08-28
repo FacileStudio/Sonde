@@ -82,6 +82,41 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       JOURNAL_URL: ${JOURNAL_URL:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
+      # Auth. Every variable below must be listed here by name: this block
+      # forwards named variables into the container, it does not merge with the
+      # panel's environment store. A value set only in Dokploy and absent here
+      # never reaches the binary, and the app boots looking correctly configured
+      # while behaving as though the setting were unset.
+      #
+      # OIDC_ISSUER points at Registre, the suite provider, which serves one
+      # issuer at its root: https://sso.facile.studio. go-oidc compares the
+      # discovery document's issuer byte for byte, so no alias or trailing
+      # slash closes a mismatch. The redirect keeps the /api prefix because
+      # porte mounts under /api, and a bare path does not 404, it lands on the
+      # SPA catch-all and returns 200 with HTML, so the login simply never
+      # completes.
+      #
+      # SSO_ONLY=true removes the password routes rather than rejecting them.
+      # It requires an issuer, and env.Load refuses the pair without one.
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      SSO_ONLY: ${SSO_ONLY:-false}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
+      OIDC_SUCCESS_URL: ${OIDC_SUCCESS_URL:-}
+      # Mounts porte's device-exchange route so the CLI can trade a Registre
+      # device-grant token for a Sonde session. Empty leaves it unmounted.
+      OIDC_CLI_AUDIENCE: ${OIDC_CLI_AUDIENCE:-}
+      # Event publishing to Antenne. An empty ANTENNE_INSTANCE disables it
+      # entirely: nothing dials, and the checker runs exactly as it does now.
+      ANTENNE_INSTANCE: ${ANTENNE_INSTANCE:-}
+      ANTENNE_APP: ${ANTENNE_APP:-sonde}
+      ANTENNE_SECRET: ${ANTENNE_SECRET:-}
+      ANTENNE_INSTANCE_ID: ${ANTENNE_INSTANCE_ID:-}
+      # Raw check rows are pruned past this many days. Hourly and daily
+      # rollups outlive them; see docs/RETENTION.md.
+      SONDE_RAW_RETENTION_DAYS: ${SONDE_RAW_RETENTION_DAYS:-30}
     healthcheck:
       # The image is distroless: no shell, no wget, no curl. Re-executing the
       # binary is the only probe available. Provided by tronc's healthcheck

@@ -243,9 +243,11 @@ func TestAuthConfigWithoutAnIssuerReportsPasswordsOnly(t *testing.T) {
 
 // The OIDC half of the upsert: first sign-in becomes admin, a second sign-in
 // finds the same row by (provider, subject), and an address the provider does
-// not vouch for may never adopt an account that already exists — Authentik
-// hardcodes email_verified=false, so this refusal is what stands between a
-// callback and every pre-existing address.
+// not vouch for may never adopt an account that already exists. Registre
+// reports email_verified truthfully, so the refusal rarely fires against the
+// suite provider, but it is what stands between a callback and every
+// pre-existing address on a provider that stays quiet. Authentik hardcoded
+// email_verified=false, which is the history this rule was written against.
 func TestUpsertFromOIDCOwnsTheAccountRules(t *testing.T) {
 	url, ok := testdb.URL()
 	if !ok {
@@ -276,7 +278,7 @@ func TestUpsertFromOIDCOwnsTheAccountRules(t *testing.T) {
 	}
 
 	if err := db.Exec(`INSERT INTO porte_identities (user_id, provider, subject) VALUES (?, ?, ?)`,
-		userID, "https://porte.facile.studio/application/o/sonde/", "abc").Error; err != nil {
+		userID, "https://sso.facile.studio", "abc").Error; err != nil {
 		t.Fatalf("link the identity: %v", err)
 	}
 
@@ -294,7 +296,7 @@ func TestUpsertFromOIDCOwnsTheAccountRules(t *testing.T) {
 }
 
 // fakeIssuer serves the smallest discovery document oidc.New accepts, so the
-// boot path runs without reaching for the real Authentik.
+// boot path runs without reaching for the real provider.
 func fakeIssuer() string {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -310,7 +312,7 @@ func fakeIssuer() string {
 
 func claims(subject, email, name string, verified bool) porte.Claims {
 	return porte.Claims{
-		Provider:      "https://porte.facile.studio/application/o/sonde/",
+		Provider:      "https://sso.facile.studio",
 		Subject:       subject,
 		Email:         email,
 		Name:          name,
