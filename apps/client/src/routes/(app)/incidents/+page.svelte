@@ -76,7 +76,10 @@
 						</td>
 						<td>
 							{#if monitor}
-								<a href={`/monitors/${monitor.id}`} class="font-medium text-fc-fg hover:underline">
+								<a
+									href={`/monitors/${monitor.id}`}
+									class="font-medium text-fc-fg underline underline-offset-4 hover:text-fc-accent"
+								>
 									{monitor.name}
 								</a>
 							{:else}
