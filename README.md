@@ -1,46 +1,39 @@
 # Sonde
 
-The template every Facile Go service is forked from: a Go API and a SvelteKit client that
-deploy as one container behind one Traefik router on one hostname.
+Self-hosted uptime monitoring for the Facile Suite. Sonde probes your services, records every
+result, opens and resolves incidents, and publishes status pages. A Go API and a SvelteKit
+client deploy as one container behind one Traefik router on one hostname.
 
-Fork it, run `scripts/rename.sh`, delete the demo domain, and you have a working app with the
-suite's deployment shape, quality gate and chassis already wired. What is in here is not a
-suggestion — a fork that deviates from the routing shape breaks in production, which is why
-`docker-compose.yml` carries a header comment longer than the file.
+It is the suite-native answer to Uptime Kuma. Auth comes from porte, logs go to Journal,
+alerts go to Antenne, and the check history prunes itself instead of growing forever.
 
 ## What it does
 
-- Ships a Go API and a SvelteKit client as a single distroless image, no client container
-- Routes `/api/*` to the API and everything else to the SPA, from one Go router
-- Provides auth out of the box: argon2id passwords and DB-backed session tokens
-- Applies ordered SQL migrations on startup via `tronc/migrate` and serves generated module docs at `/docs`
-- Runs a repo-local dev Postgres through Docker, falling back to `PATH` binaries
-- Enforces a quality gate — gofmt, vet, test, svelte-check, filet — from a pre-push hook and from CI
-- Renames itself into a new project in one pass: module path, imports, docs, dev database
+- Monitors **HTTP** endpoints (status code and keyword), **TCP** ports, and **push**
+  heartbeats for things that run somewhere Sonde cannot reach
+- Opens an incident when a monitor goes down and resolves it when the monitor comes back
+- Reports uptime over 24 hours, 7 days, 30 days and 90 days, from hourly rollups
+- Serves public status pages at `/status/{slug}`, no login required
+- Exports monitors and status pages as JSON, secrets excluded
+- Rolls up raw checks into hourly and daily buckets and prunes what expires, on a daily job
+- Signs in with argon2id passwords or Registre SSO, through one session
+- Ships both apps as a single distroless image, no client container
 
 ## Stack
 
 | Layer | Tech |
 |---|---|
-| API | Go 1.25, Chi v5, GORM + PostgreSQL 16, [tronc](https://github.com/FacileStudio/tronc) 0.9.0 |
-| Client | SvelteKit 2 (`adapter-static`), Svelte 5 (runes forced on), Tailwind CSS 4, Vite 7 |
+| API | Go 1.25, Chi v5, GORM + PostgreSQL 16, [tronc](https://github.com/FacileStudio/tronc) 0.12.0 |
+| Auth | [porte](https://github.com/FacileStudio/porte) 0.3.1, argon2id and OIDC through one session manager |
+| Client | SvelteKit 2 (`adapter-static`), Svelte 5 (runes forced on), Tailwind CSS 4, Vite 7, [`@facile/muse`](https://github.com/FacileStudio/muse) |
 | Deploy | One multi-stage Dockerfile, Docker Compose, distroless `:nonroot` behind Traefik |
 | Runtime | mise (monorepo mode), bun 1.3.11 for the client |
 
-`tronc` supplies `env`, `errors`, `httpjson`, `logger`, `middleware`, `httpx`, `health`,
-`healthcheck` and `spa`. Do not reimplement any of them locally.
+`tronc` supplies `errors`, `httpjson`, `logger`, `middleware`, `httpx`, `health`,
+`healthcheck`, `spa`, `apiref`, `migrate` and `testdb`. Do not reimplement any of them
+locally.
 
 ## Quick start
-
-Forking is the first thing you do, before anything else:
-
-```sh
-git clone git@github.com:FacileStudio/Sonde.git MyProject
-cd MyProject
-scripts/rename.sh MyProject
-```
-
-Then get it running:
 
 ```sh
 mise trust && mise install
@@ -54,72 +47,59 @@ The API listens on `:4000`, the client dev server on `:5173`, and Vite proxies `
 API so local and production take the same relative path.
 
 ```sh
-mise run check          # the quality gate: gofmt, vet, test, svelte-check, filet
+mise run check          # the quality gate: gofmt, go vet, go test, svelte-check
 mise run build          # build both apps
-docker build -t myproject .
+docker build -t sonde .
 ```
 
-## The style gate
+`scripts/check.sh` is the gate, and the tracked `pre-push` hook runs it. It depends on nothing
+but a `go` on `PATH` and `bun` for the client, and it is deliberately not invoked through
+mise: `mise run` resolves every tool in the merged config before running any task body, so an
+unrelated broken tool in a global config would take the gate down with it.
 
-[filet](https://github.com/FacileStudio/filet) checks style, complexity and layout against
-`filet.yml` at the repository root. Its limits are the published defaults of the tools they
-come from — funlen, SonarSource cognitive complexity, ESLint max-lines and max-depth, lll —
-rather than numbers picked to make a count go away, and every exception in that file names
-its reason.
-
-```sh
-GOBIN=$HOME/go/bin go install github.com/FacileStudio/filet@v0.3.0   # once
-filet check .    # the rules
-filet roast .    # the same rules, with commentary
-filet docker .   # the Dockerfile
-```
-
-Install it with an explicit `GOBIN`: mise exports a per-Go-version `GOBIN`, so a plain
-`go install` drops the binary somewhere that leaves `PATH` when this repo's Go version does.
-`scripts/check.sh` runs filet when it finds one and skips it with a note when it does not, so
-the gate still works on a machine that has only `go` and `bun`. **CI is the authority** —
-`.github/workflows/filet.yml` pins the version.
-
-What the gate actually fails on is `error`, which here means the `architecture` block in
-`filet.yml`: a module under `apps/api/modules/` that owns HTTP routes and has no `router.go`,
-or a missing top-level directory. Style and complexity findings are warnings — they are worth
-reading, they do not stop a merge. Raising `fail-on` to `warn` is a per-fork decision, and one
-worth taking only after the warnings are at zero.
-
-### Reporting to Antenne
-
-The workflow posts every run to Antenne, which
-delivers a failure on the default branch and stays quiet otherwise — a green run says nothing,
-and a failure on a pull request branch is already an annotation on the author's own diff. Set
-the `ANTENNE_FILET_SECRET` repository secret; without it the workflow withholds the URL, so a
-pull request from a fork does not fail on a secret it cannot have. A delivery that fails is a
-warning annotation, never a red build: the alerting service being down says nothing about
-this code.
+The Go half also fails on a non-Postgres GORM driver in `go.mod`. Postgres is the only
+database here, tests included. A test on SQLite builds a different schema from the struct tags
+and then passes, proving nothing about the DDL that ships. `tronc/testdb` gives a test a real
+Postgres; set `TEST_DATABASE_URL` to enable those tests, and they skip cleanly without it.
 
 ## Configuration
 
-The API is configured entirely through the environment. Defaults for local development live
-in the `apps/api` dev task; copy `apps/api/.env.example` to `apps/api/.env` for overrides.
+The API is configured entirely through the environment. Local defaults live in the `apps/api`
+dev task; copy `apps/api/.env.example` to `apps/api/.env` for overrides.
 
 | Variable | What it does |
 |---|---|
 | `DATABASE_URL` | Postgres connection string. The only required variable |
 | `PORT` | API listen port, default `4000` |
 | `LOG_LEVEL` | `debug`, `info`, `warn` or `error` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated origins. Dead weight in production — the client is same-origin |
+| `SONDE_RAW_RETENTION_DAYS` | Days of raw checks kept, default 30 |
+| `OIDC_ISSUER` and friends | Registre SSO. `https://sso.facile.studio` |
+| `ANTENNE_INSTANCE` and friends | Event publishing. Empty disables it |
 | `CLIENT_DIR` | Where the built SPA lives. Set by the image layout, not by hand |
 
 Full reference: [docs/configuration.md](docs/configuration.md).
+
+## Retention
+
+| Table | Kept for |
+|---|---|
+| `checks_raw` | 30 days, tunable through `SONDE_RAW_RETENTION_DAYS` |
+| `checks_hourly` | 13 months |
+| `checks_daily` | Forever |
+
+A job inside the API process rolls the buckets up and prunes what expired, every 24 hours.
+The rollups hold a monitor id, a timestamp and three counters, and nothing else, which is what
+makes keeping them indefinitely storage-limitation clean.
+[docs/RETENTION.md](docs/RETENTION.md) has the reasoning.
 
 ## Structure
 
 ```
 apps/
-  api/       Go API — modules/ (auth, users, and the demo domain), schemas/ (GORM), internal/
+  api/       Go API. internal/ (the domain), modules/ (auth, users), migrations/, schemas/
   client/    SvelteKit frontend, adapter-static, built into apps/client/build
 scripts/     rename.sh, check.sh, postgres-up.sh, postgres-down.sh, verify-deploy.sh
-filet.yml    The style, complexity and architecture rules the gate enforces
-docs/        Architecture, configuration, development, deployment, API
+docs/        Architecture, auth, retention, configuration, development, deployment, API
 Dockerfile   The only Dockerfile: builds both apps into one image
 ```
 
@@ -130,13 +110,15 @@ changing anything about routing.
 
 | Doc | What's in it |
 |---|---|
-| [Architecture](docs/architecture.md) | Request flow, the module pattern, data model, auth |
+| [Architecture](docs/architecture.md) | Request flow, where the code lives, data model, auth |
+| [Authentication](docs/AUTH.md) | porte, Registre SSO, CSRF, the failure-redirect contract |
+| [Retention](docs/RETENTION.md) | The three data tiers, the prune job, the RGPD reasoning |
 | [Configuration](docs/configuration.md) | Every environment variable and default |
-| [Development](docs/development.md) | Forking, the rename script, the dev database, the quality gate |
+| [Development](docs/development.md) | The dev database, the quality gate, the rename script |
 | [Deployment](docs/deployment.md) | The one-container shape, Traefik routing, verifying a deploy |
 | [API](docs/api.md) | HTTP endpoints and payloads |
 
 ---
 
-Part of the [Facile Suite](https://facile.studio) — self-hosted tools for creative studios
+Part of the [Facile Suite](https://facile.studio), self-hosted tools for creative studios
 and freelancers. One login, zero cloud dependency.

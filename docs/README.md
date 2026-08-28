@@ -2,15 +2,17 @@
 
 | Page | What's in it |
 |---|---|
-| [Architecture](architecture.md) | Request flow, the module pattern, data model, auth |
+| [Architecture](architecture.md) | Request flow, where the code lives, data model, auth |
+| [Authentication](AUTH.md) | porte, Registre SSO, CSRF, the failure-redirect contract |
+| [Retention](RETENTION.md) | The three data tiers, the prune job, the RGPD reasoning |
 | [Configuration](configuration.md) | Every environment variable and default |
-| [Development](development.md) | Forking, the rename script, the dev database, the quality gate |
+| [Development](development.md) | The dev database, the quality gate, the rename script |
 | [Deployment](deployment.md) | The one-container shape, Traefik routing, verifying a deploy |
 | [API](api.md) | HTTP endpoints and payloads |
+| [Plan](PLAN.md) | The v1 build plan and what is still open |
 
-These pages describe the template. `scripts/rename.sh` rewrites them along with the root
-`README.md`, `CLAUDE.md`, the app READMEs and `docker-compose.yml`, so a fresh fork's docs
-carry its own name and dev-database port. Prose that describes template behaviour rather than
-the fork's still needs a read-through by hand.
+Sonde was forked from `GoSvelteBoilerplate`, so a few pages still describe template mechanics
+alongside Sonde's own. `scripts/rename.sh` rewrites the docs, the root `README.md`,
+`CLAUDE.md`, the app READMEs and `docker-compose.yml` in one pass.
 
 Back to the [README](../README.md).

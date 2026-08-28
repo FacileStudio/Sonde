@@ -96,9 +96,11 @@ which this plan extends with a `monitor` object type and the `sonde` app name.
     traps are documented there even though greenfield means no legacy rows. Floor: current
     porte ≥ v0.2.10 semantics. [auth/porte]
 12. `.env.example` + `docs/` — document `SSO_ONLY=true`, `OIDC_ISSUER`,
-    `OIDC_CLIENT_SECRET`, `TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM` unset (Authentik hardcodes
-    `email_verified:false` — do NOT opt in blindly; see bug page). Login page renders the
+    `OIDC_CLIENT_SECRET`, `TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM` unset. Login page renders the
     `?error=` redirect parameter outside any SSO_ONLY gate. [auth/porte]
+    **Superseded on the provider**: this step assumed Authentik, which hardcoded
+    `email_verified:false`. The provider is now Registre at `https://sso.facile.studio`,
+    which reports the claim truthfully. Keep the flag unset anyway. See `docs/AUTH.md`.
 13. Delete `apps/api/internal/authcrypto/`, `ticketcode/` if unused after the swap — deletion
     over addition.
 
@@ -166,8 +168,9 @@ which this plan extends with a `monitor` object type and the `sonde` app name.
   if ownership transfers, historical attribution shifts. Acceptable; noted.
 - **Checker load** — interval floor (e.g. 20s minimum) and a global cap on concurrent probes
   prevent a user with 500 monitors from DDoSing the VPS hosting Sonde.
-- **Authentik registration** — Sonde needs an app slug at `porte.facile.studio/application/o/
-  sonde/` before OIDC works anywhere real. Infra step, easy to forget.
+- ~~**Authentik registration**~~ **Registre registration** — Authentik is gone and
+  `porte.facile.studio` 404s. Sonde registers as client_id `sonde` against Registre, which
+  serves one issuer at the root: `https://sso.facile.studio`. Infra step, easy to forget.
 - **Rollup correctness under clock skew / missed tickers** — aggregate from raw on read for
   the recent window if needed; don't let a gap look like 100% uptime.
 

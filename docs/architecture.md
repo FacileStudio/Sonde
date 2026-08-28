@@ -30,15 +30,18 @@ URL.
    `PORT`, empty CORS list or unknown `LOG_LEVEL` is a startup failure.
 3. Build the logger, wrapping it with the Journal SDK handler when both `JOURNAL_URL` and
    `JOURNAL_TOKEN` are set.
-4. Open the database, run `schemas.Migrate`, and keep the `*sql.DB` handle for the readiness
-   probe.
-5. Construct one service per module and assemble the `/docs` payload from each module's
-   `Documentation` value.
-6. `httpx.NewRouter` — the suite middleware stack, with CORS configured from the environment.
-7. `health.Mount(router, health.DB(sqlDB))` — `/health` and `/ready` at both the root and
-   under `/api`.
-8. `router.Get("/docs", …)` at the root.
-9. `router.Route("/api", …)` — every module registers inside this subtree.
+4. Open the database, then `migrate.Command` — if the process was invoked as
+   `/api migrate <subcommand>`, run it and exit. Otherwise `migrate.Run` applies the embedded
+   goose migrations. The `*sql.DB` handle stays for the readiness probe and porte's stores.
+5. Start the two background goroutines: `checker.Engine.Run` probes monitors on their
+   schedules, `retention.Job.Loop` rolls up and prunes every 24 hours. Both take a context
+   cancelled at shutdown.
+6. `buildRouter` — porte's session manager, then the OIDC and password kits, then one service
+   per package, then the route table.
+7. `httpx.NewRouter` — the suite middleware stack, with CORS configured from the environment.
+8. `health.Mount(router, health.DB(sqlDB))` — `/health` and `/ready` at both the root and
+   under `/api`. `apiref.Mount` puts the API reference at `/docs`.
+9. `router.Route("/api", …)` — porte and every domain package register inside this subtree.
 10. The SPA catch-all, mounted **last**, and only when `spa.Available(clientDir)` finds a
     built client. Without one, `go run .` still works as a bare API.
 11. `http.Server` with explicit timeouts, plus a `SIGINT`/`SIGTERM` graceful shutdown with a
@@ -51,71 +54,100 @@ Two ordering rules follow from this and are not negotiable:
 - **Only non-API routes live at the root.** `/health`, `/ready` and `/docs` keep their URLs
   because explicit chi routes beat the catch-all. Everything else goes under `/api`.
 
-## The module pattern
+## Where the code lives
 
-Every feature module in `apps/api/modules/<name>/` has exactly five files:
+`apps/api/modules/` holds the two account modules, `auth` and `users`, in the suite's file
+shape: `types.go`, `service.go`, `controller.go` or `handler.go`, `router.go`,
+`documentation.go`. A module that owns HTTP routes has a `router.go` and nothing else does the
+HTTP wiring.
 
-| File | Holds |
+`apps/api/internal/` holds Sonde's own domain, one package per concern:
+
+| Package | Owns |
 |---|---|
-| `types.go` | Request and response structs, with their JSON tags |
-| `service.go` | `NewService(db)` and the data access — the only place that touches GORM |
-| `controller.go` | Business logic, returning typed responses and `tronc/errors` values |
-| `router.go` | `RegisterRoutes(router chi.Router, …)` — HTTP wiring and nothing else |
-| `documentation.go` | A `documentation.Module` value, collected into `/docs` |
+| `checker` | The probe engine, the HTTP/TCP probes, push heartbeats, and the recorder that writes a check |
+| `monitors` | The monitor store and validation |
+| `uptime` | Uptime percentages over 24h, 7d, 30d and 90d, read from `checks_hourly` |
+| `retention` | The daily rollup and prune job |
+| `httpapi` | Monitor CRUD, incidents, config export, status pages, and the public status feed |
+| `database` | The GORM connection |
+| `env` | Config load and validation |
+| `middleware` | `RequireAuth`, which resolves a porte session into an identity |
+| `authcontext` | The request-scoped identity |
+| `documentation` | The type the API reference registry is assembled from |
 
-`RegisterRoutes` is called from `main.go` inside `router.Route("/api", …)`, so a module
+`RegisterRoutes` is called from `buildRouter` inside `router.Route("/api", …)`, so a package
 declares paths relative to `/api` and never repeats the prefix. Routes that need
-authentication wrap with `router.With(middleware.RequireAuth(authService))`.
+authentication wrap with `router.With(requireAuth)`, built once in `buildRouter` from
+`middleware.RequireAuth(sessions, authService)`.
 
-Follow this shape when adding a module. It is what makes the modules readable next to each
-other across thirteen forks.
+`apps/api/apiref_test.go` walks the live router and fails if a mounted route is missing from
+the registry, so the reference at `/docs` cannot silently drift from the code.
 
 ## Data model
 
-GORM models live in `apps/api/schemas/` and are auto-migrated on every startup by
-`schemas.Migrate`.
+The schema is hand-written SQL in `apps/api/migrations/`, applied in order by `tronc/migrate`.
+`00001_sonde.sql` owns the domain, `00002_porte.sql` owns the identity tables porte reads.
+The GORM structs in `apps/api/schemas/` mirror those tables for querying; `AutoMigrate` never
+runs, so the SQL is the only definition of the schema.
 
 ```
-users                        sessions
-  id           bigint PK       token       text PK
-  email        text UNIQUE     user_id     bigint INDEX
-  password_hash text           expires_at  timestamptz
-  created_at   timestamptz     created_at  timestamptz
+users                     monitors
+  id            bigint PK   id               bigint PK
+  email         text UQ     owner_id         bigint INDEX
+  name          text        slug             text UQ
+  is_admin      bool        name, target     text
+  password_hash text        type             text CHECK (http|tcp|push)
+  created_at    tstz        interval_seconds int
+                            timeout_seconds  int
+                            expected_status  int
+                            expected_keyword text
+                            enabled          bool
+                            push_token       text UQ NULL
 
-events                       tickets
-  id         bigint PK         id         bigint PK
-  name       text              event_id   bigint INDEX
-  starts_at  timestamptz       code_hash  text UNIQUE
-  ends_at    timestamptz NULL  status     text  CHECK (valid|used|revoked)
-  owner_id   text INDEX        used_at    timestamptz NULL
-  created_at timestamptz       created_at timestamptz
+checks_raw                checks_hourly / checks_daily
+  id             bigint PK   monitor_id     bigint  ┐ PK
+  monitor_id     bigint FK   bucket_start   tstz    ┘
+  ok             bool        total          bigint
+  latency_ms     bigint      failed         bigint
+  error          text        avg_latency_ms bigint
+  tls_expires_at tstz NULL
+  created_at     tstz
+
+incidents                 status_pages / status_page_monitors
+  id          bigint PK     id         bigint PK
+  monitor_id  bigint FK     slug       text UQ
+  opened_at   tstz          title      text
+  resolved_at tstz NULL     page_id + monitor_id UQ, position int
+  cause       text
 ```
 
-`users` and `sessions` are the template. `events` and `tickets` are the **demo domain** —
-delete them in a fork, along with `modules/events`, `modules/tickets`,
-`internal/ticketcode`, `cmd/seed`, and their registrations in `main.go`.
+Every table that hangs off a monitor declares `REFERENCES monitors (id) ON DELETE CASCADE`,
+so deleting a monitor removes its checks, rollups, incidents and status-page memberships in
+one statement.
 
-`Migrate` also adds the `tickets_status_check` constraint through raw SQL wrapped in a
-`DO $$ … EXCEPTION WHEN duplicate_object THEN NULL` block, because `AutoMigrate` does not
-express check constraints and re-running startup must stay idempotent.
+`checks_raw` is the only table with an expiry the operator sets. The three tiers and the
+storage-limitation reasoning are in [RETENTION.md](RETENTION.md).
 
 ## Authentication
 
-**Not JWT.** `authcrypto.NewToken()` mints 32 random bytes, base64url-encoded. The token is
-stored verbatim in the `sessions` table with a 30-day expiry and presented as
-`Authorization: Bearer <token>`. There is no signing key and nothing to decode — revocation is
-a row delete. Passwords are hashed with argon2id in `internal/authcrypto`.
+Sonde authenticates through [porte](https://github.com/FacileStudio/porte). One
+`porte/session` manager owns one sessions table, and both kits issue through it: a password
+login via `porte/local` (argon2id) and a federated one via `porte/oidc` (PKCE) produce the
+same row, the same `session` cookie and the same logout.
 
-`middleware.RequireAuth` calls the auth service's `Authenticate`, then puts an
-`authcontext.Identity{UserID, Email}` on the request context. Handlers read the identity from
-the context rather than re-parsing the header.
+`middleware.RequireAuth` resolves the session, then puts an
+`authcontext.Identity{UserID, Email, IsAdmin}` on the request context. Handlers read the
+identity from the context rather than re-parsing the header. `httpapi`'s `adminGate` wraps
+that middleware to gate the status-page and export routes on `IsAdmin`.
 
-The interface is deliberately narrow — `Authenticator` is one method, and the identity payload
-is reached through an `interface{ GetEmail() string }` assertion — so a module depends on the
-capability, not on the auth package's concrete types.
+Cookie-authenticated mutating requests need the `X-Facile-CSRF` header; bearer requests are
+exempt. Verify client changes with the transport the browser uses, because a bearer-token test
+passes while every browser write 403s.
 
-This is the template's own auth. Apps that federate to Authentik at `porte.facile.studio` add
-an OIDC adapter alongside it; see the suite `CLAUDE.md`.
+The suite identity provider is **Registre** at `https://sso.facile.studio`, one issuer at the
+root. Authentik and `porte.facile.studio` are gone. `porte` the Go library is not: it is what
+this section describes. See [AUTH.md](AUTH.md).
 
 ## The client
 
@@ -128,9 +160,10 @@ never a build-time `VITE_API_BASE_URL`. That constant is what forced the old two
 split, and removing it is what made the one-container shape possible. In development, Vite
 proxies `/api` to `http://127.0.0.1:4000`, so local and production take the same path.
 
-UI components are hand-rolled Svelte 5 in `src/lib/components/ui/` (button, card, input,
-label), composed with `class-variance-authority`, `clsx` and `tailwind-merge`. There is no
-test runner configured for the client.
+UI comes from [`@facile/muse`](https://github.com/FacileStudio/muse), the suite design system,
+pinned in `apps/client/package.json` as a GitHub tag. Reach for a muse component before
+writing one; local components in `src/lib/components/` exist for what muse does not cover.
+There is no test runner configured for the client.
 
 ## Chassis
 
@@ -147,7 +180,11 @@ Everything cross-cutting comes from `tronc`, not from `internal/`:
 | `healthcheck` | The re-exec probe for distroless images |
 | `spa` | The static client handler and `CLIENT_DIR` resolution |
 
-`internal/env` is the one deliberate exception: it is local rather than `troncenv`, and this
-template pins `tronc` at 0.6.0.
+`migrate` and `apiref` come from `tronc` too: the first applies the embedded goose migrations,
+the second serves the OpenAPI document and its Scalar UI at `/docs`. `apps/api/go.mod` pins
+`tronc` at v0.12.0, `tronc/migrate` at v0.1.0 and `porte` at v0.3.1.
+
+`internal/env` is the one deliberate exception to using the chassis: it is local rather than
+`troncenv`.
 
 Back to the [documentation index](README.md).

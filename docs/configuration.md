@@ -17,6 +17,7 @@ error it returns stops the process before the database is opened.
 | `CLIENT_DIR` | no | `./client` | Where the built SPA lives, read by `tronc/spa` |
 | `JOURNAL_URL` | no | — | Journal ingest URL. Shipping needs both this and the token |
 | `JOURNAL_TOKEN` | no | — | Per-app Journal key |
+| `SONDE_RAW_RETENTION_DAYS` | no | `30` | Days of raw checks kept before the pruner deletes them |
 
 The `CORS_ALLOWED_ORIGINS` default is `http://localhost:3000`, `http://127.0.0.1:3000`,
 `http://localhost:5173`, `http://127.0.0.1:5173`. An explicitly empty list is rejected —
@@ -27,9 +28,58 @@ is served from the same origin as the API, so no browser request is ever cross-o
 hand. Setting it wrong is a silent failure: the API answers, the healthcheck stays green, and
 only a browser sees that the SPA is missing.
 
-`docker-compose.yml` also passes `APP_ENV`, which this template's `internal/env` does not
-read. It is there because the suite standardized on it through `troncenv.Core`; a fork that
-adopts `troncenv` picks it up for free.
+`docker-compose.yml` also passes `APP_ENV`, which `internal/env` does not read. It is there
+because the suite standardized on it through `troncenv.Core`; adopting `troncenv` picks it up
+for free.
+
+`SONDE_RAW_RETENTION_DAYS` fails soft, unlike everything above it. `intOrDefault` returns 30
+for a value that is not an integer or is below 1, so a typo boots on the default instead of
+stopping the process. [docs/RETENTION.md](RETENTION.md) covers the three tiers and what each
+one keeps.
+
+## Authentication
+
+Sonde authenticates through porte. `OIDC_ISSUER` is the switch: set it and single sign-on
+turns on, which makes the rest of the OIDC set required. `env.Load` refuses a half-filled set
+at startup rather than failing on somebody's first login attempt.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `ALLOW_REGISTRATION` | no | `true` | Whether `POST /api/auth/register` accepts new accounts. The first account ever created is admin regardless |
+| `SSO_ONLY` | no | `false` | Unregisters the password routes entirely. Refuses to boot without an issuer |
+| `OIDC_ISSUER` | no | — | `https://sso.facile.studio`. Empty disables SSO |
+| `OIDC_CLIENT_ID` | with issuer | — | `sonde` |
+| `OIDC_CLIENT_SECRET` | with issuer | — | Set on the Dokploy service, never committed |
+| `OIDC_REDIRECT_URL` | with issuer | — | `https://sonde.facile.studio/api/auth/oidc/callback` |
+| `OIDC_SUCCESS_URL` | with issuer | — | Where a completed login lands. Its origin also supplies the default failure URL |
+| `OIDC_CLI_AUDIENCE` | no | empty | Mounts porte's device-exchange route so the companion CLI can sign in. Production value is `facile-cli`. Empty leaves the route unmounted |
+
+**The identity provider is Registre at `https://sso.facile.studio`, and it serves one issuer
+at the root.** Authentik is gone, `porte.facile.studio` 404s, and the old per-app issuer path
+`https://porte.facile.studio/application/o/sonde/` resolves to nothing. go-oidc compares the
+discovery document's `issuer` byte for byte, so there is no alias or trailing-slash variant
+that papers over a stale value.
+
+**`OIDC_REDIRECT_URL` must keep the `/api` prefix.** porte mounts under `/api`, and a bare
+path does not 404: it lands on the SvelteKit catch-all and returns 200 with HTML, so the
+login silently never completes.
+
+`TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM` is not offered. Registre reports `email_verified`
+truthfully, so the flag would buy nothing. [docs/AUTH.md](AUTH.md) has the flow and the
+failure-redirect contract.
+
+## Event publishing
+
+Sonde publishes events to Antenne. Publishing is off unless `ANTENNE_INSTANCE` is set, and
+unset is the current production default: nothing dials, and the checker runs exactly as it
+does without it.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `ANTENNE_INSTANCE` | no | — | The Antenne instance to publish to. Unset disables publishing entirely |
+| `ANTENNE_APP` | no | `sonde` | The app name events are attributed to |
+| `ANTENNE_SECRET` | with instance | — | Shared secret presented when registering |
+| `ANTENNE_INSTANCE_ID` | no | — | Optional. Distinguishes two deployments of the same app |
 
 ## Local defaults
 
@@ -93,8 +143,15 @@ put a database back in `[tools]`.
 | `LOG_LEVEL` | `info` | |
 | `CORS_ALLOWED_ORIGINS` | empty | Same-origin in production, so it only matters for a cross-origin dev client |
 | `JOURNAL_URL` / `JOURNAL_TOKEN` | empty | Optional log shipping |
+| `ALLOW_REGISTRATION` | `true` | |
+| `SSO_ONLY` | `false` | |
+| `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URL` / `OIDC_SUCCESS_URL` | empty | All or nothing; see Authentication above |
+| `OIDC_CLI_AUDIENCE` | empty | `facile-cli` in production |
+| `ANTENNE_INSTANCE` / `ANTENNE_SECRET` / `ANTENNE_INSTANCE_ID` | empty | Empty instance disables publishing |
+| `ANTENNE_APP` | `sonde` | |
+| `SONDE_RAW_RETENTION_DAYS` | `30` | |
 
 `DATABASE_URL` and `PORT` are composed in the compose file itself and are not meant to be
-overridden from outside.
+overridden from outside. Every secret above is set on the Dokploy service, not committed.
 
 Back to the [documentation index](README.md).

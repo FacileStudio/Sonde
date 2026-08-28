@@ -7,7 +7,7 @@ Forking the template, running it locally, and the quality gate every fork inheri
 | Tool | Version | Why |
 |---|---|---|
 | mise | any | Task runner and toolchain pins. Activate it in your shell |
-| Go | 1.24 | Pinned in `mise.toml`; `apps/api/go.mod` declares `go 1.24.0` |
+| Go | 1.25 | Pinned in `mise.toml`; `apps/api/go.mod` declares `go 1.25.7` |
 | bun | 1.3.11 | Pinned in `mise.toml`. The client's only package manager |
 | Docker | any | Preferred dev database provider. Optional — see the fallback below |
 

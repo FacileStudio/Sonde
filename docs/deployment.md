@@ -99,15 +99,35 @@ docker compose logs -f api
 
 ## Migrations
 
-GORM auto-migration runs on every startup, from `schemas.Migrate`. There is no separate
-migration step and no migration tool: deploying the new binary migrates the database. Add a
-model to `schemas/` and register it in `Migrate()`.
+`tronc/migrate` applies ordered goose migrations on every startup, from
+`apps/api/migrations/*.sql` embedded into the binary. There is no separate migration step:
+deploying the new binary migrates the database. Add a numbered file, write both `-- +goose Up`
+and `-- +goose Down`, and keep the GORM structs in `apps/api/schemas/` in sync by hand.
 
-That has a consequence worth planning around: a destructive schema change is not expressible
-this way. `AutoMigrate` adds columns and indexes; it does not drop or rewrite them. Anything
-beyond additive goes in as raw SQL in `Migrate`, written to be idempotent — the
-`tickets_status_check` constraint is the worked example, wrapped in
-`DO $$ … EXCEPTION WHEN duplicate_object THEN NULL`.
+The SQL is the schema. GORM is only a query builder here, `AutoMigrate` never runs, and what
+executes in production is exactly what the tests ran. `main.go` also forwards `migrate`
+subcommands, so `docker run <image> migrate status` answers without starting a server.
+
+## Single sign-on
+
+The identity provider is **Registre** at `https://sso.facile.studio`. Authentik is gone and
+`porte.facile.studio` 404s, so any deployment still carrying the old per-app issuer will fail
+every SSO login. Set on the Dokploy service:
+
+```
+OIDC_ISSUER=https://sso.facile.studio
+OIDC_CLIENT_ID=sonde
+OIDC_CLIENT_SECRET=<from Registre>
+OIDC_REDIRECT_URL=https://sonde.facile.studio/api/auth/oidc/callback
+OIDC_SUCCESS_URL=https://sonde.facile.studio/dashboard
+```
+
+The redirect URI registered in Registre must match that string exactly, `/api` prefix
+included. A redirect that omits the prefix does not 404, it hits the SPA catch-all and returns
+200 with HTML, so the login just never completes and nothing logs a failure.
+
+Registre also holds the back-channel logout URL,
+`https://sonde.facile.studio/api/auth/backchannel-logout`.
 
 ## Verifying a deploy
 
