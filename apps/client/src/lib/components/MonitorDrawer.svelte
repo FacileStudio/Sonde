@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Alert, Button, Drawer, Field, Input, Select, Spinner, icons } from '@facile/muse';
+	import { Alert, Button, Drawer, Field, Input, Select, Spinner, icons, toast } from '@facile/muse';
 	import { backend, type Monitor, type MonitorInput } from '$lib/backend';
 
 	let {
@@ -71,6 +71,8 @@
 			onCreated(monitor);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Could not create the monitor.';
+			/* The Alert lives inside the sheet. A toast survives it being closed. */
+			toast.danger(error);
 		} finally {
 			submitting = false;
 		}
@@ -82,6 +84,7 @@
 	title="New monitor"
 	description="Checks start on the next tick, every 60 seconds. Tune the rest on the monitor itself."
 	showClose
+	dismissible={!submitting}
 >
 	<form id="new-monitor" class="flex flex-col gap-4" onsubmit={create}>
 		<Field label="Name" helper="How it appears in your monitor list.">

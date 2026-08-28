@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { Alert, Button, Drawer, Field, Icon, Input, Spinner, icons } from '@facile/muse';
+	import {
+		Alert,
+		Button,
+		Drawer,
+		Field,
+		Icon,
+		IconButton,
+		Input,
+		Spinner,
+		icons,
+		toast
+	} from '@facile/muse';
 	import { backend, type Monitor, type StatusPage } from '$lib/backend';
 
 	let {
@@ -79,6 +90,8 @@
 			onSaved(saved);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Could not save the status page.';
+			/* The Alert lives inside the sheet. A toast survives it being closed. */
+			toast.danger(error);
 		} finally {
 			submitting = false;
 		}
@@ -90,6 +103,7 @@
 	title={editing ? 'Edit status page' : 'New status page'}
 	description="Anyone with the link sees these monitors and their uptime, in this order."
 	showClose
+	dismissible={!submitting}
 >
 	<form id="status-page-form" class="flex flex-col gap-4" onsubmit={save}>
 		<Field label="Title" helper="Shown as the heading of the public page.">
@@ -114,32 +128,34 @@
 			{#if picked.length > 0}
 				<ul class="flex flex-col gap-1">
 					{#each picked as id, index (id)}
-						<li class="flex min-w-0 items-center gap-1 rounded-fc-sm bg-fc-surface px-2 py-1.5">
+						<!-- IconButton, not a size="sm" Button: a drawer is touch-primary and the
+						     CHARTE §7 floor for an icon-only control is 44px. -->
+						<li class="flex min-w-0 items-center gap-1 rounded-fc-sm bg-fc-surface px-2 py-1">
 							<span class="min-w-0 flex-1 truncate text-fc-sm text-fc-fg">{nameOf(id)}</span>
-							<Button
+							<IconButton
 								variant="ghost"
-								size="sm"
-								icon={icons.chevronUp}
-								aria-label="Move up"
+								aria-label={`Move ${nameOf(id)} up`}
 								disabled={index === 0 || submitting}
 								onclick={() => move(id, -1)}
-							/>
-							<Button
+							>
+								<Icon icon={icons.chevronUp} size={18} />
+							</IconButton>
+							<IconButton
 								variant="ghost"
-								size="sm"
-								icon={icons.chevronDown}
-								aria-label="Move down"
+								aria-label={`Move ${nameOf(id)} down`}
 								disabled={index === picked.length - 1 || submitting}
 								onclick={() => move(id, 1)}
-							/>
-							<Button
-								variant="ghost-danger"
-								size="sm"
-								icon={icons.close}
-								aria-label="Remove from page"
+							>
+								<Icon icon={icons.chevronDown} size={18} />
+							</IconButton>
+							<IconButton
+								variant="danger"
+								aria-label={`Remove ${nameOf(id)} from this page`}
 								disabled={submitting}
 								onclick={() => toggle(id)}
-							/>
+							>
+								<Icon icon={icons.close} size={18} />
+							</IconButton>
 						</li>
 					{/each}
 				</ul>
@@ -150,7 +166,7 @@
 					{#each available as monitor (monitor.id)}
 						<Button
 							variant="outline"
-							size="sm"
+							size="lg"
 							icon={icons.plus}
 							disabled={submitting}
 							onclick={() => toggle(monitor.id)}
