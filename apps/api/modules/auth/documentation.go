@@ -73,6 +73,19 @@ var Documentation = documentation.Module{
 			Errors:       []documentation.Error{},
 		},
 		{
+			Method:       "POST",
+			Path:         "/auth/oidc/device/exchange",
+			Summary:      "Trade a CLI device token for a Sonde session",
+			Description:  "Verifies an access token the provider's device grant issued to the CLI and mints a Sonde session for the matching identity. Mounted only when OIDC_CLI_AUDIENCE is set; absent otherwise, which the CLI reads as a 404 and falls back to the loopback flow. No account is ever created here.",
+			Auth:         "public",
+			RequestBody:  "DeviceExchangeRequest",
+			ResponseBody: "ExchangeResponse",
+			Errors: []documentation.Error{
+				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or a missing access_token."},
+				{Status: 401, Code: "unauthenticated", Description: "The token failed verification, or its subject holds no account here."},
+			},
+		},
+		{
 			Method:       "GET",
 			Path:         "/auth/me",
 			Summary:      "Return the signed-in user",

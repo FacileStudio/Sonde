@@ -49,6 +49,7 @@ func Load() (Config, error) {
 		ClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
 		RedirectURL:  os.Getenv("OIDC_REDIRECT_URL"),
 		SuccessURL:   os.Getenv("OIDC_SUCCESS_URL"),
+		CLIAudience:  os.Getenv("OIDC_CLI_AUDIENCE"),
 	}
 	var ssoOnly bool
 	if ssoOnly, err = boolOrDefault("SSO_ONLY", false); err != nil {
