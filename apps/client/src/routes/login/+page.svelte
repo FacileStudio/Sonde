@@ -13,15 +13,33 @@
 	let configLoaded = $state(false);
 	let busy = $state(false);
 	let error = $state('');
+	let next = $state('/monitors');
+
+	/*
+	 * `next` arrives in the address bar, so it is attacker-controlled: anything but a
+	 * same-origin absolute path is an open redirect. `//evil.com` and `/\evil.com` are
+	 * protocol-relative URLs the browser resolves against another host, and a leading `/`
+	 * already rules out `https:` and `javascript:`. Bouncing back to /login would loop.
+	 */
+	function safeNext(raw: string | null): string {
+		if (!raw || !raw.startsWith('/')) return '/monitors';
+		if (raw.startsWith('//') || raw.startsWith('/\\')) return '/monitors';
+		if (raw === '/login' || raw.startsWith('/login/') || raw.startsWith('/login?')) {
+			return '/monitors';
+		}
+		return raw;
+	}
 
 	onMount(async () => {
-		const refused = new URLSearchParams(location.search).get('error');
+		const params = new URLSearchParams(location.search);
+		const refused = params.get('error');
 		if (refused) error = refused;
-		if (new URLSearchParams(location.search).get('tab') === 'register') mode = 'register';
+		if (params.get('tab') === 'register') mode = 'register';
+		next = safeNext(params.get('next'));
 
 		try {
 			await backend.me();
-			goto('/monitors');
+			goto(next);
 			return;
 		} catch {
 			try {
@@ -60,7 +78,7 @@
 					| undefined;
 				throw new Error(payload?.error?.message ?? 'Authentication failed.');
 			}
-			goto('/monitors');
+			goto(next);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Authentication failed.';
 			busy = false;

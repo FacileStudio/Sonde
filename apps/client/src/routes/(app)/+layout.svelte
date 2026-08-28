@@ -51,9 +51,11 @@
 		} catch (err) {
 			/* Only a refused credential logs someone out. A 500 or a dropped connection means
 			   the server is having a bad day, and bouncing to /login loses whatever they were
-			   doing without fixing anything. */
+			   doing without fixing anything. apiFetch already sent a 401 to /login with the
+			   current path attached, so this only has to stop rendering. */
 			const status = (err as { status?: number }).status;
-			if (status === 401 || status === 403) {
+			if (status === 401) return;
+			if (status === 403) {
 				goto(`/login?next=${encodeURIComponent(page.url.pathname)}`);
 				return;
 			}

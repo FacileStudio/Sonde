@@ -1,3 +1,6 @@
+import { browser } from '$app/environment';
+import { goto } from '$app/navigation';
+
 const backendBaseUrl = '/api';
 
 export const ssoLoginUrl = `${backendBaseUrl}/auth/oidc`;
@@ -122,6 +125,22 @@ type ApiErrorPayload = {
 	};
 };
 
+/*
+ * 401 is the only code that means "sign in again". porte answers 401 for an absent, invalid
+ * or expired session and reserves 403 for two states that are not about being signed out: a
+ * cookie mutation missing X-Facile-CSRF, and this app's admin gate on the status-page and
+ * export routes. Bouncing a signed-in non-admin to /login would land them on a page that
+ * immediately sends them back, so 403 stays with the caller.
+ */
+function sessionRefused() {
+	if (!browser) return;
+	const here = window.location.pathname;
+	/* The login page itself probes /auth/me, and a 401 there is the expected answer. */
+	if (here === '/login') return;
+	const next = here + window.location.search;
+	void goto(`/login?next=${encodeURIComponent(next)}`, { replaceState: true });
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
 	const headers = new Headers(options.headers);
 	if (!headers.has('Content-Type') && options.body) {
@@ -138,6 +157,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 		credentials: 'same-origin'
 	});
 	if (!response.ok) {
+		if (response.status === 401) sessionRefused();
 		let payload: ApiErrorPayload | undefined;
 		try {
 			payload = (await response.json()) as ApiErrorPayload;
