@@ -62,6 +62,22 @@ database here, tests included. A test on SQLite builds a different schema from t
 and then passes, proving nothing about the DDL that ships. `tronc/testdb` gives a test a real
 Postgres; set `TEST_DATABASE_URL` to enable those tests, and they skip cleanly without it.
 
+[filet](https://github.com/FacileStudio/filet) checks style, complexity and layout against
+`filet.yml`, inherited verbatim from the Go family's fork source. Its limits are the published
+defaults of the tools they come from rather than numbers picked to make a count go away.
+
+```sh
+filet check .    # the rules
+filet roast .    # the same rules, with commentary
+```
+
+What fails is `error`, which here means the `architecture` block: a package under
+`apps/api/modules/` that owns HTTP routes and has no `router.go`, or a missing top-level
+directory. Style and complexity findings are warnings, worth reading and not a merge blocker.
+`.github/workflows/filet.yml` runs the same gate on push and on pull requests, and reports to
+Antenne through `ANTENNE_FILET_SECRET`. Without that secret the workflow withholds the URL
+rather than failing, so a pull request from a fork does not break on a secret it cannot have.
+
 ## Configuration
 
 The API is configured entirely through the environment. Local defaults live in the `apps/api`
