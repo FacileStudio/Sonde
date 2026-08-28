@@ -14,6 +14,12 @@ export type MeResponse = {
 	user: AuthUser;
 };
 
+/* PATCH /users/me takes either field on its own, and rejects a request carrying neither. */
+export type ProfileUpdate = {
+	name?: string;
+	email?: string;
+};
+
 export type AuthConfig = {
 	sso_only: boolean;
 	oidc_enabled: boolean;
@@ -55,6 +61,10 @@ export type Incident = {
 	resolved_at: string | null;
 	cause: string;
 };
+
+export type UptimeWindow = '24h' | '7d' | '30d' | '90d';
+
+export const UPTIME_WINDOWS: UptimeWindow[] = ['24h', '7d', '30d', '90d'];
 
 export type UptimeResponse = {
 	window: string;
@@ -177,6 +187,12 @@ export const backend = {
 	logout() {
 		return apiFetch<void>('/auth/logout', { method: 'POST' });
 	},
+	updateProfile(input: ProfileUpdate) {
+		return apiFetch<{ user: Omit<AuthUser, 'created_at'> }>('/users/me', {
+			method: 'PATCH',
+			body: JSON.stringify(input)
+		});
+	},
 	listMonitors() {
 		return apiFetch<Monitor[]>('/monitors');
 	},
@@ -192,7 +208,7 @@ export const backend = {
 	deleteMonitor(id: number) {
 		return apiFetch<void>(`/monitors/${id}`, { method: 'DELETE' });
 	},
-	monitorUptime(id: number, window: '24h' | '7d') {
+	monitorUptime(id: number, window: UptimeWindow) {
 		return apiFetch<UptimeResponse>(`/monitors/${id}/uptime?window=${window}`);
 	},
 	listIncidents() {
