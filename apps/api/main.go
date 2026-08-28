@@ -160,16 +160,22 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.
 	return router, nil
 }
 
-func main() {
+func main() { os.Exit(run()) }
+
+// run is main's body so that every failure path can pick an exit code and
+// still let the deferred cleanup happen. A boot that fails must exit non-zero:
+// Dokploy reads a zero exit as a clean shutdown, so a failed migration or a bad
+// config would otherwise look like a container that was asked to stop.
+func run() int {
 	if healthcheck.Handle(os.Args) {
-		return
+		return 0
 	}
 
 	appEnv, err := env.Load()
 	appLogger := logger.New(logger.Config{})
 	if err != nil {
 		appLogger.Error("failed to load config", slog.Any("error", err))
-		return
+		return 1
 	}
 	var journalClient *journal.Client
 	appLogger = logger.New(logger.Config{
@@ -189,31 +195,31 @@ func main() {
 	db, err := database.Open(appEnv.DatabaseURL)
 	if err != nil {
 		appLogger.Error("failed to open database", slog.Any("error", err))
-		return
+		return 1
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
 		appLogger.Error("failed to access database handle", slog.Any("error", err))
-		return
+		return 1
 	}
 
 	migrations, err := fs.Sub(migrationsFS, "migrations")
 	if err != nil {
 		appLogger.Error("failed to locate embedded migrations", slog.Any("error", err))
-		return
+		return 1
 	}
 	migrateConfig := migrate.Config{DB: sqlDB, FS: migrations, Logger: appLogger}
 	if handled, err := migrate.Command(context.Background(), os.Args, migrateConfig); handled {
 		if err != nil {
 			appLogger.Error("migrate", slog.Any("error", err))
-			os.Exit(1)
+			return 1
 		}
-		return
+		return 0
 	}
 	if err := migrate.Run(context.Background(), migrateConfig); err != nil {
 		appLogger.Error("failed to run migrations", slog.Any("error", err))
-		return
+		return 1
 	}
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
@@ -221,25 +227,34 @@ func main() {
 		}
 	}()
 
-	engine := checker.NewGorm(db, checker.WithLogger(appLogger))
-	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
-
 	backgroundCtx, stopBackground := context.WithCancel(context.Background())
 	defer stopBackground()
+
+	// The publisher is built first because it decides whether anything drains
+	// the checker's transition channel. Events are off by default, and a
+	// bounded channel nobody reads fills once and then warns on every state
+	// change for the life of the process.
+	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
+	checkerOptions := []checker.Option{checker.WithLogger(appLogger)}
+	if publisher == nil {
+		checkerOptions = append(checkerOptions, checker.WithoutTransitions())
+	}
+
+	engine := checker.NewGorm(db, checkerOptions...)
+	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
+
 	go func() {
 		if err := engine.Run(backgroundCtx); err != nil {
 			appLogger.Error("checker stopped", slog.Any("error", err))
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
-
-	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
 	go publisher.Run(backgroundCtx, engine.Transitions())
 
 	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build the router", slog.Any("error", err))
-		return
+		return 1
 	}
 
 	addr := ":" + appEnv.Port
@@ -264,6 +279,7 @@ func main() {
 	case err := <-serverErrCh:
 		if !errors.Is(err, http.ErrServerClosed) {
 			appLogger.Error("server stopped", slog.Any("error", err))
+			return 1
 		}
 	case <-shutdownSignal.Done():
 		appLogger.Info("server shutting down")
@@ -273,8 +289,9 @@ func main() {
 		stopBackground()
 		if err := server.Shutdown(shutdownContext); err != nil {
 			appLogger.Error("server shutdown failed", slog.Any("error", err))
-			return
+			return 1
 		}
 		appLogger.Info("server stopped")
 	}
+	return 0
 }
