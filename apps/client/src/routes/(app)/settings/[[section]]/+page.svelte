@@ -17,7 +17,7 @@
 		icons,
 		toast
 	} from '@facile/muse';
-	import { backend, type AuthUser } from '$lib/backend';
+	import { backend, type AuthUser, type ProfileUpdate } from '$lib/backend';
 	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
 
 	const app = getContext<{ user: AuthUser | null; setUser: (u: AuthUser) => void }>('app');
@@ -66,13 +66,23 @@
 	});
 
 	async function saveProfile() {
+		/* Both fields are optional on the API, and a present-but-empty `name` is rejected as
+		   "invalid name". An SSO account that arrived with no name claim starts blank, so
+		   always sending the field made its email unsaveable too. Omit it instead. */
+		const update: ProfileUpdate = {};
+		const trimmedName = profileName.trim();
+		if (trimmedName) update.name = trimmedName;
+		if (!ssoOnly) update.email = profileEmail.trim();
+		if (!update.name && !update.email) {
+			toast.danger('Enter a display name to save.');
+			return;
+		}
+
 		profileSaving = true;
 		try {
 			/* The PATCH answers with the user minus created_at, so the fresh profile comes from
 			   /auth/me — the sidebar card and the meta rows read the same object. */
-			await backend.updateProfile(
-				ssoOnly ? { name: profileName } : { name: profileName, email: profileEmail }
-			);
+			await backend.updateProfile(update);
 			const fresh = await backend.me();
 			app.setUser(fresh.user);
 			profileName = fresh.user.name ?? '';
@@ -144,19 +154,23 @@
 		/>
 
 		<SettingsSection title="Identity" description="How Sonde names you across the app.">
-			<SettingsRow label="Display name" stacked>
-				<Field>
+			<!-- The row's label is the input's `<label for>`: SettingsRow renders a plain <span>
+			     without `for`, and a bare Field emits no label at all, so the control had no
+			     accessible name. Field takes the same id so it stops minting its own. -->
+			<SettingsRow label="Display name" for="profile-name" stacked>
+				<Field for="profile-name">
 					<Input bind:value={profileName} placeholder="Your name" />
 				</Field>
 			</SettingsRow>
 			<SettingsRow
 				label="Email"
+				for="profile-email"
 				description={ssoOnly
 					? 'Owned by the identity provider at sso.facile.studio. Change it there and it lands here at your next sign-in.'
 					: 'Also the address you sign in with.'}
 				stacked
 			>
-				<Field>
+				<Field for="profile-email">
 					<Input bind:value={profileEmail} type="email" disabled={ssoOnly} />
 				</Field>
 			</SettingsRow>
