@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/porte"
 )
@@ -20,6 +21,7 @@ type Config struct {
 	RawRetentionDays   int
 	AllowRegistration  bool
 	Porte              porte.Config
+	Events             events.Config
 }
 
 func Load() (Config, error) {
@@ -36,6 +38,12 @@ func Load() (Config, error) {
 		JournalURL:       os.Getenv("JOURNAL_URL"),
 		JournalToken:     os.Getenv("JOURNAL_TOKEN"),
 		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
+		Events: events.Config{
+			Instance:   os.Getenv("ANTENNE_INSTANCE"),
+			App:        valueOrDefault("ANTENNE_APP", events.DefaultApp),
+			Secret:     os.Getenv("ANTENNE_SECRET"),
+			InstanceID: os.Getenv("ANTENNE_INSTANCE_ID"),
+		},
 	}
 
 	var err error
@@ -62,6 +70,10 @@ func Load() (Config, error) {
 	}
 	if err := env.Porte.Validate(); err != nil {
 		return Config{}, err
+	}
+
+	if env.Events.Enabled() && env.Events.Secret == "" {
+		return Config{}, fmt.Errorf("ANTENNE_INSTANCE is set but ANTENNE_SECRET is empty")
 	}
 
 	if env.DatabaseURL == "" {

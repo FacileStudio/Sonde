@@ -18,6 +18,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
+	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
 	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
@@ -231,6 +232,9 @@ func main() {
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
+
+	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
+	go publisher.Run(backgroundCtx, engine.Transitions())
 
 	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
 	if err != nil {

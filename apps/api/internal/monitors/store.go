@@ -233,6 +233,23 @@ func (s *Store) ListEnabled(ctx context.Context) ([]schemas.Monitor, error) {
 	return monitors, nil
 }
 
+// OwnerEmail returns the email of the account a monitor belongs to. The event
+// contract keys on an actor email and a probe has no human behind it, so the
+// owner stands in for one.
+func (s *Store) OwnerEmail(ctx context.Context, monitorID int64) (string, error) {
+	var email string
+	err := s.db.WithContext(ctx).
+		Model(&schemas.Monitor{}).
+		Select("users.email").
+		Joins("JOIN users ON users.id = monitors.owner_id").
+		Where("monitors.id = ?", monitorID).
+		Scan(&email).Error
+	if err != nil {
+		return "", errors.Internal("could not resolve the monitor owner", err)
+	}
+	return email, nil
+}
+
 func (s *Store) ByPushToken(ctx context.Context, token string) (*schemas.Monitor, error) {
 	var monitor schemas.Monitor
 	err := s.db.WithContext(ctx).
