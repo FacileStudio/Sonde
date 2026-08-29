@@ -6,7 +6,7 @@ require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 	github.com/FacileStudio/antenne-client/go v0.0.0-20260824150250-7681849d44f9
 	github.com/FacileStudio/enveloppe/go v0.0.0-20260824150156-c6a22ad287ee
-	github.com/FacileStudio/porte v0.4.0
+	github.com/FacileStudio/porte v0.5.2
 	github.com/FacileStudio/tronc v0.12.0
 	github.com/FacileStudio/tronc/migrate v0.1.0
 	github.com/FacileStudio/tronc/testdb v0.1.1
