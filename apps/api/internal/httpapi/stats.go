@@ -145,11 +145,14 @@ type BusResponse struct {
 	LastError   string   `json:"last_error,omitempty"`
 }
 
+// JournalResponse reports whether logs are shipped off this container.
 type JournalResponse struct {
 	Configured bool   `json:"configured"`
 	URL        string `json:"url,omitempty"`
 }
 
+// RetentionResponse is how far back this instance can answer, and how many
+// consecutive failures open an incident.
 type RetentionResponse struct {
 	RawDays       int `json:"raw_days"`
 	HourlyMonths  int `json:"hourly_months"`

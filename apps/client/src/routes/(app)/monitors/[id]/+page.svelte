@@ -5,47 +5,37 @@
 	import {
 		Alert,
 		Badge,
-		BarChart,
 		Button,
 		Card,
 		ConfirmModal,
 		EmptyState,
-		LineChart,
 		PageHeader,
 		Section,
 		SecretField,
 		Skeleton,
 		StatCard,
 		StatusDot,
-		Tabs,
-		chartColor,
 		icons,
 		toast
 	} from '@facile/muse';
 	import MonitorForm from '$lib/components/MonitorForm.svelte';
-	import UptimeBar from '$lib/components/UptimeBar.svelte';
+	import MonitorHistoryPanel from '$lib/components/MonitorHistory.svelte';
 	import {
 		backend,
-		UPTIME_WINDOWS,
 		type Incident,
 		type Monitor,
-		type MonitorHistory,
 		type MonitorInput,
-		type UptimeResponse,
-		type UptimeWindow
+		type UptimeResponse
 	} from '$lib/backend';
-	import { duration, latencySeries, milliseconds, percent, shortDay, shortTime } from '$lib/format';
+	import { duration, percent } from '$lib/format';
 
 	let monitorId = $derived(Number(page.params.id));
 
 	let monitor = $state<Monitor | null>(null);
 	let incidents = $state<Incident[]>([]);
 	let uptime = $state<UptimeResponse[]>([]);
-	let history = $state<MonitorHistory | null>(null);
 	let value = $state<MonitorInput | null>(null);
-	let range = $state<UptimeWindow>('24h');
 	let loading = $state(true);
-	let historyLoading = $state(false);
 	let busy = $state(false);
 	let error = $state('');
 	let formError = $state('');
@@ -60,45 +50,6 @@
 	/* -f so a refused heartbeat is a non-zero exit the cron daemon reports, -sS so it stays
 	   quiet until it fails. */
 	const heartbeatCommand = $derived(heartbeatUrl ? `curl -fsS -X POST ${heartbeatUrl}` : '');
-
-	const rangeTabs = UPTIME_WINDOWS.map((entry) => ({ id: entry, label: entry }));
-
-	const buckets = $derived(history?.buckets ?? []);
-	const resolution = $derived(history?.resolution ?? 'hour');
-	const labels = $derived(
-		buckets.map((bucket) =>
-			resolution === 'day' ? shortDay(bucket.bucket_start) : shortTime(bucket.bucket_start)
-		)
-	);
-	const latency = $derived([
-		{ name: 'Average latency', data: latencySeries(buckets), color: chartColor(0) }
-	]);
-	/* One "failed checks" series, not failed stacked on successful: a healthy monitor
-	   reports ~60 successes to a single failure per bucket, and the failed segment of that
-	   stack is under a pixel — the one thing the chart exists to show. */
-	const failures = $derived([
-		{
-			name: 'Failed checks',
-			data: buckets.map((bucket) => bucket.failed),
-			color: chartColor(3)
-		}
-	]);
-
-	async function loadHistory(window: UptimeWindow) {
-		historyLoading = true;
-		try {
-			history = await backend.monitorHistory(monitorId, window);
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load the history.';
-		} finally {
-			historyLoading = false;
-		}
-	}
-
-	function selectRange(id: string) {
-		range = id as UptimeWindow;
-		void loadHistory(range);
-	}
 
 	onMount(async () => {
 		try {
@@ -115,10 +66,9 @@
 				expected_keyword: loaded.expected_keyword,
 				enabled: loaded.enabled
 			};
-			[incidents, uptime, history] = await Promise.all([
+			[incidents, uptime] = await Promise.all([
 				backend.monitorIncidents(monitorId),
-				backend.monitorUptimeSummary(monitorId),
-				backend.monitorHistory(monitorId, range)
+				backend.monitorUptimeSummary(monitorId)
 			]);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitor.';
@@ -216,57 +166,7 @@
 			{/each}
 		</div>
 
-		<Section title="History" description="Coverage, latency and failures over the chosen window.">
-			{#snippet actions()}
-				<Tabs items={rangeTabs} value={range} onChange={selectRange} label="History window" />
-			{/snippet}
-
-			{#if historyLoading}
-				<Skeleton class="h-64 w-full" />
-			{:else}
-				<div class="flex flex-col gap-4">
-					<Card class="p-5">
-						<UptimeBar {buckets} {resolution} height={32} label="Uptime history" />
-					</Card>
-
-					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-						<Card class="flex flex-col gap-4 p-5">
-							<div>
-								<h3 class="text-fc-md font-semibold text-fc-fg">Response time</h3>
-								<p class="text-fc-xs text-fc-fg-muted">
-									Average latency per {resolution}
-								</p>
-							</div>
-							<LineChart
-								class="flex-1"
-								series={latency}
-								{labels}
-								area
-								height={220}
-								yFormat={(n) => milliseconds(n)}
-								emptyLabel="No checks in this window"
-							/>
-						</Card>
-
-						<Card class="flex flex-col gap-4 p-5">
-							<div>
-								<h3 class="text-fc-md font-semibold text-fc-fg">Failed checks</h3>
-								<p class="text-fc-xs text-fc-fg-muted">
-									Probes that did not pass, per {resolution}
-								</p>
-							</div>
-							<BarChart
-								class="flex-1"
-								series={failures}
-								{labels}
-								height={220}
-								emptyLabel="No checks in this window"
-							/>
-						</Card>
-					</div>
-				</div>
-			{/if}
-		</Section>
+		<MonitorHistoryPanel {monitorId} onError={(message) => (error = message)} />
 
 		{#if heartbeatUrl}
 			<!-- POST only. internal/checker/push.go registers no GET, and a GET falls through to
