@@ -24,6 +24,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
+	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
@@ -63,6 +64,7 @@ func registry() documentation.Response {
 			httpapi.Documentation,
 			httpapi.StatusPagesDocumentation,
 			users.Documentation,
+			webhooks.Documentation,
 		},
 	}
 }
@@ -143,12 +145,16 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.
 	}
 
 	router.Route("/api", func(r chi.Router) {
+		webhookStore := webhooks.NewStore(db)
+		webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
+
 		sessions.Mount(r)
 		kit.Mount(r)
 		auth.RegisterRoutes(r, authService, appEnv.Porte.SSOOnly, requireAuth, clearCookie)
 		checker.RegisterHeartbeat(r, engine)
 		users.RegisterRoutes(r, userService, requireAuth)
 		httpapi.RegisterRoutes(r, httpService, requireAuth)
+		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
 	})
 
 	clientDir := spa.DirFromEnv()
@@ -230,17 +236,11 @@ func run() int {
 	backgroundCtx, stopBackground := context.WithCancel(context.Background())
 	defer stopBackground()
 
-	// The publisher is built first because it decides whether anything drains
-	// the checker's transition channel. Events are off by default, and a
-	// bounded channel nobody reads fills once and then warns on every state
-	// change for the life of the process.
 	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
-	checkerOptions := []checker.Option{checker.WithLogger(appLogger)}
-	if publisher == nil {
-		checkerOptions = append(checkerOptions, checker.WithoutTransitions())
-	}
+	webhookStore := webhooks.NewStore(db)
+	webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
 
-	engine := checker.NewGorm(db, checkerOptions...)
+	engine := checker.NewGorm(db, checker.WithLogger(appLogger))
 	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
 
 	go func() {
@@ -249,7 +249,22 @@ func run() int {
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
-	go publisher.Run(backgroundCtx, engine.Transitions())
+	go func() {
+		for {
+			select {
+			case <-backgroundCtx.Done():
+				return
+			case transition, open := <-engine.Transitions():
+				if !open {
+					return
+				}
+				if publisher != nil {
+					publisher.Publish(backgroundCtx, transition)
+				}
+				webhookDispatcher.Dispatch(backgroundCtx, transition)
+			}
+		}
+	}()
 
 	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
 	if err != nil {

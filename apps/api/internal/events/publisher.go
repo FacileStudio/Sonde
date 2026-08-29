@@ -146,6 +146,14 @@ func (p *Publisher) Run(ctx context.Context, transitions <-chan checker.Transiti
 	}
 }
 
+// Publish emits a single transition to the bus.
+func (p *Publisher) Publish(ctx context.Context, transition checker.Transition) {
+	if p == nil {
+		return
+	}
+	p.publish(ctx, transition)
+}
+
 func (p *Publisher) publish(ctx context.Context, transition checker.Transition) {
 	channel, status := ChannelDown, statusDown
 	if transition.Up {

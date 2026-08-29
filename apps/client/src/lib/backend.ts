@@ -196,6 +196,33 @@ async function toError(response: Response, fallback: string): Promise<Error> {
 	return new Error(payload?.error?.message || fallback);
 }
 
+export type Webhook = {
+	id: number;
+	owner_id: number;
+	name: string;
+	url: string;
+	secret?: string;
+	secret_header: string;
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+};
+
+export type WebhookInput = {
+	name?: string;
+	url: string;
+	secret?: string;
+	secret_header?: string;
+	enabled?: boolean;
+};
+
+export type WebhookTestResult = {
+	ok: boolean;
+	status_code: number;
+	latency_ms: number;
+	error?: string;
+};
+
 export const backend = {
 	baseUrl: backendBaseUrl,
 	authConfig() {
@@ -257,6 +284,30 @@ export const backend = {
 	},
 	deleteStatusPage(id: number) {
 		return apiFetch<void>(`/status-pages/${id}`, { method: 'DELETE' });
+	},
+	listWebhooks() {
+		return apiFetch<Webhook[]>('/webhooks');
+	},
+	createWebhook(input: WebhookInput) {
+		return apiFetch<Webhook>('/webhooks', { method: 'POST', body: JSON.stringify(input) });
+	},
+	getWebhook(id: number) {
+		return apiFetch<Webhook>(`/webhooks/${id}`);
+	},
+	updateWebhook(id: number, input: WebhookInput) {
+		return apiFetch<Webhook>(`/webhooks/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+	},
+	deleteWebhook(id: number) {
+		return apiFetch<void>(`/webhooks/${id}`, { method: 'DELETE' });
+	},
+	testWebhook(idOrInput: number | WebhookInput) {
+		if (typeof idOrInput === 'number') {
+			return apiFetch<WebhookTestResult>(`/webhooks/${idOrInput}/test`, { method: 'POST' });
+		}
+		return apiFetch<WebhookTestResult>('/webhooks/test', {
+			method: 'POST',
+			body: JSON.stringify(idOrInput)
+		});
 	},
 	publicStatusPage(slug: string) {
 		return fetch(`${backendBaseUrl}/public/status/${slug}`).then(async (response) => {
