@@ -23,6 +23,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
+	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
 	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
@@ -85,7 +86,7 @@ func refConfig() apiref.Config {
 // One session manager owns one sessions table, and both kits issue through it:
 // a password login and a federated one are the same row, the same cookie and
 // the same logout.
-func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.Config, appLogger *slog.Logger) (chi.Router, error) {
+func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, publisher *events.Publisher, appEnv env.Config, appLogger *slog.Logger) (chi.Router, error) {
 	identityStore := portepg.New(sqlDB)
 	userStore := auth.NewUserStore(db)
 
@@ -127,7 +128,14 @@ func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.
 
 	authService := auth.NewService(db, passwords)
 	userService := users.NewService(db)
-	httpService := httpapi.New(db, monitors.NewStore(db), uptime.NewService(db))
+	httpService := httpapi.New(db, httpapi.Deps{
+		Monitors:         monitors.NewStore(db),
+		Uptime:           uptime.NewService(db),
+		Stats:            stats.NewService(db),
+		Bus:              publisher,
+		JournalURL:       appEnv.JournalURL,
+		RawRetentionDays: appEnv.RawRetentionDays,
+	})
 
 	router := httpx.NewRouter(httpx.Config{
 		Logger: appLogger,
@@ -236,7 +244,13 @@ func run() int {
 	backgroundCtx, stopBackground := context.WithCancel(context.Background())
 	defer stopBackground()
 
-	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
+	// Dialing happens in the background: a bus that is slow or down must not
+	// hold up the server that reports on it, and Sonde and Antenne restart
+	// together on a suite deploy.
+	publisher := events.New(appEnv.Events, monitors.NewStore(db), appLogger)
+	publisher.Start(backgroundCtx)
+	defer publisher.Close()
+
 	webhookStore := webhooks.NewStore(db)
 	webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
 
@@ -258,15 +272,13 @@ func run() int {
 				if !open {
 					return
 				}
-				if publisher != nil {
-					publisher.Publish(backgroundCtx, transition)
-				}
+				publisher.Publish(backgroundCtx, transition)
 				webhookDispatcher.Dispatch(backgroundCtx, transition)
 			}
 		}
 	}()
 
-	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
+	router, err := buildRouter(db, sqlDB, engine, publisher, appEnv, appLogger)
 	if err != nil {
 		appLogger.Error("failed to build the router", slog.Any("error", err))
 		return 1

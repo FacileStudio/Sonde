@@ -9,55 +9,67 @@
 		EmptyState,
 		PageHeader,
 		Skeleton,
+		Sparkline,
+		StatCard,
 		StatusDot,
 		Table,
 		icons,
 		toast
 	} from '@facile/muse';
 	import MonitorDrawer from '$lib/components/MonitorDrawer.svelte';
-	import MonitorStatusChart from '$lib/components/MonitorStatusChart.svelte';
-	import { backend, type Check, type Monitor } from '$lib/backend';
+	import UptimeBar from '$lib/components/UptimeBar.svelte';
+	import { backend, type Fleet, type MonitorSummary } from '$lib/backend';
+	import { milliseconds, percent, since, STATUS_LABEL, STATUS_TONE } from '$lib/format';
 
-	let monitors = $state<Monitor[]>([]);
-	let checksByMonitor = $state<Record<number, Check[]>>({});
+	let fleet = $state<Fleet | null>(null);
 	let loading = $state(true);
 	let error = $state('');
 	let creating = $state(false);
-	let pendingDelete = $state<Monitor | null>(null);
+	let pendingDelete = $state<MonitorSummary | null>(null);
 	let confirmOpen = $state(false);
 
-	onMount(async () => {
+	onMount(load);
+
+	async function load() {
 		try {
-			monitors = await backend.listMonitors();
-			void loadChecks();
+			fleet = await backend.monitorsOverview();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitors.';
 		} finally {
 			loading = false;
 		}
+	}
+
+	const totals = $derived(fleet?.totals ?? null);
+	const monitors = $derived(fleet?.monitors ?? []);
+
+	/* Averaged across monitors, hour by hour, over the buckets that were actually
+	   probed. An hour nobody measured carries the previous hour forward rather
+	   than dropping to zero, which would draw an outage that never happened. */
+	const latencySeries = $derived.by(() => {
+		const width = monitors.reduce((longest, monitor) => Math.max(longest, monitor.history.length), 0);
+		let last = 0;
+		return Array.from({ length: width }, (_, index) => {
+			let sum = 0;
+			let count = 0;
+			for (const monitor of monitors) {
+				const bucket = monitor.history[index];
+				if (bucket && bucket.total > 0) {
+					sum += bucket.avg_latency_ms;
+					count += 1;
+				}
+			}
+			if (count > 0) last = sum / count;
+			return last;
+		});
 	});
 
-	async function loadChecks() {
-		const entries = await Promise.all(
-			monitors.map(async (m) => {
-				try {
-					const checks = await backend.monitorChecks(m.id, 24);
-					return [m.id, checks] as const;
-				} catch {
-					return [m.id, []] as const;
-				}
-			})
-		);
-		checksByMonitor = Object.fromEntries(entries);
-	}
-
-	function onCreated(monitor: Monitor) {
-		monitors = [...monitors, monitor];
-		checksByMonitor[monitor.id] = [];
+	async function onCreated(monitor: { name: string }) {
 		toast.success(`${monitor.name} is being watched.`);
+		await load();
 	}
 
-	function askDelete(monitor: Monitor) {
+	function askDelete(monitor: MonitorSummary) {
 		pendingDelete = monitor;
 		confirmOpen = true;
 	}
@@ -67,9 +79,9 @@
 		if (!monitor) return;
 		try {
 			await backend.deleteMonitor(monitor.id);
-			monitors = monitors.filter((entry) => entry.id !== monitor.id);
 			pendingDelete = null;
 			toast.success(`${monitor.name} deleted.`);
+			await load();
 		} catch (err) {
 			/* The toast is the whole report. `error` means "the list never loaded" and is the
 			   first render branch, so writing a failed delete into it replaces the table the
@@ -78,9 +90,6 @@
 			throw err;
 		}
 	}
-
-	const targetOf = (monitor: Monitor) =>
-		monitor.type === 'push' ? 'Heartbeat endpoint' : monitor.target || '—';
 </script>
 
 <svelte:head>
@@ -97,7 +106,13 @@
 	{#if error}
 		<Alert tone="danger" title="Could not load monitors">{error}</Alert>
 	{:else if loading}
-		<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-4">
+			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				<Skeleton class="h-24 w-full" />
+				<Skeleton class="h-24 w-full" />
+				<Skeleton class="h-24 w-full" />
+				<Skeleton class="h-24 w-full" />
+			</div>
 			<Skeleton class="h-10 w-full" />
 			<Skeleton class="h-10 w-full" />
 			<Skeleton class="h-10 w-full" />
@@ -112,22 +127,41 @@
 				Create your first monitor
 			</Button>
 		</EmptyState>
-	{:else}
+	{:else if totals}
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<StatCard label="Up" value={totals.up} delta={`of ${totals.monitors} monitors`} />
+			<StatCard
+				label="Down"
+				value={totals.down}
+				delta={totals.open_incidents > 0
+					? `${totals.open_incidents} open incidents`
+					: 'no open incidents'}
+			/>
+			<StatCard
+				label="Uptime 24 h"
+				value={percent(totals.uptime_24h)}
+				delta={`${totals.checks_24h} checks`}
+			/>
+			<StatCard label="Avg latency 24 h" value={milliseconds(totals.avg_latency_24h)}>
+				<Sparkline data={latencySeries} height={28} emptyLabel="No probes yet" />
+			</StatCard>
+		</div>
+
 		<Table>
 			<thead>
 				<tr>
-					<th scope="col">Name</th>
-					<th scope="col" class="w-48">Recent Probes</th>
-					<th scope="col">Type</th>
-					<th scope="col">Target</th>
-					<th scope="col">Interval</th>
+					<th scope="col">Monitor</th>
+					<th scope="col" class="w-48">Last 24 h</th>
+					<th scope="col">Uptime</th>
+					<th scope="col">Latency</th>
+					<th scope="col">Checked</th>
 					<th scope="col"><span class="sr-only">Actions</span></th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each monitors as monitor (monitor.id)}
 					<tr
-						class="group cursor-pointer transition-colors hover:bg-fc-surface-subtle"
+						class="group cursor-pointer transition-colors hover:bg-fc-surface"
 						onclick={(e) => {
 							const target = e.target as HTMLElement;
 							if (target.closest('button, a')) return;
@@ -136,27 +170,37 @@
 					>
 						<td>
 							<div class="flex min-w-0 items-center gap-2">
-								<StatusDot tone={monitor.enabled ? 'success' : 'neutral'} />
+								<StatusDot
+									tone={STATUS_TONE[monitor.status]}
+									label={STATUS_LABEL[monitor.status]}
+								/>
 								<span
-									class="truncate font-medium text-fc-fg group-hover:text-fc-brand transition-colors"
+									class="truncate font-medium text-fc-fg transition-colors group-hover:text-fc-accent"
 								>
 									{monitor.name}
 								</span>
-								{#if !monitor.enabled}
-									<Badge tone="warning">paused</Badge>
+								<Badge tone="neutral">{monitor.type}</Badge>
+								{#if monitor.open_incidents > 0}
+									<Badge tone="danger">
+										{monitor.open_incidents} open
+									</Badge>
 								{/if}
 							</div>
 						</td>
 						<td class="w-48">
-							<MonitorStatusChart
-								checks={checksByMonitor[monitor.id] ?? []}
-								slots={24}
+							<UptimeBar
+								buckets={monitor.history}
 								height={16}
+								label={`${monitor.name} uptime, last 24 hours`}
 							/>
 						</td>
-						<td><Badge tone="neutral">{monitor.type}</Badge></td>
-						<td class="max-w-xs truncate text-fc-fg-muted">{targetOf(monitor)}</td>
-						<td class="text-fc-fg-muted">{monitor.interval_seconds}s</td>
+						<td class="font-fc-mono text-fc-sm text-fc-fg-muted">
+							{percent(monitor.uptime_24h)}
+						</td>
+						<td class="font-fc-mono text-fc-sm text-fc-fg-muted">
+							{milliseconds(monitor.last_latency_ms)}
+						</td>
+						<td class="text-fc-sm text-fc-fg-muted">{since(monitor.last_check_at)}</td>
 						<td>
 							<div class="flex justify-end gap-1">
 								<Button

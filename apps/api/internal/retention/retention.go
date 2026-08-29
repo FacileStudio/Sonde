@@ -14,7 +14,11 @@ import (
 const (
 	DefaultRawRetentionDays = 30
 
-	hourlyRetentionMonths = 13
+	// HourlyRetentionMonths covers every window the API offers, so a 90-day
+	// uptime question is always answerable from checks_hourly. Exported
+	// because settings reports it: the number that decides how far back a
+	// chart can go should not be a secret of this package.
+	HourlyRetentionMonths = 13
 )
 
 type Job struct {
@@ -90,7 +94,7 @@ func (j *Job) prune(ctx context.Context) error {
 
 	hourly := j.db.WithContext(ctx).Exec(
 		`DELETE FROM checks_hourly WHERE bucket_start < date_trunc('hour', now()) - make_interval(months => ?)`,
-		hourlyRetentionMonths)
+		HourlyRetentionMonths)
 	j.log("pruned hourly checks", hourly)
 
 	return firstError(raw.Error, hourly.Error)

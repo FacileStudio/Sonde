@@ -21,12 +21,20 @@
 	import { backend, type AuthUser, type ProfileUpdate } from '$lib/backend';
 	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
 	import WebhookList from '$lib/components/WebhookList.svelte';
+	import BusSection from '$lib/components/BusSection.svelte';
 
 	const app = getContext<{ user: AuthUser | null; setUser: (u: AuthUser) => void }>('app');
 
+	/*
+	 * Order is CHARTE §14's: identity, then this browser, then the two outbound
+	 * paths, then the instance. Bus sits next to Notifications because they are
+	 * the same question asked twice — Antenne is where alerts are meant to go,
+	 * and a webhook is what you reach for when they are not.
+	 */
 	const SECTIONS = [
 		{ id: 'profile', label: 'Profile', icon: icons.userCircle },
 		{ id: 'appearance', label: 'Appearance', icon: icons.palette },
+		{ id: 'bus', label: 'Bus', icon: icons.plug },
 		{ id: 'notifications', label: 'Notifications', icon: icons.notification },
 		{ id: 'advanced', label: 'Advanced', icon: icons.server }
 	] as const;
@@ -214,6 +222,8 @@
 				/>
 			</SettingsRow>
 		</SettingsSection>
+	{:else if section === 'bus'}
+		<BusSection />
 	{:else if section === 'notifications'}
 		<WebhookList />
 	{:else}

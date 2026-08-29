@@ -42,7 +42,7 @@ func liveRouter(t *testing.T, configure func(*env.Config)) chi.Router {
 	if configure != nil {
 		configure(&appEnv)
 	}
-	router, err := buildRouter(db, rawSQL(t, db), nil, appEnv, slog.New(slog.DiscardHandler))
+	router, err := buildRouter(db, rawSQL(t, db), nil, nil, appEnv, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("buildRouter: %v", err)
 	}

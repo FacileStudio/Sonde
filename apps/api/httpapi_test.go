@@ -35,7 +35,7 @@ func liveAPI(t *testing.T) (chi.Router, *gorm.DB) {
 			t.Fatalf("truncate: %v", err)
 		}
 	})
-	router, err := buildRouter(db, rawSQL(t, db), nil, env.Config{AllowRegistration: true}, slog.New(slog.DiscardHandler))
+	router, err := buildRouter(db, rawSQL(t, db), nil, nil, env.Config{AllowRegistration: true}, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatalf("buildRouter: %v", err)
 	}

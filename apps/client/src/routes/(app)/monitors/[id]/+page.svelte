@@ -5,39 +5,47 @@
 	import {
 		Alert,
 		Badge,
+		BarChart,
 		Button,
 		Card,
 		ConfirmModal,
 		EmptyState,
+		LineChart,
 		PageHeader,
 		Section,
 		SecretField,
 		Skeleton,
 		StatCard,
 		StatusDot,
+		Tabs,
+		chartColor,
 		icons,
 		toast
 	} from '@facile/muse';
 	import MonitorForm from '$lib/components/MonitorForm.svelte';
-	import MonitorStatusChart from '$lib/components/MonitorStatusChart.svelte';
+	import UptimeBar from '$lib/components/UptimeBar.svelte';
 	import {
 		backend,
 		UPTIME_WINDOWS,
-		type Check,
 		type Incident,
 		type Monitor,
+		type MonitorHistory,
 		type MonitorInput,
-		type UptimeResponse
+		type UptimeResponse,
+		type UptimeWindow
 	} from '$lib/backend';
+	import { duration, latencySeries, milliseconds, percent, shortDay, shortTime } from '$lib/format';
 
 	let monitorId = $derived(Number(page.params.id));
 
 	let monitor = $state<Monitor | null>(null);
 	let incidents = $state<Incident[]>([]);
 	let uptime = $state<UptimeResponse[]>([]);
-	let checks = $state<Check[]>([]);
+	let history = $state<MonitorHistory | null>(null);
 	let value = $state<MonitorInput | null>(null);
+	let range = $state<UptimeWindow>('24h');
 	let loading = $state(true);
+	let historyLoading = $state(false);
 	let busy = $state(false);
 	let error = $state('');
 	let formError = $state('');
@@ -52,6 +60,45 @@
 	/* -f so a refused heartbeat is a non-zero exit the cron daemon reports, -sS so it stays
 	   quiet until it fails. */
 	const heartbeatCommand = $derived(heartbeatUrl ? `curl -fsS -X POST ${heartbeatUrl}` : '');
+
+	const rangeTabs = UPTIME_WINDOWS.map((entry) => ({ id: entry, label: entry }));
+
+	const buckets = $derived(history?.buckets ?? []);
+	const resolution = $derived(history?.resolution ?? 'hour');
+	const labels = $derived(
+		buckets.map((bucket) =>
+			resolution === 'day' ? shortDay(bucket.bucket_start) : shortTime(bucket.bucket_start)
+		)
+	);
+	const latency = $derived([
+		{ name: 'Average latency', data: latencySeries(buckets), color: chartColor(0) }
+	]);
+	/* One "failed checks" series, not failed stacked on successful: a healthy monitor
+	   reports ~60 successes to a single failure per bucket, and the failed segment of that
+	   stack is under a pixel — the one thing the chart exists to show. */
+	const failures = $derived([
+		{
+			name: 'Failed checks',
+			data: buckets.map((bucket) => bucket.failed),
+			color: chartColor(3)
+		}
+	]);
+
+	async function loadHistory(window: UptimeWindow) {
+		historyLoading = true;
+		try {
+			history = await backend.monitorHistory(monitorId, window);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to load the history.';
+		} finally {
+			historyLoading = false;
+		}
+	}
+
+	function selectRange(id: string) {
+		range = id as UptimeWindow;
+		void loadHistory(range);
+	}
 
 	onMount(async () => {
 		try {
@@ -68,10 +115,10 @@
 				expected_keyword: loaded.expected_keyword,
 				enabled: loaded.enabled
 			};
-			[incidents, uptime, checks] = await Promise.all([
+			[incidents, uptime, history] = await Promise.all([
 				backend.monitorIncidents(monitorId),
-				Promise.all(UPTIME_WINDOWS.map((entry) => backend.monitorUptime(monitorId, entry))),
-				backend.monitorChecks(monitorId, 60).catch(() => [])
+				backend.monitorUptimeSummary(monitorId),
+				backend.monitorHistory(monitorId, range)
 			]);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitor.';
@@ -108,8 +155,11 @@
 		}
 	}
 
-	const percent = (stat: UptimeResponse) =>
-		stat.uptime === null ? '—' : `${stat.uptime.toFixed(2)}%`;
+	function incidentLength(incident: Incident): string {
+		const end = incident.resolved_at ? new Date(incident.resolved_at).getTime() : Date.now();
+		return duration((end - new Date(incident.opened_at).getTime()) / 1000);
+	}
+
 	const windowLabel: Record<string, string> = {
 		'24h': 'Uptime, 24 hours',
 		'7d': 'Uptime, 7 days',
@@ -158,7 +208,7 @@
 			{#each uptime as stat (stat.window)}
 				<StatCard
 					label={windowLabel[stat.window] ?? stat.window}
-					value={percent(stat)}
+					value={percent(stat.uptime)}
 					delta={stat.total === 0
 						? 'No checks recorded yet'
 						: `${stat.failed} failed of ${stat.total} checks`}
@@ -166,27 +216,57 @@
 			{/each}
 		</div>
 
-		<Card class="flex flex-col gap-4 p-5">
-			<div class="flex items-center justify-between">
-				<div>
-					<h2 class="text-fc-base font-semibold text-fc-fg">Status & Response Time</h2>
-					<p class="text-fc-xs text-fc-fg-muted">Recent check probes and latency trend</p>
-				</div>
-				{#if checks.length > 0}
-					<span class="font-fc-mono text-fc-xs text-fc-fg-muted">
-						{checks.length} probes recorded
-					</span>
-				{/if}
-			</div>
+		<Section title="History" description="Coverage, latency and failures over the chosen window.">
+			{#snippet actions()}
+				<Tabs items={rangeTabs} value={range} onChange={selectRange} label="History window" />
+			{/snippet}
 
-			<MonitorStatusChart
-				{checks}
-				slots={40}
-				height={24}
-				showSparkline={true}
-				showLatency={true}
-			/>
-		</Card>
+			{#if historyLoading}
+				<Skeleton class="h-64 w-full" />
+			{:else}
+				<div class="flex flex-col gap-4">
+					<Card class="p-5">
+						<UptimeBar {buckets} {resolution} height={32} label="Uptime history" />
+					</Card>
+
+					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						<Card class="flex flex-col gap-4 p-5">
+							<div>
+								<h3 class="text-fc-md font-semibold text-fc-fg">Response time</h3>
+								<p class="text-fc-xs text-fc-fg-muted">
+									Average latency per {resolution}
+								</p>
+							</div>
+							<LineChart
+								class="flex-1"
+								series={latency}
+								{labels}
+								area
+								height={220}
+								yFormat={(n) => milliseconds(n)}
+								emptyLabel="No checks in this window"
+							/>
+						</Card>
+
+						<Card class="flex flex-col gap-4 p-5">
+							<div>
+								<h3 class="text-fc-md font-semibold text-fc-fg">Failed checks</h3>
+								<p class="text-fc-xs text-fc-fg-muted">
+									Probes that did not pass, per {resolution}
+								</p>
+							</div>
+							<BarChart
+								class="flex-1"
+								series={failures}
+								{labels}
+								height={220}
+								emptyLabel="No checks in this window"
+							/>
+						</Card>
+					</div>
+				</div>
+			{/if}
+		</Section>
 
 		{#if heartbeatUrl}
 			<!-- POST only. internal/checker/push.go registers no GET, and a GET falls through to
@@ -216,6 +296,13 @@
 			</Section>
 
 			<Section title="Incidents">
+				{#snippet actions()}
+					{#if incidents.length > 0}
+						<Badge tone={incidents.some((entry) => !entry.resolved_at) ? 'danger' : 'neutral'}>
+							{incidents.length}
+						</Badge>
+					{/if}
+				{/snippet}
 				{#if incidents.length === 0}
 					<EmptyState
 						icon={icons.shield}
@@ -231,11 +318,11 @@
 									: 'border-fc-danger'}"
 							>
 								<span class="text-fc-sm text-fc-fg">{incident.cause || '—'}</span>
-								<span class="text-fc-xs text-fc-fg-muted">
-									{new Date(incident.opened_at).toLocaleString()}
-									{incident.resolved_at
-										? `, resolved ${new Date(incident.resolved_at).toLocaleString()}`
-										: ', ongoing'}
+								<span class="flex flex-wrap items-center gap-2 text-fc-xs text-fc-fg-muted">
+									<span class="font-fc-mono">{incidentLength(incident)}</span>
+									<span>{incident.resolved_at ? 'down' : 'down, still open'}</span>
+									<span>·</span>
+									<span>{new Date(incident.opened_at).toLocaleString()}</span>
 								</span>
 							</li>
 						{/each}

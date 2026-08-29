@@ -85,6 +85,113 @@ export type UptimeResponse = {
 	failed: number;
 };
 
+/* up, down and unknown come from the last probe; paused wins over all three,
+   because "nobody is watching this" is not the same fact as "this failed". */
+export type MonitorStatus = 'up' | 'down' | 'paused' | 'unknown';
+
+/* A bucket with no checks reports uptime null, not 0. The difference is a gap
+   in coverage versus an outage, and they are not the same colour. */
+export type Bucket = {
+	bucket_start: string;
+	total: number;
+	failed: number;
+	avg_latency_ms: number;
+	uptime: number | null;
+};
+
+export type MonitorSummary = {
+	id: number;
+	slug: string;
+	name: string;
+	type: Monitor['type'];
+	target: string;
+	interval_seconds: number;
+	enabled: boolean;
+	status: MonitorStatus;
+	last_check_at: string | null;
+	last_latency_ms: number | null;
+	last_error?: string;
+	uptime_24h: number | null;
+	avg_latency_24h: number | null;
+	checks_24h: number;
+	failed_24h: number;
+	open_incidents: number;
+	history: Bucket[];
+};
+
+export type FleetTotals = {
+	monitors: number;
+	up: number;
+	down: number;
+	paused: number;
+	unknown: number;
+	open_incidents: number;
+	uptime_24h: number | null;
+	avg_latency_24h: number | null;
+	checks_24h: number;
+};
+
+export type Fleet = {
+	totals: FleetTotals;
+	monitors: MonitorSummary[];
+};
+
+export type MonitorHistory = {
+	monitor_id: number;
+	window: UptimeWindow;
+	resolution: 'hour' | 'day';
+	buckets: Bucket[];
+};
+
+export type IncidentDay = {
+	day: string;
+	opened: number;
+	downtime_seconds: number;
+};
+
+export type IncidentMonitorLoad = {
+	monitor_id: number;
+	slug: string;
+	name: string;
+	incidents: number;
+	downtime_seconds: number;
+};
+
+export type IncidentStats = {
+	days: number;
+	total: number;
+	open: number;
+	resolved: number;
+	mttr_seconds: number | null;
+	longest_seconds: number | null;
+	total_downtime_seconds: number;
+	by_day: IncidentDay[];
+	by_monitor: IncidentMonitorLoad[];
+};
+
+/* Not a boolean. "Not connected" hides three situations with three different
+   fixes, so settings renders four states and only the in-flight ones pulse. */
+export type BusState = 'disabled' | 'connecting' | 'connected' | 'reconnecting';
+
+export type Bus = {
+	configured: boolean;
+	state: BusState;
+	instance: string;
+	app: string;
+	instance_id?: string;
+	channels: string[];
+	published: number;
+	dropped: number;
+	last_event_at: string | null;
+	last_error?: string;
+};
+
+export type Integrations = {
+	bus: Bus;
+	journal: { configured: boolean; url?: string };
+	retention: { raw_days: number; hourly_months: number; failure_threshold: number };
+};
+
 export type StatusPageMonitorLine = {
 	id: number;
 	slug: string;
@@ -267,8 +374,27 @@ export const backend = {
 	monitorUptime(id: number, window: UptimeWindow) {
 		return apiFetch<UptimeResponse>(`/monitors/${id}/uptime?window=${window}`);
 	},
+	/* One request for all four windows. The service computed them together
+	   anyway; asking four times was the client's idea, not the server's. */
+	monitorUptimeSummary(id: number) {
+		return apiFetch<UptimeResponse[]>(`/monitors/${id}/uptime/summary`);
+	},
+	/* The whole monitors page in one request. Fetching per-monitor checks from
+	   the browser was an N+1 that got worse with every monitor added. */
+	monitorsOverview() {
+		return apiFetch<Fleet>('/monitors/overview');
+	},
+	monitorHistory(id: number, window: UptimeWindow) {
+		return apiFetch<MonitorHistory>(`/monitors/${id}/history?window=${window}`);
+	},
 	listIncidents() {
 		return apiFetch<Incident[]>('/incidents');
+	},
+	incidentStats(days = 30) {
+		return apiFetch<IncidentStats>(`/incidents/stats?days=${days}`);
+	},
+	integrations() {
+		return apiFetch<Integrations>('/integrations');
 	},
 	monitorIncidents(id: number) {
 		return apiFetch<Incident[]>(`/monitors/${id}/incidents`);

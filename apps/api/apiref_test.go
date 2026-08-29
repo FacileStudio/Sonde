@@ -16,7 +16,7 @@ import (
 
 func testRouter() chi.Router {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router, err := buildRouter(nil, nil, nil, env.Config{}, logger)
+	router, err := buildRouter(nil, nil, nil, nil, env.Config{}, logger)
 	if err != nil {
 		panic(err)
 	}

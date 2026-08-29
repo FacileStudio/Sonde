@@ -21,10 +21,25 @@ type fakeOwners struct {
 func (o fakeOwners) OwnerEmail(context.Context, int64) (string, error) { return o.email, o.err }
 
 type fakeEmitter struct {
-	mu       sync.Mutex
-	err      error
-	channels []string
-	payloads []any
+	mu         sync.Mutex
+	err        error
+	dialErr    error
+	dials      int
+	connected  bool
+	channels   []string
+	payloads   []any
+	disconnect int
+}
+
+func (e *fakeEmitter) Connect(context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.dials++
+	if e.dialErr != nil {
+		return e.dialErr
+	}
+	e.connected = true
+	return nil
 }
 
 func (e *fakeEmitter) EmitNow(channel string, payload any) error {
@@ -35,7 +50,24 @@ func (e *fakeEmitter) EmitNow(channel string, payload any) error {
 	return e.err
 }
 
-func (e *fakeEmitter) Disconnect() {}
+func (e *fakeEmitter) IsConnected() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.connected
+}
+
+func (e *fakeEmitter) Disconnect() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.connected = false
+	e.disconnect++
+}
+
+func (e *fakeEmitter) dialCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.dials
+}
 
 func (e *fakeEmitter) count() int {
 	e.mu.Lock()
@@ -93,7 +125,12 @@ func (p *fakePool) count() int {
 }
 
 func newPublisher(emitter emitter, owners Owners) *Publisher {
-	return &Publisher{emitter: emitter, owners: owners, logger: quietLogger()}
+	return &Publisher{
+		config:  Config{Instance: "http://bus.invalid", App: DefaultApp},
+		emitter: emitter,
+		owners:  owners,
+		logger:  quietLogger(),
+	}
 }
 
 // wireEvent is the emitted envelope as a consumer in another language sees it:

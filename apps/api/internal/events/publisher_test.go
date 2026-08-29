@@ -14,25 +14,22 @@ import (
 func TestNoInstanceMeansNothingDials(t *testing.T) {
 	pool := newFakePool(t)
 
-	publisher := New(context.Background(), Config{Secret: "shared"}, fakeOwners{}, quietLogger())
+	publisher := New(Config{Secret: "shared"}, fakeOwners{}, quietLogger())
 	if publisher != nil {
 		t.Fatal("New returned a publisher without an instance")
 	}
+
+	// Every method has to be safe on the nil publisher, because that is the
+	// value main holds on an unconfigured instance.
+	publisher.Start(context.Background())
+	publisher.Publish(context.Background(), checker.Transition{MonitorID: 1})
+	publisher.Close()
+
+	if state := publisher.State(); state.Configured || state.State != StateDisabled {
+		t.Errorf("state = %+v, want an unconfigured disabled bus", state)
+	}
 	if pool.count() != 0 {
 		t.Errorf("registrations = %d, want 0", pool.count())
-	}
-
-	transitions := make(chan checker.Transition, 1)
-	transitions <- checker.Transition{MonitorID: 1}
-	done := make(chan struct{})
-	go func() {
-		publisher.Run(context.Background(), transitions)
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("Run on a disabled publisher did not return")
 	}
 }
 
@@ -40,27 +37,94 @@ func TestAConfiguredInstanceIsDialed(t *testing.T) {
 	pool := newFakePool(t)
 
 	config := Config{Instance: pool.server.URL, Secret: "shared"}
-	publisher := New(context.Background(), config, fakeOwners{}, quietLogger())
+	publisher := New(config, fakeOwners{}, quietLogger())
 	if publisher == nil {
 		t.Fatal("New returned no publisher for a reachable instance")
 	}
-	defer publisher.emitter.Disconnect()
+	defer publisher.Close()
+
+	// New must not dial: the boot path cannot wait on the bus.
+	if pool.count() != 0 {
+		t.Fatalf("New dialled %d times, want 0", pool.count())
+	}
+
+	publisher.Start(context.Background())
+	waitFor(t, func() bool { return publisher.State().State == StateConnected })
 
 	if pool.count() != 1 {
 		t.Errorf("registrations = %d, want 1", pool.count())
+	}
+	state := publisher.State()
+	if !state.Configured || state.Instance != config.Instance || state.App != DefaultApp {
+		t.Errorf("state = %+v, want a configured bus on %s", state, config.Instance)
 	}
 }
 
 // An unreachable bus must cost a warning, not a boot: the point of a monitor is
 // that it keeps working when other things do not.
-func TestAnUnreachableBusDisablesEventsWithoutFailing(t *testing.T) {
-	pool := newFakePool(t)
-	address := pool.server.URL
-	pool.server.Close()
+//
+// It must also not cost the connection for the life of the process. Sonde and
+// Antenne restart together on a suite deploy, and a publisher that gave up on
+// its first failed dial meant whichever lost the race published nothing until
+// somebody restarted it by hand.
+func TestAnUnreachableBusIsRetriedRatherThanAbandoned(t *testing.T) {
+	emitter := &fakeEmitter{dialErr: errors.New("connection refused")}
+	publisher := newPublisher(emitter, fakeOwners{})
 
-	config := Config{Instance: address, Secret: "shared"}
-	if publisher := New(context.Background(), config, fakeOwners{}, quietLogger()); publisher != nil {
-		t.Fatal("New returned a publisher for an unreachable instance")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	publisher.Start(ctx)
+
+	waitFor(t, func() bool { return emitter.dialCount() >= 1 })
+
+	state := publisher.State()
+	if state.State != StateConnecting {
+		t.Errorf("state = %q, want %q", state.State, StateConnecting)
+	}
+	if state.LastError == "" {
+		t.Error("a refused dial left no last_error for the settings page to show")
+	}
+	if !state.Configured {
+		t.Error("a refused dial reported the bus as unconfigured")
+	}
+}
+
+// Losing an established connection is a different state from never having had
+// one, and it has a different fix. Collapsing both into "not connected" is what
+// the settings page must not do.
+func TestALostConnectionReadsAsReconnecting(t *testing.T) {
+	emitter := &fakeEmitter{}
+	publisher := newPublisher(emitter, fakeOwners{})
+
+	publisher.Start(context.Background())
+	waitFor(t, func() bool { return publisher.State().State == StateConnected })
+
+	emitter.Disconnect()
+	if state := publisher.State().State; state != StateReconnecting {
+		t.Errorf("state = %q, want %q", state, StateReconnecting)
+	}
+}
+
+// The counters are the only evidence an operator has that events are leaving
+// the box, so a dropped event has to be counted as dropped and not silently
+// folded into the published total.
+func TestPublishedAndDroppedAreCountedSeparately(t *testing.T) {
+	emitter := &fakeEmitter{}
+	publisher := newPublisher(emitter, fakeOwners{})
+
+	publisher.publish(context.Background(), checker.Transition{MonitorID: 1, Slug: "web", Name: "Web"})
+	emitter.err = errors.New("not connected")
+	publisher.publish(context.Background(), checker.Transition{MonitorID: 1, Slug: "web", Name: "Web"})
+
+	state := publisher.State()
+	if state.Published != 1 {
+		t.Errorf("published = %d, want 1", state.Published)
+	}
+	if state.Dropped != 1 {
+		t.Errorf("dropped = %d, want 1", state.Dropped)
+	}
+	if state.LastEventAt == nil {
+		t.Error("last_event_at is nil after a successful emit")
 	}
 }
 
@@ -169,37 +233,42 @@ func TestTheIdempotencyKeyIdentifiesTheIncident(t *testing.T) {
 	}
 }
 
-// A failing emit, or an owner lookup that errors, must not stop the consumer:
+// A failing emit, or an owner lookup that errors, must not stop the caller:
 // the checker keeps producing transitions and nothing may back up behind them.
-func TestAFailingEmitDoesNotStallTheConsumer(t *testing.T) {
+func TestAFailingEmitDoesNotStallTheCaller(t *testing.T) {
 	emitter := &fakeEmitter{err: errors.New("not connected")}
 	publisher := newPublisher(emitter, fakeOwners{err: errors.New("no such monitor")})
 
-	transitions := make(chan checker.Transition)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	done := make(chan struct{})
 	go func() {
-		publisher.Run(ctx, transitions)
+		for i := range 5 {
+			publisher.Publish(context.Background(), checker.Transition{
+				MonitorID: int64(i), Slug: "web", Name: "Web",
+			})
+		}
 		close(done)
 	}()
 
-	for i := range 5 {
-		select {
-		case transitions <- checker.Transition{MonitorID: int64(i), Slug: "web", Name: "Web"}:
-		case <-time.After(time.Second):
-			t.Fatalf("the consumer stalled on transition %d", i)
-		}
-	}
-
-	cancel()
 	select {
 	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("Run did not return when the context was cancelled")
+	case <-time.After(2 * time.Second):
+		t.Fatal("publishing stalled on a dead bus")
 	}
 	if emitter.count() != 5 {
 		t.Errorf("attempted %d emits, want 5", emitter.count())
 	}
+}
+
+// waitFor polls a condition rather than sleeping a guessed interval, so the
+// test is neither flaky on a loaded machine nor slower than it has to be.
+func waitFor(t *testing.T, done func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if done() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("condition was not met within 2s")
 }
