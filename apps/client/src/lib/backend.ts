@@ -57,6 +57,15 @@ export type MonitorInput = {
 	enabled: boolean;
 };
 
+export type Check = {
+	id: number;
+	monitor_id: number;
+	ok: boolean;
+	latency_ms: number;
+	error?: string;
+	created_at: string;
+};
+
 export type Incident = {
 	id: number;
 	monitor_id: number;
@@ -263,6 +272,9 @@ export const backend = {
 	},
 	monitorIncidents(id: number) {
 		return apiFetch<Incident[]>(`/monitors/${id}/incidents`);
+	},
+	monitorChecks(id: number, limit = 50) {
+		return apiFetch<Check[]>(`/monitors/${id}/checks?limit=${limit}`);
 	},
 	exportConfig() {
 		return download('/config/export', 'sonde-config.json');

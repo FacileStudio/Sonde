@@ -120,6 +120,21 @@ var Documentation = documentation.Module{
 		},
 		{
 			Method:       "GET",
+			Path:         "/monitors/{id}/checks",
+			Summary:      "List recent check probes for one monitor",
+			Description:  "limit query parameter selects the number of recent checks to return (default 50, max 200).",
+			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			Auth:         "session cookie or bearer token",
+			ResponseBody: "CheckResponse[]",
+			Errors: []documentation.Error{
+				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
+				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
+				{Status: 404, Code: "not_found", Description: "The monitor does not exist or belongs to another user."},
+				{Status: 500, Code: "internal", Description: "Unexpected server error."},
+			},
+		},
+		{
+			Method:       "GET",
 			Path:         "/config/export",
 			Summary:      "Export the instance configuration as JSON",
 			Description:  "Snapshot of monitors and status pages keyed by slugs. Contains no credentials of any kind — no push tokens, no password hashes.",

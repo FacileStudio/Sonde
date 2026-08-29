@@ -39,6 +39,7 @@ func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.H
 		r.With(requireAuth).Delete("/", service.deleteMonitor)
 		r.With(requireAuth).Get("/incidents", service.monitorIncidents)
 		r.With(requireAuth).Get("/uptime", service.monitorUptime)
+		r.With(requireAuth).Get("/checks", service.monitorChecks)
 	})
 
 	router.With(requireAdmin).Get("/config/export", service.exportConfig)

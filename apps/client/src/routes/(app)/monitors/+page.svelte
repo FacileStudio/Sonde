@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import {
 		Alert,
 		Badge,
@@ -14,9 +15,11 @@
 		toast
 	} from '@facile/muse';
 	import MonitorDrawer from '$lib/components/MonitorDrawer.svelte';
-	import { backend, type Monitor } from '$lib/backend';
+	import MonitorStatusChart from '$lib/components/MonitorStatusChart.svelte';
+	import { backend, type Check, type Monitor } from '$lib/backend';
 
 	let monitors = $state<Monitor[]>([]);
+	let checksByMonitor = $state<Record<number, Check[]>>({});
 	let loading = $state(true);
 	let error = $state('');
 	let creating = $state(false);
@@ -26,6 +29,7 @@
 	onMount(async () => {
 		try {
 			monitors = await backend.listMonitors();
+			void loadChecks();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitors.';
 		} finally {
@@ -33,8 +37,23 @@
 		}
 	});
 
+	async function loadChecks() {
+		const entries = await Promise.all(
+			monitors.map(async (m) => {
+				try {
+					const checks = await backend.monitorChecks(m.id, 24);
+					return [m.id, checks] as const;
+				} catch {
+					return [m.id, []] as const;
+				}
+			})
+		);
+		checksByMonitor = Object.fromEntries(entries);
+	}
+
 	function onCreated(monitor: Monitor) {
 		monitors = [...monitors, monitor];
+		checksByMonitor[monitor.id] = [];
 		toast.success(`${monitor.name} is being watched.`);
 	}
 
@@ -98,6 +117,7 @@
 			<thead>
 				<tr>
 					<th scope="col">Name</th>
+					<th scope="col" class="w-48">Recent Probes</th>
 					<th scope="col">Type</th>
 					<th scope="col">Target</th>
 					<th scope="col">Interval</th>
@@ -106,20 +126,33 @@
 			</thead>
 			<tbody>
 				{#each monitors as monitor (monitor.id)}
-					<tr>
+					<tr
+						class="group cursor-pointer transition-colors hover:bg-fc-surface-subtle"
+						onclick={(e) => {
+							const target = e.target as HTMLElement;
+							if (target.closest('button, a')) return;
+							goto(`/monitors/${monitor.id}`);
+						}}
+					>
 						<td>
 							<div class="flex min-w-0 items-center gap-2">
 								<StatusDot tone={monitor.enabled ? 'success' : 'neutral'} />
-								<a
-									href={`/monitors/${monitor.id}`}
-									class="truncate font-medium text-fc-fg underline underline-offset-4 hover:text-fc-accent"
+								<span
+									class="truncate font-medium text-fc-fg group-hover:text-fc-brand transition-colors"
 								>
 									{monitor.name}
-								</a>
+								</span>
 								{#if !monitor.enabled}
 									<Badge tone="warning">paused</Badge>
 								{/if}
 							</div>
+						</td>
+						<td class="w-48">
+							<MonitorStatusChart
+								checks={checksByMonitor[monitor.id] ?? []}
+								slots={24}
+								height={16}
+							/>
 						</td>
 						<td><Badge tone="neutral">{monitor.type}</Badge></td>
 						<td class="max-w-xs truncate text-fc-fg-muted">{targetOf(monitor)}</td>
