@@ -9,6 +9,7 @@
 		Field,
 		Input,
 		OptionCards,
+		PageHeader,
 		ProfileCard,
 		SecretField,
 		SettingsRow,
@@ -133,18 +134,17 @@
 	<title>Settings — Sonde</title>
 </svelte:head>
 
-<div class="flex flex-col gap-1">
-	<h1 class="text-fc-2xl font-semibold text-fc-fg">Settings</h1>
-	<p class="text-fc-sm text-fc-fg-muted">Your account, this browser, and this instance.</p>
-</div>
+<div class="flex flex-col gap-8">
+	<div class="flex flex-col gap-6">
+		<PageHeader title="Settings" description="Your account, this browser, and this instance." />
+		<div class="flex flex-col gap-4">
+			<Tabs items={tabs} value={section} label="Settings sections" />
+			<Divider class="my-0" />
+		</div>
+	</div>
 
-<div class="flex flex-col gap-4">
-	<Tabs items={tabs} value={section} label="Settings sections" />
-	<Divider class="my-0" />
-</div>
-
-<div class="flex flex-col gap-10">
-	{#if section === 'profile'}
+	<div class="flex flex-col gap-10">
+		{#if section === 'profile'}
 		<ProfileCard
 			name={user?.name?.trim() || user?.email || ''}
 			email={user?.email ?? ''}
@@ -286,6 +286,7 @@
 			</SettingsRow>
 		</SettingsSection>
 	{/if}
+	</div>
 </div>
 
 <ConfirmModal
