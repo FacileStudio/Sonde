@@ -250,6 +250,19 @@ func (s *Store) OwnerEmail(ctx context.Context, monitorID int64) (string, error)
 	return email, nil
 }
 
+func (s *Store) OwnerID(ctx context.Context, monitorID int64) (int64, error) {
+	var ownerID int64
+	err := s.db.WithContext(ctx).
+		Model(&schemas.Monitor{}).
+		Select("owner_id").
+		Where("id = ?", monitorID).
+		Scan(&ownerID).Error
+	if err != nil {
+		return 0, errors.Internal("could not resolve the monitor owner", err)
+	}
+	return ownerID, nil
+}
+
 func (s *Store) ByPushToken(ctx context.Context, token string) (*schemas.Monitor, error) {
 	var monitor schemas.Monitor
 	err := s.db.WithContext(ctx).

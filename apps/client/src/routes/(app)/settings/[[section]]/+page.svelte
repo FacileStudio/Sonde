@@ -19,12 +19,14 @@
 	} from '@facile/muse';
 	import { backend, type AuthUser, type ProfileUpdate } from '$lib/backend';
 	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
+	import WebhookList from '$lib/components/WebhookList.svelte';
 
 	const app = getContext<{ user: AuthUser | null; setUser: (u: AuthUser) => void }>('app');
 
 	const SECTIONS = [
 		{ id: 'profile', label: 'Profile', icon: icons.userCircle },
 		{ id: 'appearance', label: 'Appearance', icon: icons.palette },
+		{ id: 'notifications', label: 'Notifications', icon: icons.notification },
 		{ id: 'advanced', label: 'Advanced', icon: icons.server }
 	] as const;
 
@@ -212,6 +214,8 @@
 				/>
 			</SettingsRow>
 		</SettingsSection>
+	{:else if section === 'notifications'}
+		<WebhookList />
 	{:else}
 		<SettingsSection
 			title="Configuration export"
