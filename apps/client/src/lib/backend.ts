@@ -1,132 +1,37 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
+import type {
+	AuthConfig,
+	Bucket,
+	Check,
+	Fleet,
+	Incident,
+	IncidentStats,
+	Integrations,
+	MeResponse,
+	Monitor,
+	MonitorHistory,
+	MonitorInput,
+	ProfileUpdate,
+	PublicStatusPage,
+	StatusPage,
+	StatusPageInput,
+	UptimeResponse,
+	UptimeWindow,
+	AuthUser,
+	Webhook,
+	WebhookInput,
+	WebhookTestResult
+} from '$lib/types';
+
+/* Re-exported so every call site keeps importing its types from the client it
+   calls. Splitting the file was a size fix, not an API change. */
+export type * from '$lib/types';
+export { UPTIME_WINDOWS } from '$lib/types';
 
 const backendBaseUrl = '/api';
 
 export const ssoLoginUrl = `${backendBaseUrl}/auth/oidc`;
-
-export type AuthUser = {
-	id: number;
-	email: string;
-	name: string;
-	is_admin: boolean;
-	created_at: string;
-};
-
-export type MeResponse = {
-	user: AuthUser;
-};
-
-/* PATCH /users/me takes either field on its own, and rejects a request carrying neither. */
-export type ProfileUpdate = {
-	name?: string;
-	email?: string;
-};
-
-export type AuthConfig = {
-	sso_only: boolean;
-	oidc_enabled: boolean;
-	allow_registration: boolean;
-};
-
-export type Monitor = {
-	id: number;
-	slug: string;
-	name: string;
-	type: 'http' | 'tcp' | 'push';
-	target: string;
-	interval_seconds: number;
-	timeout_seconds: number;
-	expected_status: number;
-	expected_keyword: string;
-	enabled: boolean;
-	push_token?: string | null;
-	created_at: string;
-	updated_at: string;
-};
-
-export type MonitorInput = {
-	slug: string;
-	name: string;
-	type: Monitor['type'];
-	target: string;
-	interval_seconds: number;
-	timeout_seconds: number;
-	expected_status: number;
-	expected_keyword: string;
-	enabled: boolean;
-};
-
-export type Check = {
-	id: number;
-	monitor_id: number;
-	ok: boolean;
-	latency_ms: number;
-	error?: string;
-	created_at: string;
-};
-
-export type Incident = {
-	id: number;
-	monitor_id: number;
-	opened_at: string;
-	resolved_at: string | null;
-	cause: string;
-};
-
-export type UptimeWindow = '24h' | '7d' | '30d' | '90d';
-
-export const UPTIME_WINDOWS: UptimeWindow[] = ['24h', '7d', '30d', '90d'];
-
-export type UptimeResponse = {
-	window: string;
-	uptime: number | null;
-	total: number;
-	failed: number;
-};
-
-export type StatusPageMonitorLine = {
-	id: number;
-	slug: string;
-	name: string;
-	position: number;
-};
-
-export type StatusPage = {
-	id: number;
-	slug: string;
-	title: string;
-	monitors: StatusPageMonitorLine[];
-	created_at: string;
-};
-
-export type StatusPageInput = {
-	slug: string;
-	title: string;
-	monitor_ids: number[];
-};
-
-export type PublicIncident = {
-	id: number;
-	opened_at: string;
-	cause: string;
-};
-
-export type PublicMonitor = {
-	id: number;
-	slug: string;
-	name: string;
-	current_status: 'up' | 'down' | 'unknown';
-	uptime_24h: number | null;
-	uptime_7d: number | null;
-	open_incidents: PublicIncident[];
-};
-
-export type PublicStatusPage = {
-	slug: string;
-	title: string;
-	monitors: PublicMonitor[];
-};
 
 type ApiErrorPayload = {
 	error?: {
@@ -205,33 +110,6 @@ async function toError(response: Response, fallback: string): Promise<Error> {
 	return new Error(payload?.error?.message || fallback);
 }
 
-export type Webhook = {
-	id: number;
-	owner_id: number;
-	name: string;
-	url: string;
-	secret?: string;
-	secret_header: string;
-	enabled: boolean;
-	created_at: string;
-	updated_at: string;
-};
-
-export type WebhookInput = {
-	name?: string;
-	url: string;
-	secret?: string;
-	secret_header?: string;
-	enabled?: boolean;
-};
-
-export type WebhookTestResult = {
-	ok: boolean;
-	status_code: number;
-	latency_ms: number;
-	error?: string;
-};
-
 export const backend = {
 	baseUrl: backendBaseUrl,
 	authConfig() {
@@ -267,8 +145,27 @@ export const backend = {
 	monitorUptime(id: number, window: UptimeWindow) {
 		return apiFetch<UptimeResponse>(`/monitors/${id}/uptime?window=${window}`);
 	},
+	/* One request for all four windows. The service computed them together
+	   anyway; asking four times was the client's idea, not the server's. */
+	monitorUptimeSummary(id: number) {
+		return apiFetch<UptimeResponse[]>(`/monitors/${id}/uptime/summary`);
+	},
+	/* The whole monitors page in one request. Fetching per-monitor checks from
+	   the browser was an N+1 that got worse with every monitor added. */
+	monitorsOverview() {
+		return apiFetch<Fleet>('/monitors/overview');
+	},
+	monitorHistory(id: number, window: UptimeWindow) {
+		return apiFetch<MonitorHistory>(`/monitors/${id}/history?window=${window}`);
+	},
 	listIncidents() {
 		return apiFetch<Incident[]>('/incidents');
+	},
+	incidentStats(days = 30) {
+		return apiFetch<IncidentStats>(`/incidents/stats?days=${days}`);
+	},
+	integrations() {
+		return apiFetch<Integrations>('/integrations');
 	},
 	monitorIncidents(id: number) {
 		return apiFetch<Incident[]>(`/monitors/${id}/incidents`);

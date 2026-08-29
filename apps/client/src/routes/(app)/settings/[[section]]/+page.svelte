@@ -21,12 +21,21 @@
 	import { backend, type AuthUser, type ProfileUpdate } from '$lib/backend';
 	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
 	import WebhookList from '$lib/components/WebhookList.svelte';
+	import BusSection from '$lib/components/BusSection.svelte';
+	import AdvancedSection from '$lib/components/AdvancedSection.svelte';
 
 	const app = getContext<{ user: AuthUser | null; setUser: (u: AuthUser) => void }>('app');
 
+	/*
+	 * Order is CHARTE §14's: identity, then this browser, then the two outbound
+	 * paths, then the instance. Bus sits next to Notifications because they are
+	 * the same question asked twice — Antenne is where alerts are meant to go,
+	 * and a webhook is what you reach for when they are not.
+	 */
 	const SECTIONS = [
 		{ id: 'profile', label: 'Profile', icon: icons.userCircle },
 		{ id: 'appearance', label: 'Appearance', icon: icons.palette },
+		{ id: 'bus', label: 'Bus', icon: icons.plug },
 		{ id: 'notifications', label: 'Notifications', icon: icons.notification },
 		{ id: 'advanced', label: 'Advanced', icon: icons.server }
 	] as const;
@@ -214,77 +223,12 @@
 				/>
 			</SettingsRow>
 		</SettingsSection>
+	{:else if section === 'bus'}
+		<BusSection />
 	{:else if section === 'notifications'}
 		<WebhookList />
 	{:else}
-		<SettingsSection
-			title="Configuration export"
-			description="Every monitor and status page as JSON, with no secrets in it. Keep it in git."
-		>
-			<SettingsRow
-				label="Download sonde-config.json"
-				description={user?.is_admin
-					? 'A snapshot of what this instance is watching, taken now.'
-					: 'Administrators only. Ask whoever runs this instance.'}
-			>
-				<Button
-					variant="outline"
-					icon={icons.download}
-					disabled={!user?.is_admin}
-					onclick={exportConfig}
-				>
-					Export
-				</Button>
-			</SettingsRow>
-		</SettingsSection>
-
-		<SettingsSection title="Instance" description="What this browser is talking to.">
-			<SettingsRow stacked>
-				<SecretField
-					label="Instance URL"
-					value={page.url.origin}
-					sensitive={false}
-					class="w-full"
-				/>
-			</SettingsRow>
-			<SettingsRow label="API base path" description="Every request is scoped under it.">
-				<span class="font-fc-mono text-fc-sm text-fc-fg">{backend.baseUrl}</span>
-			</SettingsRow>
-			<SettingsRow label="API reference" description="Every endpoint this instance serves.">
-				<Button variant="outline" href="/docs" iconRight={icons.arrow}>Open</Button>
-			</SettingsRow>
-		</SettingsSection>
-
-		<SettingsSection title="Account" description="Facts an operator may ask you for.">
-			<SettingsRow stacked>
-				<SecretField
-					label="User ID"
-					value={String(user?.id ?? '')}
-					sensitive={false}
-					class="w-full"
-				/>
-			</SettingsRow>
-			<SettingsRow label="Member since" description="When this account was created.">
-				<span class="text-fc-sm text-fc-fg-muted">{memberSince}</span>
-			</SettingsRow>
-			<SettingsRow label="Single sign-on" description="Whether local passwords are disabled.">
-				<span class="font-fc-mono text-fc-sm text-fc-fg">{ssoOnly ? 'required' : 'optional'}</span>
-			</SettingsRow>
-		</SettingsSection>
-
-		<SettingsSection
-			title="Danger zone"
-			description="Irreversible from this browser. Your monitors, incidents and status pages are untouched."
-		>
-			<SettingsRow
-				label="Clear local data"
-				description="Removes the theme preference stored here, then signs you out. Sonde has no self-service account deletion, an administrator has to remove the account server-side."
-			>
-				<Button variant="danger" icon={icons.remove} onclick={() => (clearingLocal = true)}>
-					Clear local data
-				</Button>
-			</SettingsRow>
-		</SettingsSection>
+		<AdvancedSection {user} {ssoOnly} onClearLocalData={() => (clearingLocal = true)} />
 	{/if}
 	</div>
 </div>

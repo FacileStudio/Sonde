@@ -229,8 +229,17 @@ func (d *Dispatcher) buildPayload(transition checker.Transition, actorEmail stri
 	return json.Marshal(event)
 }
 
+// signHMAC signs the body the way every receiver in the suite verifies it:
+// the algorithm named, then the hex digest.
+//
+// The prefix is not decoration. Antenne verifies with
+// envelope.VerifyHexSignature(secret, "sha256=", …) and compares the whole
+// string, so a bare digest was rejected 401 by the one target this feature
+// exists to reach — and only appeared to work when the Antenne provider had no
+// secret set, which is the configuration where nothing is verified at all.
+// GitHub, Stripe and Antenne's own outbound signatures all carry it.
 func signHMAC(payload []byte, secret string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
-	return hex.EncodeToString(mac.Sum(nil))
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }

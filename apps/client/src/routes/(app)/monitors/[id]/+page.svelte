@@ -19,23 +19,21 @@
 		toast
 	} from '@facile/muse';
 	import MonitorForm from '$lib/components/MonitorForm.svelte';
-	import MonitorStatusChart from '$lib/components/MonitorStatusChart.svelte';
+	import MonitorHistoryPanel from '$lib/components/MonitorHistory.svelte';
 	import {
 		backend,
-		UPTIME_WINDOWS,
-		type Check,
 		type Incident,
 		type Monitor,
 		type MonitorInput,
 		type UptimeResponse
 	} from '$lib/backend';
+	import { duration, percent } from '$lib/format';
 
 	let monitorId = $derived(Number(page.params.id));
 
 	let monitor = $state<Monitor | null>(null);
 	let incidents = $state<Incident[]>([]);
 	let uptime = $state<UptimeResponse[]>([]);
-	let checks = $state<Check[]>([]);
 	let value = $state<MonitorInput | null>(null);
 	let loading = $state(true);
 	let busy = $state(false);
@@ -68,10 +66,9 @@
 				expected_keyword: loaded.expected_keyword,
 				enabled: loaded.enabled
 			};
-			[incidents, uptime, checks] = await Promise.all([
+			[incidents, uptime] = await Promise.all([
 				backend.monitorIncidents(monitorId),
-				Promise.all(UPTIME_WINDOWS.map((entry) => backend.monitorUptime(monitorId, entry))),
-				backend.monitorChecks(monitorId, 60).catch(() => [])
+				backend.monitorUptimeSummary(monitorId)
 			]);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitor.';
@@ -108,8 +105,11 @@
 		}
 	}
 
-	const percent = (stat: UptimeResponse) =>
-		stat.uptime === null ? '—' : `${stat.uptime.toFixed(2)}%`;
+	function incidentLength(incident: Incident): string {
+		const end = incident.resolved_at ? new Date(incident.resolved_at).getTime() : Date.now();
+		return duration((end - new Date(incident.opened_at).getTime()) / 1000);
+	}
+
 	const windowLabel: Record<string, string> = {
 		'24h': 'Uptime, 24 hours',
 		'7d': 'Uptime, 7 days',
@@ -158,7 +158,7 @@
 			{#each uptime as stat (stat.window)}
 				<StatCard
 					label={windowLabel[stat.window] ?? stat.window}
-					value={percent(stat)}
+					value={percent(stat.uptime)}
 					delta={stat.total === 0
 						? 'No checks recorded yet'
 						: `${stat.failed} failed of ${stat.total} checks`}
@@ -166,27 +166,7 @@
 			{/each}
 		</div>
 
-		<Card class="flex flex-col gap-4 p-5">
-			<div class="flex items-center justify-between">
-				<div>
-					<h2 class="text-fc-base font-semibold text-fc-fg">Status & Response Time</h2>
-					<p class="text-fc-xs text-fc-fg-muted">Recent check probes and latency trend</p>
-				</div>
-				{#if checks.length > 0}
-					<span class="font-fc-mono text-fc-xs text-fc-fg-muted">
-						{checks.length} probes recorded
-					</span>
-				{/if}
-			</div>
-
-			<MonitorStatusChart
-				{checks}
-				slots={40}
-				height={24}
-				showSparkline={true}
-				showLatency={true}
-			/>
-		</Card>
+		<MonitorHistoryPanel {monitorId} onError={(message) => (error = message)} />
 
 		{#if heartbeatUrl}
 			<!-- POST only. internal/checker/push.go registers no GET, and a GET falls through to
@@ -216,6 +196,13 @@
 			</Section>
 
 			<Section title="Incidents">
+				{#snippet actions()}
+					{#if incidents.length > 0}
+						<Badge tone={incidents.some((entry) => !entry.resolved_at) ? 'danger' : 'neutral'}>
+							{incidents.length}
+						</Badge>
+					{/if}
+				{/snippet}
 				{#if incidents.length === 0}
 					<EmptyState
 						icon={icons.shield}
@@ -231,11 +218,11 @@
 									: 'border-fc-danger'}"
 							>
 								<span class="text-fc-sm text-fc-fg">{incident.cause || '—'}</span>
-								<span class="text-fc-xs text-fc-fg-muted">
-									{new Date(incident.opened_at).toLocaleString()}
-									{incident.resolved_at
-										? `, resolved ${new Date(incident.resolved_at).toLocaleString()}`
-										: ', ongoing'}
+								<span class="flex flex-wrap items-center gap-2 text-fc-xs text-fc-fg-muted">
+									<span class="font-fc-mono">{incidentLength(incident)}</span>
+									<span>{incident.resolved_at ? 'down' : 'down, still open'}</span>
+									<span>·</span>
+									<span>{new Date(incident.opened_at).toLocaleString()}</span>
 								</span>
 							</li>
 						{/each}

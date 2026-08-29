@@ -107,7 +107,10 @@ func TestDispatcherDeliversSignedTransition(t *testing.T) {
 	mac := hmac.New(sha256.New, []byte(secret))
 	rawBody, _ := json.Marshal(received)
 	mac.Write(rawBody)
-	expectedSig := hex.EncodeToString(mac.Sum(nil))
+	// The prefix is the half that was missing. Antenne compares the whole
+	// header against "sha256=" + digest, so a test that checked the digest
+	// alone passed while every signed delivery to Antenne was refused 401.
+	expectedSig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 
 	if authHeader != expectedSig {
 		t.Errorf("signature header %q did not match expected %q", authHeader, expectedSig)

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
@@ -32,9 +33,7 @@ const (
 	ownerLookupTimeout = 3 * time.Second
 
 	// antenne-client registers over HTTP with http.DefaultClient, which has
-	// no timeout, so a host that drops packets never returns. That call is
-	// on the boot path ahead of the router, so an unbounded wait means the
-	// API never listens and never answers /health.
+	// no timeout, so a host that drops packets never returns.
 	connectTimeout = 10 * time.Second
 
 	// antenne-client stops reconnecting for good once its attempt budget is
@@ -46,19 +45,15 @@ const (
 	// practical equivalent of unbounded: backoff caps at 30s, which is a retry
 	// every half minute for longer than any deployment will live.
 	reconnectAttempts = math.MaxInt32
+
+	// That budget only covers reconnection, which the library starts counting
+	// after a first successful dial. The first dial is ours to retry, and it
+	// is the one that matters most: Sonde and Antenne restart together on a
+	// suite deploy, so whoever loses the race used to lose events until
+	// somebody noticed and restarted Sonde by hand.
+	dialBackoffMin = 5 * time.Second
+	dialBackoffMax = 60 * time.Second
 )
-
-// Config is the Antenne connection, read from the environment. An empty
-// Instance disables events entirely: no client is built and nothing dials.
-type Config struct {
-	Instance   string
-	App        string
-	Secret     string
-	InstanceID string
-}
-
-// Enabled reports whether events are configured at all.
-func (c Config) Enabled() bool { return c.Instance != "" }
 
 // Owners resolves the email of the account a monitor belongs to.
 type Owners interface {
@@ -75,33 +70,40 @@ type Payload struct {
 }
 
 type emitter interface {
+	Connect(ctx context.Context) error
 	EmitNow(channel string, payload any) error
 	Disconnect()
+	IsConnected() bool
 }
 
 // Publisher turns checker transitions into events on the bus.
 type Publisher struct {
+	config  Config
 	emitter emitter
 	owners  Owners
 	logger  *slog.Logger
+
+	mu          sync.Mutex
+	dialed      bool
+	published   int64
+	dropped     int64
+	lastEventAt *time.Time
+	lastError   string
 }
 
-// New dials Antenne and returns a publisher, or nil when events are not
-// configured or the bus refuses the connection. A nil publisher is usable: Run
-// returns immediately. Monitoring has to keep working when everything else is
-// broken, so an unreachable bus is a warning and never a failed boot.
-func New(ctx context.Context, config Config, owners Owners, logger *slog.Logger) *Publisher {
+// New returns a publisher, or nil when events are not configured. A nil
+// publisher is usable: every method on it is a no-op and State reports
+// disabled.
+//
+// New does not dial. Dialing is Start's job, off the boot path, because a bus
+// that is slow or down must not hold up the server that reports on it.
+func New(config Config, owners Owners, logger *slog.Logger) *Publisher {
 	if !config.Enabled() {
 		return nil
 	}
 
-	app := config.App
-	if app == "" {
-		app = DefaultApp
-	}
-
 	client := antenne.NewClient(&antenne.Config{
-		App:        app,
+		App:        config.AppName(),
 		Instance:   config.Instance,
 		Secret:     config.Secret,
 		InstanceID: config.InstanceID,
@@ -112,38 +114,59 @@ func New(ctx context.Context, config Config, owners Owners, logger *slog.Logger)
 			logger.Warn("antenne connection", slog.Any("error", err))
 		}))
 
-	dial, cancel := context.WithTimeout(ctx, connectTimeout)
-	defer cancel()
-	if err := client.Connect(dial); err != nil {
-		client.Disconnect()
-		logger.Warn("antenne unreachable, monitor events are off", slog.Any("error", err))
-		return nil
-	}
-
-	logger.Info("publishing monitor events", slog.String("instance", config.Instance), slog.String("app", app))
-	return &Publisher{emitter: client, owners: owners, logger: logger}
+	return &Publisher{config: config, emitter: client, owners: owners, logger: logger}
 }
 
-// Run consumes transitions until ctx ends or the channel closes. Emission
-// failures are logged at warn and dropped, so a dead bus never stalls the
-// checker behind it.
-func (p *Publisher) Run(ctx context.Context, transitions <-chan checker.Transition) {
+// Start dials the bus in the background and keeps retrying until it answers or
+// ctx ends. It returns immediately.
+func (p *Publisher) Start(ctx context.Context) {
 	if p == nil {
 		return
 	}
-	defer p.emitter.Disconnect()
+	go p.dial(ctx)
+}
 
+func (p *Publisher) dial(ctx context.Context) {
+	backoff := dialBackoffMin
 	for {
+		attempt, cancel := context.WithTimeout(ctx, connectTimeout)
+		err := p.emitter.Connect(attempt)
+		cancel()
+		if err == nil {
+			p.mu.Lock()
+			p.dialed = true
+			p.lastError = ""
+			p.mu.Unlock()
+			p.logger.Info("publishing monitor events",
+				slog.String("instance", p.config.Instance),
+				slog.String("app", p.config.AppName()))
+			return
+		}
+
+		p.mu.Lock()
+		p.lastError = err.Error()
+		p.mu.Unlock()
+		p.logger.Warn("antenne unreachable, retrying",
+			slog.Any("error", err),
+			slog.Duration("in", backoff))
+
 		select {
 		case <-ctx.Done():
 			return
-		case transition, open := <-transitions:
-			if !open {
-				return
-			}
-			p.publish(ctx, transition)
+		case <-time.After(backoff):
+		}
+		if backoff *= 2; backoff > dialBackoffMax {
+			backoff = dialBackoffMax
 		}
 	}
+}
+
+// Close drops the connection. Safe on a nil publisher.
+func (p *Publisher) Close() {
+	if p == nil {
+		return
+	}
+	p.emitter.Disconnect()
 }
 
 // Publish emits a single transition to the bus.
@@ -178,7 +201,19 @@ func (p *Publisher) publish(ctx context.Context, transition checker.Transition) 
 		IdempotencyKey: payload.MonitorID + ":" + status + ":" + strconv.FormatInt(transition.IncidentAt.UnixMilli(), 10),
 	}
 
-	if err := p.emitter.EmitNow(channel, event); err != nil {
+	err := p.emitter.EmitNow(channel, event)
+
+	p.mu.Lock()
+	if err == nil {
+		p.published++
+		p.lastEventAt = &now
+	} else {
+		p.dropped++
+		p.lastError = err.Error()
+	}
+	p.mu.Unlock()
+
+	if err != nil {
 		p.logger.Warn("dropping monitor event",
 			slog.Any("error", err),
 			slog.String("channel", channel),

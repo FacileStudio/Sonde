@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
+		Badge,
 		Button,
 		ConfirmModal,
-		Field,
-		Icon,
-		IconButton,
-		SettingsRow,
+		EmptyState,
 		SettingsSection,
+		Skeleton,
+		StatusDot,
 		Switch,
+		Table,
 		icons,
 		toast
 	} from '@facile/muse';
@@ -16,7 +17,7 @@
 	import WebhookDrawer from './WebhookDrawer.svelte';
 
 	let webhooks = $state<Webhook[]>([]);
-	let loading = $state(false);
+	let loading = $state(true);
 	let drawerOpen = $state(false);
 	let editing = $state<Webhook | null>(null);
 	let deleting = $state<Webhook | null>(null);
@@ -99,86 +100,115 @@
 			deleting = null;
 		}
 	}
+
+	const host = (url: string) => {
+		try {
+			return new URL(url).host;
+		} catch {
+			return url;
+		}
+	};
 </script>
 
+<!-- `bare` because the body is a Table, which brings its own surface. A Table
+     inside SettingsSection's default Card is a container inside a container. -->
 <SettingsSection
 	title="Webhooks"
-	description="HTTP POST endpoints notified immediately when a monitor goes down or recovers."
+	description="HTTP POST endpoints told immediately when a monitor goes down or recovers. Each delivery carries the same envelope Antenne receives, signed HMAC-SHA256 as sha256=<digest>."
+	bare
 >
-	{#if webhooks.length === 0 && !loading}
-		<div class="rounded-fc-lg border border-fc-border bg-fc-surface-subtle p-fc-6 text-center">
-			<p class="text-fc-sm text-fc-fg-muted mb-fc-4">
-				No webhooks configured. Add an endpoint (like Antenne) to receive instant notifications.
-			</p>
-			<Button icon={icons.plus} onclick={openCreate}>Add webhook</Button>
-		</div>
+	{#snippet actions()}
+		<Button size="sm" icon={icons.plus} onclick={openCreate}>Add webhook</Button>
+	{/snippet}
+
+	{#if loading}
+		<Skeleton class="h-24 w-full" />
+	{:else if webhooks.length === 0}
+		<EmptyState
+			icon={icons.plug}
+			title="No webhooks configured"
+			description="Point one at Antenne to get alerts wherever the suite already sends them, or at any endpoint that accepts JSON."
+		>
+			<Button variant="outline" icon={icons.plus} onclick={openCreate}>Add your first webhook</Button>
+		</EmptyState>
 	{:else}
-		<div class="flex justify-end mb-fc-2">
-			<Button icon={icons.plus} variant="outline" onclick={openCreate}>Add webhook</Button>
-		</div>
-
-		<div class="flex flex-col gap-fc-3">
-			{#each webhooks as webhook (webhook.id)}
-				<div class="rounded-fc-lg border border-fc-border bg-fc-surface p-fc-4 flex items-center justify-between gap-fc-4">
-					<div class="flex flex-col gap-fc-1 min-w-0">
-						<div class="flex items-center gap-fc-2">
-							<span class="font-medium text-fc-fg text-fc-sm">
-								{webhook.name || 'Webhook'}
-							</span>
-							{#if !webhook.enabled}
-								<span class="rounded bg-fc-neutral-subtle px-1.5 py-0.5 text-fc-xs text-fc-fg-muted font-medium">
-									Disabled
-								</span>
+		<Table>
+			<thead>
+				<tr>
+					<th scope="col">Endpoint</th>
+					<th scope="col">Signature</th>
+					<th scope="col">State</th>
+					<th scope="col"><span class="sr-only">Actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each webhooks as webhook (webhook.id)}
+					<tr class={webhook.enabled ? '' : 'opacity-55'}>
+						<td>
+							<div class="flex min-w-0 flex-col gap-1">
+								<span class="truncate font-medium text-fc-fg">{webhook.name || host(webhook.url)}</span>
+								<span class="truncate font-fc-mono text-fc-xs text-fc-fg-muted">{webhook.url}</span>
+							</div>
+						</td>
+						<td>
+							{#if webhook.secret_header}
+								<span class="font-fc-mono text-fc-xs text-fc-fg-muted">{webhook.secret_header}</span>
+							{:else}
+								<Badge tone="warning">unsigned</Badge>
 							{/if}
-						</div>
-						<div class="font-fc-mono text-fc-xs text-fc-fg-muted truncate max-w-md">
-							{webhook.url}
-						</div>
-					</div>
-
-					<div class="flex items-center gap-fc-2 shrink-0">
-						<Button
-							variant="outline"
-							size="sm"
-							icon={icons.refresh}
-							disabled={testingId === webhook.id}
-							onclick={() => test(webhook)}
-						>
-							{testingId === webhook.id ? 'Testing…' : 'Test'}
-						</Button>
-						<IconButton
-							variant="ghost"
-							aria-label="Edit webhook"
-							onclick={() => openEdit(webhook)}
-						>
-							<Icon icon={icons.edit} size={18} />
-						</IconButton>
-						<IconButton
-							variant="danger"
-							aria-label="Delete webhook"
-							onclick={() => (deleting = webhook)}
-						>
-							<Icon icon={icons.remove} size={18} />
-						</IconButton>
-						<Switch checked={webhook.enabled} onchange={() => toggle(webhook)} />
-					</div>
-				</div>
-			{/each}
-		</div>
+						</td>
+						<td>
+							<StatusDot
+								tone={webhook.enabled ? 'success' : 'neutral'}
+								label={webhook.enabled ? 'Enabled' : 'Disabled'}
+							/>
+						</td>
+						<td>
+							<div class="flex items-center justify-end gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									icon={icons.refresh}
+									disabled={testingId === webhook.id}
+									onclick={() => test(webhook)}
+								>
+									{testingId === webhook.id ? 'Testing…' : 'Test'}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={icons.edit}
+									aria-label={`Edit ${webhook.name || webhook.url}`}
+									onclick={() => openEdit(webhook)}
+								/>
+								<Button
+									variant="ghost-danger"
+									size="sm"
+									icon={icons.remove}
+									aria-label={`Delete ${webhook.name || webhook.url}`}
+									onclick={() => (deleting = webhook)}
+								/>
+								<Switch
+									checked={webhook.enabled}
+									onchange={() => toggle(webhook)}
+									aria-label={`Enable ${webhook.name || webhook.url}`}
+								/>
+							</div>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</Table>
 	{/if}
 </SettingsSection>
 
-<WebhookDrawer
-	bind:open={drawerOpen}
-	editing={editing}
-	onSaved={handleSaved}
-/>
+<WebhookDrawer bind:open={drawerOpen} {editing} onSaved={handleSaved} />
 
 <ConfirmModal
 	open={Boolean(deleting)}
 	tone="danger"
 	title="Delete webhook?"
-	description="This endpoint will no longer receive alerts when monitors transition."
+	description="Nothing else changes: the monitors keep running and the bus keeps publishing. This endpoint simply stops being told, and no alert already sent is recalled."
 	confirmLabel="Delete webhook"
 	onConfirm={confirmDelete}
 	onCancel={() => (deleting = null)}

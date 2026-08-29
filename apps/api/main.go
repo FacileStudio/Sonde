@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"embed"
 	"errors"
-	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -16,155 +13,17 @@ import (
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
-	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
-	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
-	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
-	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
 	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
-	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
-	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
-	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/local"
-	"github.com/FacileStudio/porte/oidc"
-	portepg "github.com/FacileStudio/porte/pg"
-	"github.com/FacileStudio/porte/session"
-	"github.com/FacileStudio/tronc/apiref"
-	"github.com/FacileStudio/tronc/health"
 	"github.com/FacileStudio/tronc/healthcheck"
-	"github.com/FacileStudio/tronc/httpx"
 	"github.com/FacileStudio/tronc/logger"
-	troncmiddleware "github.com/FacileStudio/tronc/middleware"
 	"github.com/FacileStudio/tronc/migrate"
-	"github.com/FacileStudio/tronc/spa"
-	"github.com/go-chi/chi/v5"
-	"gorm.io/gorm"
 )
-
-// apiTitle names this API in the reference page and the OpenAPI document.
-// scripts/rename.sh rewrites this line when a fork is retargeted, so keep it a
-// single const on one line.
-const apiTitle = "Sonde API"
-
-const apiDescription = "Uptime monitoring: probes, incidents, push heartbeats."
-
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
-
-func registry() documentation.Response {
-	return documentation.Response{
-		Modules: []documentation.Module{
-			auth.Documentation,
-			checker.Documentation,
-			httpapi.Documentation,
-			httpapi.StatusPagesDocumentation,
-			users.Documentation,
-			webhooks.Documentation,
-		},
-	}
-}
-
-func refConfig() apiref.Config {
-	return apiref.Config{
-		Title:       apiTitle,
-		Description: apiDescription,
-		Servers:     []string{"/api"},
-		Registry:    registry(),
-	}
-}
-
-// buildRouter assembles the router the server serves. It is a function rather
-// than inline in main so a test can walk the real route table; it tolerates a
-// nil database because no service touches the handle until a request arrives.
-//
-// One session manager owns one sessions table, and both kits issue through it:
-// a password login and a federated one are the same row, the same cookie and
-// the same logout.
-func buildRouter(db *gorm.DB, sqlDB *sql.DB, engine *checker.Engine, appEnv env.Config, appLogger *slog.Logger) (chi.Router, error) {
-	identityStore := portepg.New(sqlDB)
-	userStore := auth.NewUserStore(db)
-
-	sessions, err := session.New(appEnv.Porte, session.Deps{
-		Sessions: identityStore.Sessions(),
-		Logger:   appLogger,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure sessions: %w", err)
-	}
-
-	kit, err := oidc.New(context.Background(), appEnv.Porte, oidc.Deps{
-		Users:       userStore,
-		Identities:  identityStore.Identities(),
-		Codes:       identityStore.LoginCodes(),
-		Sessions:    sessions,
-		Logger:      appLogger,
-		ConfigExtra: auth.ConfigExtra(appEnv.AllowRegistration),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure authentication: %w", err)
-	}
-	if kit.Enabled() {
-		appLogger.Info("single sign-on enabled",
-			slog.String("issuer", appEnv.Porte.Issuer),
-			slog.Bool("sso_only", appEnv.Porte.SSOOnly))
-	}
-
-	passwords, err := local.New(local.Config{AllowRegistration: appEnv.AllowRegistration}, local.Deps{
-		Users:      userStore,
-		Identities: identityStore.Identities(),
-		Sessions:   sessions,
-		Logger:     appLogger,
-		Count:      userStore.CountUsers,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure the password login: %w", err)
-	}
-
-	authService := auth.NewService(db, passwords)
-	userService := users.NewService(db)
-	httpService := httpapi.New(db, monitors.NewStore(db), uptime.NewService(db))
-
-	router := httpx.NewRouter(httpx.Config{
-		Logger: appLogger,
-		CORS: troncmiddleware.CORSConfig{
-			AllowedOrigins: appEnv.CORSAllowedOrigins,
-		},
-	})
-
-	health.Mount(router, health.DB(sqlDB))
-	apiref.Mount(router, refConfig())
-
-	requireAuth := middleware.RequireAuth(sessions, authService)
-	clearCookie := func(w http.ResponseWriter, r *http.Request) {
-		sessions.ClearCookie(w, r, porte.SessionCookieName)
-	}
-
-	router.Route("/api", func(r chi.Router) {
-		webhookStore := webhooks.NewStore(db)
-		webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
-
-		sessions.Mount(r)
-		kit.Mount(r)
-		auth.RegisterRoutes(r, authService, appEnv.Porte.SSOOnly, requireAuth, clearCookie)
-		checker.RegisterHeartbeat(r, engine)
-		users.RegisterRoutes(r, userService, requireAuth)
-		httpapi.RegisterRoutes(r, httpService, requireAuth)
-		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
-	})
-
-	clientDir := spa.DirFromEnv()
-	if spa.Available(clientDir) {
-		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
-		appLogger.Info("serving client", slog.String("dir", clientDir))
-	}
-
-	return router, nil
-}
 
 func main() { os.Exit(run()) }
 
@@ -236,7 +95,13 @@ func run() int {
 	backgroundCtx, stopBackground := context.WithCancel(context.Background())
 	defer stopBackground()
 
-	publisher := events.New(backgroundCtx, appEnv.Events, monitors.NewStore(db), appLogger)
+	// Dialing happens in the background: a bus that is slow or down must not
+	// hold up the server that reports on it, and Sonde and Antenne restart
+	// together on a suite deploy.
+	publisher := events.New(appEnv.Events, monitors.NewStore(db), appLogger)
+	publisher.Start(backgroundCtx)
+	defer publisher.Close()
+
 	webhookStore := webhooks.NewStore(db)
 	webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
 
@@ -258,15 +123,20 @@ func run() int {
 				if !open {
 					return
 				}
-				if publisher != nil {
-					publisher.Publish(backgroundCtx, transition)
-				}
+				publisher.Publish(backgroundCtx, transition)
 				webhookDispatcher.Dispatch(backgroundCtx, transition)
 			}
 		}
 	}()
 
-	router, err := buildRouter(db, sqlDB, engine, appEnv, appLogger)
+	router, err := buildRouter(routerDeps{
+		DB:        db,
+		SQL:       sqlDB,
+		Engine:    engine,
+		Publisher: publisher,
+		Env:       appEnv,
+		Logger:    appLogger,
+	})
 	if err != nil {
 		appLogger.Error("failed to build the router", slog.Any("error", err))
 		return 1

@@ -113,7 +113,7 @@
 </script>
 
 <Drawer bind:open title={editing ? 'Edit webhook' : 'Add webhook'}>
-	<form onsubmit={save} class="flex flex-col gap-fc-4">
+	<form onsubmit={save} class="flex flex-col gap-4">
 		{#if error}
 			<Alert tone="danger" title={error} />
 		{/if}
@@ -124,12 +124,12 @@
 
 		<Field for="webhook-url" label="Webhook URL">
 			<Input id="webhook-url" bind:value={url} placeholder="https://antenne.facile.studio/webhook/sonde" required />
-			<div class="mt-fc-1 flex items-center justify-between text-fc-xs text-fc-fg-muted">
+			<div class="mt-1 flex items-center justify-between text-fc-xs text-fc-fg-muted">
 				<span>HTTP POST recipient for monitor.down and monitor.up alerts.</span>
 				<button
 					type="button"
 					onclick={fillAntenne}
-					class="text-fc-brand hover:underline font-medium cursor-pointer"
+					class="text-fc-accent hover:underline font-medium cursor-pointer"
 				>
 					Use Antenne preset
 				</button>
@@ -144,7 +144,7 @@
 			<Input id="webhook-header" bind:value={secretHeader} placeholder="x-sonde-signature-256" />
 		</Field>
 
-		<div class="flex items-center justify-between py-fc-2">
+		<div class="flex items-center justify-between py-2">
 			<div>
 				<div class="text-fc-sm font-medium text-fc-fg">Enable webhook</div>
 				<div class="text-fc-xs text-fc-fg-muted">Send notifications on monitor state changes.</div>
@@ -152,7 +152,7 @@
 			<Switch bind:checked={enabled} />
 		</div>
 
-		<div class="mt-fc-4 flex items-center justify-between gap-fc-2">
+		<div class="mt-4 flex items-center justify-between gap-2">
 			<Button
 				type="button"
 				variant="outline"
@@ -163,7 +163,7 @@
 				{testing ? 'Testing…' : 'Test endpoint'}
 			</Button>
 
-			<div class="flex items-center gap-fc-2">
+			<div class="flex items-center gap-2">
 				<Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
 				<Button type="submit" disabled={!ready || submitting} icon={icons.check}>
 					{submitting ? 'Saving…' : editing ? 'Save changes' : 'Add webhook'}
