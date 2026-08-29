@@ -140,3 +140,57 @@ func (s *Service) monitorIncidents(w http.ResponseWriter, r *http.Request) {
 	}
 	httpjson.WriteJSON(w, http.StatusOK, out)
 }
+
+type CheckResponse struct {
+	ID        int64     `json:"id"`
+	MonitorID int64     `json:"monitor_id"`
+	OK        bool      `json:"ok"`
+	LatencyMS int64     `json:"latency_ms"`
+	Error     string    `json:"error,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Service) monitorChecks(w http.ResponseWriter, r *http.Request) {
+	id, err := monitorID(r)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	ownerID, err := s.ownerID(r)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	if _, err := s.monitors.Get(r.Context(), ownerID, id); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+	var checks []schemas.CheckRaw
+	if err := s.db.WithContext(r.Context()).
+		Where("monitor_id = ?", id).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&checks).Error; err != nil {
+		httpjson.WriteError(w, errors.Internal("could not load checks", err))
+		return
+	}
+	out := make([]CheckResponse, 0, len(checks))
+	for i := len(checks) - 1; i >= 0; i-- {
+		c := checks[i]
+		out = append(out, CheckResponse{
+			ID:        c.ID,
+			MonitorID: c.MonitorID,
+			OK:        c.OK,
+			LatencyMS: c.LatencyMS,
+			Error:     c.Error,
+			CreatedAt: c.CreatedAt,
+		})
+	}
+	httpjson.WriteJSON(w, http.StatusOK, out)
+}

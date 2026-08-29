@@ -19,9 +19,11 @@
 		toast
 	} from '@facile/muse';
 	import MonitorForm from '$lib/components/MonitorForm.svelte';
+	import MonitorStatusChart from '$lib/components/MonitorStatusChart.svelte';
 	import {
 		backend,
 		UPTIME_WINDOWS,
+		type Check,
 		type Incident,
 		type Monitor,
 		type MonitorInput,
@@ -33,6 +35,7 @@
 	let monitor = $state<Monitor | null>(null);
 	let incidents = $state<Incident[]>([]);
 	let uptime = $state<UptimeResponse[]>([]);
+	let checks = $state<Check[]>([]);
 	let value = $state<MonitorInput | null>(null);
 	let loading = $state(true);
 	let busy = $state(false);
@@ -65,9 +68,10 @@
 				expected_keyword: loaded.expected_keyword,
 				enabled: loaded.enabled
 			};
-			[incidents, uptime] = await Promise.all([
+			[incidents, uptime, checks] = await Promise.all([
 				backend.monitorIncidents(monitorId),
-				Promise.all(UPTIME_WINDOWS.map((entry) => backend.monitorUptime(monitorId, entry)))
+				Promise.all(UPTIME_WINDOWS.map((entry) => backend.monitorUptime(monitorId, entry))),
+				backend.monitorChecks(monitorId, 60).catch(() => [])
 			]);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load monitor.';
@@ -161,6 +165,28 @@
 				/>
 			{/each}
 		</div>
+
+		<Card class="flex flex-col gap-4 p-5">
+			<div class="flex items-center justify-between">
+				<div>
+					<h2 class="text-fc-base font-semibold text-fc-fg">Status & Response Time</h2>
+					<p class="text-fc-xs text-fc-fg-muted">Recent check probes and latency trend</p>
+				</div>
+				{#if checks.length > 0}
+					<span class="font-fc-mono text-fc-xs text-fc-fg-muted">
+						{checks.length} probes recorded
+					</span>
+				{/if}
+			</div>
+
+			<MonitorStatusChart
+				{checks}
+				slots={40}
+				height={24}
+				showSparkline={true}
+				showLatency={true}
+			/>
+		</Card>
 
 		{#if heartbeatUrl}
 			<!-- POST only. internal/checker/push.go registers no GET, and a GET falls through to
