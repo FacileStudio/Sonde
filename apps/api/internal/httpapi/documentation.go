@@ -1,6 +1,11 @@
 package httpapi
 
-import documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+import (
+	"net/http"
+
+	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
+)
 
 var Documentation = documentation.Module{
 	Name:        "monitors",
@@ -12,8 +17,8 @@ var Documentation = documentation.Module{
 			Summary:      "Create a monitor",
 			Description:  "Validated per type: http takes a URL, tcp takes host:port, push takes no target (the generated token is the endpoint).",
 			Auth:         "session cookie (with X-Facile-CSRF) or bearer token",
-			RequestBody:  "MonitorInput",
-			ResponseBody: "MonitorResponse",
+			RequestBody:  MonitorInput{},
+			ResponseBody: MonitorResponse{},
 			PathParams:   []documentation.Field{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid monitor input."},
@@ -27,19 +32,22 @@ var Documentation = documentation.Module{
 			Path:         "/monitors",
 			Summary:      "List the caller's monitors",
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "MonitorResponse[]",
+			ResponseBody: []MonitorResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/incidents",
-			Summary:      "List incidents across the caller's monitors",
-			Description:  "Optional monitor_id query parameter narrows the list to one monitor.",
-			Auth:         "session cookie or bearer token",
-			ResponseBody: "IncidentResponse[]",
+			Method:      "GET",
+			Path:        "/incidents",
+			Summary:     "List incidents across the caller's monitors",
+			Description: "Optional monitor_id query parameter narrows the list to one monitor.",
+			Auth:        "session cookie or bearer token",
+			QueryParams: []documentation.Field{
+				{Name: "monitor_id", Type: "integer", Description: "Optional monitor ID to filter incidents."},
+			},
+			ResponseBody: []IncidentResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "monitor_id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -52,7 +60,7 @@ var Documentation = documentation.Module{
 			Summary:      "Return one of the caller's monitors",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "MonitorResponse",
+			ResponseBody: MonitorResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -66,8 +74,8 @@ var Documentation = documentation.Module{
 			Summary:      "Replace a monitor's configuration",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
 			Auth:         "session cookie (with X-Facile-CSRF) or bearer token",
-			RequestBody:  "MonitorInput",
-			ResponseBody: "MonitorResponse",
+			RequestBody:  MonitorInput{},
+			ResponseBody: MonitorResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid monitor input."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -82,6 +90,7 @@ var Documentation = documentation.Module{
 			Summary:    "Delete a monitor",
 			PathParams: []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
 			Auth:       "session cookie (with X-Facile-CSRF) or bearer token",
+			Status:     http.StatusNoContent,
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -95,7 +104,7 @@ var Documentation = documentation.Module{
 			Summary:      "List one monitor's incidents",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "IncidentResponse[]",
+			ResponseBody: []IncidentResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -104,13 +113,16 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/monitors/{id}/uptime",
-			Summary:      "Uptime statistics for one monitor",
-			Description:  "window query parameter selects 24h (default), 7d, 30d or 90d. A window with no data reports null rather than 100%.",
-			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			Method:      "GET",
+			Path:        "/monitors/{id}/uptime",
+			Summary:     "Uptime statistics for one monitor",
+			Description: "window query parameter selects 24h (default), 7d, 30d or 90d. A window with no data reports null rather than 100%.",
+			PathParams:  []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			QueryParams: []documentation.Field{
+				{Name: "window", Type: "string", Description: "Window span: 24h (default), 7d, 30d, 90d."},
+			},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "UptimeResponse",
+			ResponseBody: UptimeResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer or window is unknown."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -119,13 +131,16 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/monitors/{id}/checks",
-			Summary:      "List recent check probes for one monitor",
-			Description:  "limit query parameter selects the number of recent checks to return (default 50, max 200).",
-			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			Method:      "GET",
+			Path:        "/monitors/{id}/checks",
+			Summary:     "List recent check probes for one monitor",
+			Description: "limit query parameter selects the number of recent checks to return (default 50, max 200).",
+			PathParams:  []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			QueryParams: []documentation.Field{
+				{Name: "limit", Type: "integer", Description: "Number of recent checks to return (default 50, max 200)."},
+			},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "CheckResponse[]",
+			ResponseBody: []CheckResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -139,7 +154,7 @@ var Documentation = documentation.Module{
 			Summary:      "Every monitor with its current status, 24h history and the fleet totals",
 			Description:  "One request for the whole monitors page: per-monitor status (up, down, paused, unknown), last check, 24h uptime and latency, open incident count and 24 hourly buckets, plus the totals across them. Three queries regardless of how many monitors exist.",
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "Fleet",
+			ResponseBody: stats.Fleet{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -152,7 +167,7 @@ var Documentation = documentation.Module{
 			Description:  "The same numbers as /uptime, for 24h, 7d, 30d and 90d together. A window with no data reports null rather than 100%.",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "UptimeResponse[]",
+			ResponseBody: []UptimeResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -161,13 +176,16 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/monitors/{id}/history",
-			Summary:      "Uptime and latency buckets for one monitor",
-			Description:  "window selects 24h (default) or 7d, read hourly, and 30d or 90d, read daily. Buckets are zero-filled across the whole window, and a bucket with no checks reports uptime null rather than 0 so a gap in coverage cannot be read as an outage.",
-			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			Method:      "GET",
+			Path:        "/monitors/{id}/history",
+			Summary:     "Uptime and latency buckets for one monitor",
+			Description: "window selects 24h (default) or 7d, read hourly, and 30d or 90d, read daily. Buckets are zero-filled across the whole window, and a bucket with no checks reports uptime null rather than 0 so a gap in coverage cannot be read as an outage.",
+			PathParams:  []documentation.Field{{Name: "id", Type: "integer", Description: "Monitor id."}},
+			QueryParams: []documentation.Field{
+				{Name: "window", Type: "string", Description: "Window: 24h (default), 7d, 30d, 90d."},
+			},
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "Series",
+			ResponseBody: stats.Series{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer or window is unknown."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -176,12 +194,15 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/incidents/stats",
-			Summary:      "Incident aggregates over a day window",
-			Description:  "days defaults to 30 and is capped at 365. Returns totals, open and resolved counts, mean time to repair over resolved incidents only, the longest outage, a zero-filled per-day histogram and a per-monitor breakdown ordered by incident count.",
-			Auth:         "session cookie or bearer token",
-			ResponseBody: "IncidentStats",
+			Method:      "GET",
+			Path:        "/incidents/stats",
+			Summary:     "Incident aggregates over a day window",
+			Description: "days defaults to 30 and is capped at 365. Returns totals, open and resolved counts, mean time to repair over resolved incidents only, the longest outage, a zero-filled per-day histogram and a per-monitor breakdown ordered by incident count.",
+			Auth:        "session cookie or bearer token",
+			QueryParams: []documentation.Field{
+				{Name: "days", Type: "integer", Description: "Number of days (default 30, max 365)."},
+			},
+			ResponseBody: stats.IncidentStats{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "days is not between 1 and 365."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -194,7 +215,7 @@ var Documentation = documentation.Module{
 			Summary:      "What this instance is wired to",
 			Description:  "The Antenne bus connection state (disabled, connecting, connected, reconnecting) with its instance, app identity, emitted channels and published/dropped counts; whether Journal is configured; and the retention and failure-threshold constants. Carries no secrets.",
 			Auth:         "session cookie or bearer token",
-			ResponseBody: "IntegrationsResponse",
+			ResponseBody: IntegrationsResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
 			},
@@ -203,9 +224,9 @@ var Documentation = documentation.Module{
 			Method:       "GET",
 			Path:         "/config/export",
 			Summary:      "Export the instance configuration as JSON",
-			Description:  "Snapshot of monitors and status pages keyed by slugs. Contains no credentials of any kind — no push tokens, no password hashes.",
+			Description:  "Snapshot of monitors and status pages keyed by slugs. Contains no credentials of any kind, no push tokens, no password hashes.",
 			Auth:         "administrator role required",
-			ResponseBody: "ExportResponse",
+			ResponseBody: ExportResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
 				{Status: 403, Code: "permission_denied", Description: "The caller is not an administrator."},

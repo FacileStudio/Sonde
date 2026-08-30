@@ -33,6 +33,19 @@ func TestEveryRouteIsDocumented(t *testing.T) {
 	}
 }
 
+func TestRegistryIsComplete(t *testing.T) {
+	if issues := apiref.Incomplete(
+		refConfig(),
+		"/auth/logout",
+		"/auth/oidc",
+		"/auth/oidc/callback",
+		"/push/{token}",
+		"/webhooks/{id}/test",
+	); len(issues) > 0 {
+		t.Errorf("incomplete documentation routes:\n  %s", strings.Join(issues, "\n  "))
+	}
+}
+
 func TestReferenceIsServed(t *testing.T) {
 	router := testRouter()
 

@@ -1,6 +1,10 @@
 package httpapi
 
-import documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+import (
+	"net/http"
+
+	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+)
 
 var StatusPagesDocumentation = documentation.Module{
 	Name:        "status pages",
@@ -12,8 +16,8 @@ var StatusPagesDocumentation = documentation.Module{
 			Summary:      "Create a status page",
 			Description:  "monitor_ids sets page membership; array order becomes the display position.",
 			Auth:         "administrator role required",
-			RequestBody:  "StatusPageInput",
-			ResponseBody: "StatusPageResponse",
+			RequestBody:  StatusPageInput{},
+			ResponseBody: StatusPageResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid input or an unknown monitor in monitor_ids."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -27,7 +31,7 @@ var StatusPagesDocumentation = documentation.Module{
 			Path:         "/status-pages",
 			Summary:      "List status pages with their members in position order",
 			Auth:         "administrator role required",
-			ResponseBody: "StatusPageResponse[]",
+			ResponseBody: []StatusPageResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
 				{Status: 403, Code: "permission_denied", Description: "The caller is not an administrator."},
@@ -40,7 +44,7 @@ var StatusPagesDocumentation = documentation.Module{
 			Summary:      "Return one status page",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Status page id."}},
 			Auth:         "administrator role required",
-			ResponseBody: "StatusPageResponse",
+			ResponseBody: StatusPageResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -56,8 +60,8 @@ var StatusPagesDocumentation = documentation.Module{
 			Description:  "monitor_ids replaces the whole membership set; array order becomes the display position.",
 			PathParams:   []documentation.Field{{Name: "id", Type: "integer", Description: "Status page id."}},
 			Auth:         "administrator role required",
-			RequestBody:  "StatusPageInput",
-			ResponseBody: "StatusPageResponse",
+			RequestBody:  StatusPageInput{},
+			ResponseBody: StatusPageResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid input or an unknown monitor in monitor_ids."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -73,6 +77,7 @@ var StatusPagesDocumentation = documentation.Module{
 			Summary:    "Delete a status page",
 			PathParams: []documentation.Field{{Name: "id", Type: "integer", Description: "Status page id."}},
 			Auth:       "administrator role required",
+			Status:     http.StatusNoContent,
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "id is not a positive integer."},
 				{Status: 401, Code: "unauthenticated", Description: "No valid session."},
@@ -88,7 +93,7 @@ var StatusPagesDocumentation = documentation.Module{
 			Description:  "Unauthenticated by design. Returns the page title plus per-monitor current status, 24h/7d uptime and open incidents. Never includes owner ids or push tokens.",
 			PathParams:   []documentation.Field{{Name: "slug", Type: "string", Description: "Status page slug."}},
 			Auth:         "public",
-			ResponseBody: "PublicStatusPage",
+			ResponseBody: PublicStatusPage{},
 			Errors: []documentation.Error{
 				{Status: 404, Code: "not_found", Description: "No status page with that slug."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},

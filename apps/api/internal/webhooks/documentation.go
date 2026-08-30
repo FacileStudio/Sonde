@@ -1,6 +1,10 @@
 package webhooks
 
-import documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+import (
+	"net/http"
+
+	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
+)
 
 var Documentation = documentation.Module{
 	Name:        "webhooks",
@@ -12,7 +16,7 @@ var Documentation = documentation.Module{
 			Summary:      "List configured webhooks",
 			Description:  "Returns all webhook endpoints configured by the authenticated user.",
 			Auth:         "bearer token required",
-			ResponseBody: "[]WebhookResponse",
+			ResponseBody: []WebhookResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -24,8 +28,8 @@ var Documentation = documentation.Module{
 			Summary:      "Create a webhook",
 			Description:  "Registers a new webhook destination for monitor outage and recovery events.",
 			Auth:         "bearer token required",
-			RequestBody:  "Input",
-			ResponseBody: "WebhookResponse",
+			RequestBody:  Input{},
+			ResponseBody: WebhookResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid webhook configuration or URL."},
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
@@ -38,20 +42,23 @@ var Documentation = documentation.Module{
 			Summary:      "Test a webhook configuration",
 			Description:  "Sends a test alert payload to an unsaved webhook URL and returns the outcome.",
 			Auth:         "bearer token required",
-			RequestBody:  "Input",
-			ResponseBody: "TestResult",
+			RequestBody:  Input{},
+			ResponseBody: TestResult{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid URL."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
 			},
 		},
 		{
-			Method:       "GET",
-			Path:         "/webhooks/{id}",
-			Summary:      "Get a webhook",
-			Description:  "Retrieves a single webhook by ID.",
-			Auth:         "bearer token required",
-			ResponseBody: "WebhookResponse",
+			Method:      "GET",
+			Path:        "/webhooks/{id}",
+			Summary:     "Get a webhook",
+			Description: "Retrieves a single webhook by ID.",
+			Auth:        "bearer token required",
+			PathParams: []documentation.Field{
+				{Name: "id", Type: "integer", Description: "Webhook id."},
+			},
+			ResponseBody: WebhookResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
 				{Status: 404, Code: "not_found", Description: "Webhook not found."},
@@ -59,13 +66,16 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "PATCH",
-			Path:         "/webhooks/{id}",
-			Summary:      "Update a webhook",
-			Description:  "Updates URL, secret or enabled status for a webhook.",
-			Auth:         "bearer token required",
-			RequestBody:  "Input",
-			ResponseBody: "WebhookResponse",
+			Method:      "PATCH",
+			Path:        "/webhooks/{id}",
+			Summary:     "Update a webhook",
+			Description: "Updates URL, secret or enabled status for a webhook.",
+			Auth:        "bearer token required",
+			PathParams: []documentation.Field{
+				{Name: "id", Type: "integer", Description: "Webhook id."},
+			},
+			RequestBody:  Input{},
+			ResponseBody: WebhookResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid input."},
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
@@ -79,6 +89,10 @@ var Documentation = documentation.Module{
 			Summary:     "Delete a webhook",
 			Description: "Removes a webhook destination.",
 			Auth:        "bearer token required",
+			PathParams: []documentation.Field{
+				{Name: "id", Type: "integer", Description: "Webhook id."},
+			},
+			Status: http.StatusNoContent,
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
 				{Status: 404, Code: "not_found", Description: "Webhook not found."},
@@ -86,12 +100,15 @@ var Documentation = documentation.Module{
 			},
 		},
 		{
-			Method:       "POST",
-			Path:         "/webhooks/{id}/test",
-			Summary:      "Test a saved webhook",
-			Description:  "Sends a test alert payload to an existing webhook destination.",
-			Auth:         "bearer token required",
-			ResponseBody: "TestResult",
+			Method:      "POST",
+			Path:        "/webhooks/{id}/test",
+			Summary:     "Test a saved webhook",
+			Description: "Sends a test alert payload to an existing webhook destination.",
+			Auth:        "bearer token required",
+			PathParams: []documentation.Field{
+				{Name: "id", Type: "integer", Description: "Webhook id."},
+			},
+			ResponseBody: TestResult{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthorized", Description: "Authentication is required."},
 				{Status: 404, Code: "not_found", Description: "Webhook not found."},

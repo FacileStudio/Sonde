@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type heartbeatResponse struct {
+type HeartbeatResponse struct {
 	OK bool `json:"ok"`
 }
 
@@ -24,6 +24,6 @@ func RegisterHeartbeat(router chi.Router, engine *Engine) {
 			httpjson.WriteError(w, err)
 			return
 		}
-		httpjson.WriteJSON(w, http.StatusOK, heartbeatResponse{OK: true})
+		httpjson.WriteJSON(w, http.StatusOK, HeartbeatResponse{OK: true})
 	})
 }

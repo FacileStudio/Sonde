@@ -12,6 +12,10 @@ var Documentation = documentation.Module{
 			Summary:     "Record a push heartbeat",
 			Description: "Marks the matching push monitor as up. Silence past interval x grace marks it down.",
 			Auth:        "public",
+			PathParams: []documentation.Field{
+				{Name: "token", Type: "string", Description: "Push monitor heartbeat token."},
+			},
+			ResponseBody: HeartbeatResponse{},
 			Errors: []documentation.Error{
 				{Status: 404, Code: "not_found", Description: "No enabled push monitor matches the token."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},

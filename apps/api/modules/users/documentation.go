@@ -12,7 +12,7 @@ var Documentation = documentation.Module{
 			Summary:      "Return the current user",
 			Description:  "Returns the authenticated user derived from the bearer token.",
 			Auth:         "bearer token required",
-			ResponseBody: "MeResponse",
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
@@ -24,8 +24,8 @@ var Documentation = documentation.Module{
 			Summary:      "Update the current user",
 			Description:  "Updates the authenticated user's email and/or password.",
 			Auth:         "bearer token required",
-			RequestBody:  "UpdateRequest",
-			ResponseBody: "MeResponse",
+			RequestBody:  UpdateRequest{},
+			ResponseBody: MeResponse{},
 			Errors: []documentation.Error{
 				{Status: 400, Code: "invalid_argument", Description: "Invalid JSON body or invalid update input."},
 				{Status: 401, Code: "unauthenticated", Description: "Authorization header is missing or invalid."},
