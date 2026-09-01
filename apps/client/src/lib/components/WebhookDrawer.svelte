@@ -137,7 +137,13 @@
 		</Field>
 
 		<Field for="webhook-secret" label="HMAC secret">
-			<SecretField id="webhook-secret" bind:value={secret} placeholder="Optional shared signing key" />
+			<SecretField
+				id="webhook-secret"
+				editable
+				copyable={false}
+				bind:value={secret}
+				placeholder="Optional shared signing key"
+			/>
 		</Field>
 
 		<Field for="webhook-header" label="Signature header">
