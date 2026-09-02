@@ -45,7 +45,7 @@ ON CONFLICT (monitor_id, bucket_start) DO UPDATE SET
 }
 
 func (r *GormRecorder) OpenIncident(ctx context.Context, monitorID int64, cause string) error {
-	return r.db.WithContext(ctx).Create(&schemas.Incident{MonitorID: monitorID, Cause: cause}).Error
+	return r.db.WithContext(ctx).Create(&schemas.Incident{MonitorID: monitorID, OpenedAt: time.Now(), Cause: cause}).Error
 }
 
 func (r *GormRecorder) ResolveIncidents(ctx context.Context, monitorID int64) error {
