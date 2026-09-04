@@ -1,38 +1,3 @@
-# Deployment shape for every Facile Go service. `scripts/rename.sh` rewrites the
-# slug and the module path on fork; the routing below is what must NOT change.
-#
-# The suite standard is ONE container and ONE public hostname per app:
-#
-#   <app>.facile.studio        -> the Go binary, which serves both halves
-#   <app>.facile.studio/api/*  -> the API routes, mounted under router.Route("/api", ...)
-#   everything else            -> the built SvelteKit SPA, served by tronc/spa
-#
-# There is no client container and no second Traefik router. The root `Dockerfile`
-# builds the client with bun, builds the API with Go, and copies both into one
-# distroless image: the binary at /api, the SPA at /client. `spa.DirFromEnv()`
-# reads CLIENT_DIR and falls back to ./client, which resolves to /client in the
-# image, so nothing has to be configured here.
-#
-# Consequences, all of them deliberate:
-#
-#   - No PathPrefix and no stripprefix. A single router takes the whole host and
-#     the Go router decides what is API and what is SPA. The routes live under
-#     /api in main.go, so the prefix must reach the binary intact - putting a
-#     stripprefix middleware back would 404 every route.
-#   - Every browser request is same-origin, so CORS is unnecessary in production,
-#     cookies stay first-party in Safari, and the client build carries no
-#     environment-specific API URL. The client calls `/api`, relative, always.
-#   - The service is `expose`d and never `ports`-published: only Traefik reaches
-#     it, over the shared dokploy-network.
-#
-# Compose labels REPLACE what Dokploy injects for a service, they do not merge
-# with it. Declaring labels here therefore takes full ownership of this service's
-# routing, which is exactly what we want.
-#
-# If a fork needs a route that is neither /api nor the SPA (Nuage serves /webdav
-# that way), add another router with its own rule pointing at the same service.
-# Do not add a second service.
-
 services:
   db:
     image: postgres:16-alpine
@@ -42,62 +7,55 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-sonde}
     expose:
-      - "5432"
+    - '5432'
     volumes:
-      - db_data:/var/lib/postgresql/data
+    - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 5s
+      test:
+      - CMD
+      - nc
+      - -z
+      - localhost
+      - '5432'
+      interval: 30s
       timeout: 5s
-      retries: 10
-
+      retries: 3
+    deploy:
+      update_config:
+        order: start-first
+        parallelism: 1
+      restart_policy:
+        condition: any
   api:
     restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
     expose:
-      - "4000"
+    - '4000'
     networks:
-      - default
-      - dokploy-network
+    - default
+    - dokploy-network
     labels:
-      traefik.enable: "true"
+      traefik.enable: 'true'
       traefik.docker.network: dokploy-network
-      traefik.http.routers.sonde-web.rule: "Host(`sonde.facile.studio`)"
+      traefik.http.routers.sonde-web.rule: Host(`sonde.facile.studio`)
       traefik.http.routers.sonde-web.entrypoints: web
       traefik.http.routers.sonde-web.middlewares: redirect-to-https@file
       traefik.http.routers.sonde-web.service: sonde-svc
-      traefik.http.routers.sonde-secure.rule: "Host(`sonde.facile.studio`)"
+      traefik.http.routers.sonde-secure.rule: Host(`sonde.facile.studio`)
       traefik.http.routers.sonde-secure.entrypoints: websecure
       traefik.http.routers.sonde-secure.tls.certresolver: letsencrypt
       traefik.http.routers.sonde-secure.service: sonde-svc
-      traefik.http.services.sonde-svc.loadbalancer.server.port: "4000"
+      traefik.http.services.sonde-svc.loadbalancer.server.port: '4000'
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-sonde}?sslmode=disable
-      PORT: "4000"
+      PORT: '4000'
       APP_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      # Same-origin in production, so this only matters for a cross-origin dev client.
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       JOURNAL_URL: ${JOURNAL_URL:-}
       JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
-      # Auth. Every variable below must be listed here by name: this block
-      # forwards named variables into the container, it does not merge with the
-      # panel's environment store. A value set only in Dokploy and absent here
-      # never reaches the binary, and the app boots looking correctly configured
-      # while behaving as though the setting were unset.
-      #
-      # OIDC_ISSUER points at Registre, the suite provider, which serves one
-      # issuer at its root: https://sso.facile.studio. go-oidc compares the
-      # discovery document's issuer byte for byte, so no alias or trailing
-      # slash closes a mismatch. The redirect keeps the /api prefix because
-      # porte mounts under /api, and a bare path does not 404, it lands on the
-      # SPA catch-all and returns 200 with HTML, so the login simply never
-      # completes.
-      #
-      # SSO_ONLY=true removes the password routes rather than rejecting them.
-      # It requires an issuer, and env.Load refuses the pair without one.
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       SSO_ONLY: ${SSO_ONLY:-false}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
@@ -105,35 +63,34 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OIDC_REDIRECT_URL: ${OIDC_REDIRECT_URL:-}
       OIDC_SUCCESS_URL: ${OIDC_SUCCESS_URL:-}
-      # Mounts porte's device-exchange route so the CLI can trade a Registre
-      # device-grant token for a Sonde session. Empty leaves it unmounted.
       OIDC_CLI_AUDIENCE: ${OIDC_CLI_AUDIENCE:-}
-      # Event publishing to Antenne. An empty ANTENNE_INSTANCE disables it
-      # entirely: nothing dials, and the checker runs exactly as it does now.
       ANTENNE_INSTANCE: ${ANTENNE_INSTANCE:-}
       ANTENNE_APP: ${ANTENNE_APP:-sonde}
       ANTENNE_SECRET: ${ANTENNE_SECRET:-}
       ANTENNE_INSTANCE_ID: ${ANTENNE_INSTANCE_ID:-}
-      # Raw check rows are pruned past this many days. Hourly and daily
-      # rollups outlive them; see docs/RETENTION.md.
       SONDE_RAW_RETENTION_DAYS: ${SONDE_RAW_RETENTION_DAYS:-30}
     healthcheck:
-      # The image is distroless: no shell, no wget, no curl. Re-executing the
-      # binary is the only probe available. Provided by tronc's healthcheck
-      # package, which answers before any configuration is read.
-      test: ["CMD", "/api", "healthcheck"]
-      interval: 10s
+      test:
+      - CMD
+      - nc
+      - -z
+      - localhost
+      - '4000'
+      interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
     depends_on:
       db:
         condition: service_healthy
-
+    deploy:
+      update_config:
+        order: start-first
+        parallelism: 1
+      restart_policy:
+        condition: any
 networks:
   dokploy-network:
     external: true
-
 volumes:
   db_data:
     name: sonde_db_data
