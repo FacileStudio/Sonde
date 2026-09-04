@@ -361,6 +361,12 @@ func (e *Engine) applyResult(ctx context.Context, state *monitorState, result pr
 		e.logger.Error("recording check", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
 	}
 
+	if result.ok {
+		if err := e.recorder.ResolveIncidents(ctx, monitor.ID); err != nil {
+			e.logger.Error("resolving incidents", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
+		}
+	}
+
 	switch {
 	case opened:
 		cause := result.errText
@@ -372,9 +378,6 @@ func (e *Engine) applyResult(ctx context.Context, state *monitorState, result pr
 		}
 		e.emit(Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: false, LatencyMS: result.latencyMS, Error: result.errText, IncidentAt: incidentAt})
 	case resolved:
-		if err := e.recorder.ResolveIncidents(ctx, monitor.ID); err != nil {
-			e.logger.Error("resolving incidents", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
-		}
 		e.emit(Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: true, LatencyMS: result.latencyMS, IncidentAt: incidentAt})
 	}
 }
