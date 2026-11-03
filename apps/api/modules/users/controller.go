@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
+	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/tronc/errors"
 )
 
@@ -26,12 +27,7 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MeResponse{User: User{
-		ID:      user.ID,
-		Email:   user.Email,
-		Name:    user.Name,
-		IsAdmin: user.IsAdmin,
-	}}, nil
+	return &MeResponse{User: toUser(user)}, nil
 }
 
 func (controller *Controller) updateMe(context context.Context, req *UpdateRequest) (*MeResponse, error) {
@@ -62,12 +58,18 @@ func (controller *Controller) updateMe(context context.Context, req *UpdateReque
 		return nil, err
 	}
 
-	return &MeResponse{User: User{
-		ID:      user.ID,
-		Email:   user.Email,
-		Name:    user.Name,
-		IsAdmin: user.IsAdmin,
-	}}, nil
+	return &MeResponse{User: toUser(user)}, nil
+}
+
+// toUser is the one place a stored account becomes the users API's shape.
+func toUser(user *schemas.User) User {
+	return User{
+		ID:        user.ID,
+		Email:     user.Email,
+		Name:      user.Name,
+		IsAdmin:   user.IsAdmin,
+		AvatarURL: user.AvatarURL,
+	}
 }
 
 func deref(value *string) string {

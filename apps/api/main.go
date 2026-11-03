@@ -18,11 +18,14 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
+	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
 	"github.com/FacileStudio/tronc/healthcheck"
 	"github.com/FacileStudio/tronc/logger"
 	"github.com/FacileStudio/tronc/migrate"
+
+	"gorm.io/gorm"
 )
 
 func main() { os.Exit(run()) }
@@ -86,6 +89,7 @@ func run() int {
 		appLogger.Error("failed to run migrations", slog.Any("error", err))
 		return 1
 	}
+	backfillAvatars(db, appEnv.Porte.Issuer, appLogger)
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
 			appLogger.Error("failed to close database", slog.Any("error", err))
@@ -179,4 +183,18 @@ func run() int {
 		appLogger.Info("server stopped")
 	}
 	return 0
+}
+
+// backfillAvatars fills the picture URL of every account that signed in before
+// Sonde stored the claim. A failure is logged and boot goes on: a missing
+// picture draws the initial, which is no reason to refuse to monitor anything.
+func backfillAvatars(db *gorm.DB, issuer string, logger *slog.Logger) {
+	filled, err := auth.NewUserStore(db).BackfillAvatars(context.Background(), issuer)
+	if err != nil {
+		logger.Warn("avatar backfill failed", slog.Any("error", err))
+		return
+	}
+	if filled > 0 {
+		logger.Info("avatar backfill", slog.Int64("users", filled))
+	}
 }

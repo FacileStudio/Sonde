@@ -70,6 +70,7 @@ func toUserResponse(user schemas.User) UserResponse {
 		Email:     user.Email,
 		Name:      user.Name,
 		IsAdmin:   user.IsAdmin,
+		AvatarURL: user.AvatarURL,
 		CreatedAt: user.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

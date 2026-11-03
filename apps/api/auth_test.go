@@ -321,7 +321,7 @@ func claims(subject, email, name string, verified bool) porte.Claims {
 }
 
 func applySchema(db *gorm.DB) error {
-	for _, file := range []string{"migrations/00001_sonde.sql", "migrations/00002_porte.sql"} {
+	for _, file := range []string{"migrations/00001_sonde.sql", "migrations/00002_porte.sql", "migrations/00004_user_avatar.sql"} {
 		raw, err := os.ReadFile(file)
 		if err != nil {
 			return err

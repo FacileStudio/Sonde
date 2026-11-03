@@ -50,6 +50,7 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 		return 0, errors.Invalid("the identity provider returned no usable email")
 	}
 	name := claims.DisplayName()
+	avatar := pictureURL(claims.Picture)
 
 	var userID int64
 	txErr := s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -67,7 +68,7 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 		}
 		if linked != 0 {
 			userID = linked
-			return refreshProfile(tx, linked, email, name)
+			return refreshProfile(tx, linked, email, name, avatar)
 		}
 
 		var existing schemas.User
@@ -78,7 +79,7 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 				return errors.Conflict("an account with this email already exists and the identity provider did not verify the address")
 			}
 			userID = existing.ID
-			return refreshProfile(tx, existing.ID, email, name)
+			return refreshProfile(tx, existing.ID, email, name, avatar)
 		case !stderrors.Is(err, gorm.ErrRecordNotFound):
 			return errors.Internal("failed to look up the account", err)
 		}
@@ -88,7 +89,7 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 			return errors.Internal("failed to count users", err)
 		}
 
-		user := schemas.User{Email: email, Name: name, PasswordHash: "", IsAdmin: count == 0}
+		user := schemas.User{Email: email, Name: name, PasswordHash: "", IsAdmin: count == 0, AvatarURL: avatar}
 		if err := tx.Create(&user).Error; err != nil {
 			return errors.Internal("failed to create the account", err)
 		}
@@ -101,12 +102,14 @@ func (s *UserStore) UpsertFromOIDC(ctx context.Context, claims porte.Claims) (in
 	return userID, nil
 }
 
-// refreshProfile keeps the address and name the provider asserts, which makes
-// the identity provider the source of truth for both. An empty name is not
-// written over one the user already has: a provider that stops sending a claim
-// should not blank the dashboard.
-func refreshProfile(tx *gorm.DB, userID int64, email, name string) error {
-	updates := map[string]any{"email": email}
+// refreshProfile keeps the address, name and picture the provider asserts,
+// which makes the identity provider the source of truth for all three. An
+// empty name is not written over one the user already has: a provider that
+// stops sending a claim should not blank the dashboard. The picture is always
+// written, because Registre sends it for every human and a stale URL is worse
+// than the initials.
+func refreshProfile(tx *gorm.DB, userID int64, email, name, avatar string) error {
+	updates := map[string]any{"email": email, "avatar_url": avatar}
 	if name != "" {
 		updates["name"] = name
 	}
@@ -114,6 +117,46 @@ func refreshProfile(tx *gorm.DB, userID int64, email, name string) error {
 		return errors.Internal("failed to update the account", err)
 	}
 	return nil
+}
+
+// pictureURL keeps the picture claim only when it is an https URL. Registre
+// publishes a stable https://sso.facile.studio/avatars/<sub> for every human;
+// anything else (a data: placeholder, plain http) is not something a browser on
+// this origin should be pointed at, so it reads as no picture and the client
+// draws the initial.
+func pictureURL(claim string) string {
+	if strings.HasPrefix(strings.ToLower(claim), "https://") {
+		return claim
+	}
+	return ""
+}
+
+// BackfillAvatars gives every account linked to issuer the picture URL it
+// would have received at its next sign-in, so a user who signed in before
+// Sonde stored the claim sees their picture without signing in again.
+//
+// It only fills empty rows, so it is idempotent and never overwrites what a
+// sign-in wrote. The URL is Registre's stable <issuer>/avatars/<subject>, which
+// answers 404 for a user with no picture; the client falls back to the
+// initial. A non-https issuer is skipped for the same reason pictureURL
+// refuses one.
+func (s *UserStore) BackfillAvatars(ctx context.Context, issuer string) (int64, error) {
+	prefix := pictureURL(strings.TrimRight(issuer, "/") + "/avatars/")
+	if prefix == "" {
+		return 0, nil
+	}
+	result := s.orm.WithContext(ctx).Exec(
+		`UPDATE users SET avatar_url = ? || porte_identities.subject
+		   FROM porte_identities
+		  WHERE porte_identities.user_id = users.id
+		    AND porte_identities.provider = ?
+		    AND users.avatar_url = ''`,
+		prefix, issuer,
+	)
+	if result.Error != nil {
+		return 0, errors.Internal("failed to backfill avatars", result.Error)
+	}
+	return result.RowsAffected, nil
 }
 
 // CreateFromPassword creates a user row for a local registration. porte has
