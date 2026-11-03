@@ -168,7 +168,7 @@
 									<Badge tone="neutral">{percent(monitor.uptime_7d)} · 7d</Badge>
 								</div>
 								{#if monitor.open_incidents.length > 0}
-									<ul class="flex flex-col gap-1 border-t border-fc-border pt-3">
+									<ul class="flex flex-col gap-1 pt-3">
 										{#each monitor.open_incidents as incident (incident.id)}
 											<li class="text-fc-xs text-fc-danger">
 												{incident.cause || 'Failing checks'}, since

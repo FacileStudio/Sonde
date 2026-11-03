@@ -91,7 +91,7 @@
 </svelte:head>
 
 <div class="flex min-h-screen">
-	<div class="hidden flex-col border-r border-fc-border bg-black px-12 py-10 lg:flex lg:w-1/2">
+	<div class="hidden flex-col bg-black px-12 py-10 lg:flex lg:w-1/2">
 		<a href="/" class="mb-auto flex items-center gap-3">
 			<iconify-icon
 				icon="solar:radar-2-bold-duotone"
@@ -161,7 +161,7 @@
 				{/if}
 
 				{#if !ssoOnly}
-					<div class="mb-6 flex gap-1 rounded-lg border border-fc-border bg-fc-surface p-1" role="tablist">
+					<div class="mb-6 flex gap-1 rounded-lg bg-fc-surface p-1" role="tablist">
 						<button
 							type="button"
 							role="tab"
