@@ -46,9 +46,11 @@
 			: [])
 	]);
 
-	/* The email is the fallback for a missing name, not the name itself. Sonde's API returns
-	   no avatar, so the card draws the initial. */
-	const navUser = $derived(user ? { name: user.name?.trim() || user.email } : undefined);
+	/* The email is the fallback for a missing name, not the name itself. The avatar is
+	   Registre's stable URL; muse's Avatar draws the initial when it 404s. */
+	const navUser = $derived(
+		user ? { name: user.name?.trim() || user.email, avatar: user.avatar_url || undefined } : undefined
+	);
 	const settingsActive = $derived(isActive('/settings'));
 
 	onMount(async () => {

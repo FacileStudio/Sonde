@@ -157,6 +157,7 @@
 		<ProfileCard
 			name={user?.name?.trim() || user?.email || ''}
 			email={user?.email ?? ''}
+			avatar={user?.avatar_url || undefined}
 			role={user?.is_admin ? 'admin' : 'member'}
 			meta={[
 				{ label: 'Member since', value: memberSince },
