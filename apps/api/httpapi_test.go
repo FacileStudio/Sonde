@@ -35,7 +35,7 @@ func liveAPI(t *testing.T) (chi.Router, *gorm.DB) {
 			t.Fatalf("truncate: %v", err)
 		}
 	})
-	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Env: env.Config{AllowRegistration: true}, Logger: slog.New(slog.DiscardHandler)})
+	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Env: env.Config{}, Logger: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatalf("buildRouter: %v", err)
 	}
@@ -49,9 +49,9 @@ func csrfHeaders(token string) map[string]string {
 	}
 }
 
-func adminSession(t *testing.T, router chi.Router) signedSession {
+func adminSession(t *testing.T, db *gorm.DB) signedSession {
 	t.Helper()
-	return registerAndSignIn(t, router, "admin@facile.studio")
+	return signIn(t, db, "admin@facile.studio")
 }
 
 func TestMonitorRoutesRejectAnonymousCallers(t *testing.T) {
@@ -77,9 +77,9 @@ func TestMonitorRoutesRejectAnonymousCallers(t *testing.T) {
 }
 
 func TestExportAndStatusPagesRequireTheAdminRole(t *testing.T) {
-	router, _ := liveAPI(t)
-	admin := adminSession(t, router)
-	plain := registerAndSignIn(t, router, "plain@facile.studio")
+	router, db := liveAPI(t)
+	admin := adminSession(t, db)
+	plain := signIn(t, db, "plain@facile.studio")
 
 	for _, probe := range []struct{ method, path string }{
 		{http.MethodGet, "/api/config/export"},
@@ -101,8 +101,8 @@ func TestExportAndStatusPagesRequireTheAdminRole(t *testing.T) {
 }
 
 func TestMonitorCRUDAndPerTypeValidation(t *testing.T) {
-	router, _ := liveAPI(t)
-	session := adminSession(t, router)
+	router, db := liveAPI(t)
+	session := adminSession(t, db)
 	writeHeaders := csrfHeaders(session.Token)
 
 	created := call(t, router, http.MethodPost, "/api/monitors", writeHeaders, map[string]any{
@@ -164,7 +164,7 @@ func TestMonitorCRUDAndPerTypeValidation(t *testing.T) {
 		t.Errorf("the patch did not disable the monitor: %s", patched.Body)
 	}
 
-	foreign := registerAndSignIn(t, router, "other@facile.studio")
+	foreign := signIn(t, db, "other@facile.studio")
 	if stolen := call(t, router, http.MethodGet, "/api/monitors/"+intToStr(monitor.ID), cookieHeader(foreign.Token), nil); stolen.Code != http.StatusNotFound {
 		t.Errorf("another user's monitor read = %d, want 404", stolen.Code)
 	}
@@ -178,8 +178,8 @@ func TestMonitorCRUDAndPerTypeValidation(t *testing.T) {
 }
 
 func TestCookieMutationWithoutCSRFIsRefusedOnMonitors(t *testing.T) {
-	router, _ := liveAPI(t)
-	session := adminSession(t, router)
+	router, db := liveAPI(t)
+	session := adminSession(t, db)
 
 	refused := call(t, router, http.MethodPost, "/api/monitors", cookieHeader(session.Token), map[string]any{
 		"slug": "no-csrf", "name": "n", "type": "push",
@@ -192,8 +192,8 @@ func TestCookieMutationWithoutCSRFIsRefusedOnMonitors(t *testing.T) {
 // The export is import-shaped config, not a backup of the world: a push token
 // or any other credential that slips into it turns a snapshot into a leak.
 func TestConfigExportContainsNoSecrets(t *testing.T) {
-	router, _ := liveAPI(t)
-	session := adminSession(t, router)
+	router, db := liveAPI(t)
+	session := adminSession(t, db)
 	writeHeaders := csrfHeaders(session.Token)
 
 	pushCreated := call(t, router, http.MethodPost, "/api/monitors", writeHeaders, map[string]any{
@@ -225,7 +225,7 @@ func TestConfigExportContainsNoSecrets(t *testing.T) {
 
 func TestIncidentsAndUptimeServeTheOwnersOnly(t *testing.T) {
 	router, db := liveAPI(t)
-	session := adminSession(t, router)
+	session := adminSession(t, db)
 	writeHeaders := csrfHeaders(session.Token)
 
 	created := call(t, router, http.MethodPost, "/api/monitors", writeHeaders, map[string]any{
@@ -291,7 +291,7 @@ func TestIncidentsAndUptimeServeTheOwnersOnly(t *testing.T) {
 // answer and it must not carry owner ids or push tokens out with it.
 func TestPublicStatusPageServesLoggedOutWithoutPrivateFields(t *testing.T) {
 	router, db := liveAPI(t)
-	session := adminSession(t, router)
+	session := adminSession(t, db)
 	writeHeaders := csrfHeaders(session.Token)
 
 	httpMonitor := call(t, router, http.MethodPost, "/api/monitors", writeHeaders, map[string]any{

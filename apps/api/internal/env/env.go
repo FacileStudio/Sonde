@@ -19,7 +19,6 @@ type Config struct {
 	JournalURL         string
 	JournalToken       string
 	RawRetentionDays   int
-	AllowRegistration  bool
 	Porte              porte.Config
 	Events             events.Config
 }
@@ -46,11 +45,6 @@ func Load() (Config, error) {
 		},
 	}
 
-	var err error
-	if env.AllowRegistration, err = boolOrDefault("ALLOW_REGISTRATION", true); err != nil {
-		return Config{}, err
-	}
-
 	env.Porte = porte.Config{
 		Issuer:       os.Getenv("OIDC_ISSUER"),
 		ClientID:     os.Getenv("OIDC_CLIENT_ID"),
@@ -59,14 +53,8 @@ func Load() (Config, error) {
 		SuccessURL:   os.Getenv("OIDC_SUCCESS_URL"),
 		CLIAudience:  os.Getenv("OIDC_CLI_AUDIENCE"),
 	}
-	var ssoOnly bool
-	if ssoOnly, err = boolOrDefault("SSO_ONLY", false); err != nil {
-		return Config{}, err
-	}
-	env.Porte.SSOOnly = ssoOnly
-
-	if env.Porte.SSOOnly && !env.Porte.Enabled() {
-		return Config{}, fmt.Errorf("SSO_ONLY=true with no OIDC_ISSUER leaves no way to sign in")
+	if os.Getenv("APP_ENV") == "production" && !env.Porte.Enabled() {
+		return Config{}, fmt.Errorf("OIDC_ISSUER is required in production: sign-in goes through Registre only")
 	}
 	if err := env.Porte.Validate(); err != nil {
 		return Config{}, err
@@ -92,18 +80,6 @@ func Load() (Config, error) {
 	}
 
 	return env, nil
-}
-
-func boolOrDefault(key string, fallback bool) (bool, error) {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback, nil
-	}
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return false, fmt.Errorf("%s must be a boolean", key)
-	}
-	return parsed, nil
 }
 
 func intOrDefault(key string, fallback int) int {

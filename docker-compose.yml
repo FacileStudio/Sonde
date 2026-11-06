@@ -56,6 +56,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
     expose:
       - "4000"
     networks:
@@ -96,10 +98,9 @@ services:
       # SPA catch-all and returns 200 with HTML, so the login simply never
       # completes.
       #
-      # SSO_ONLY=true removes the password routes rather than rejecting them.
-      # It requires an issuer, and env.Load refuses the pair without one.
-      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      SSO_ONLY: ${SSO_ONLY:-false}
+      # Sign-in goes through Registre only: with an issuer set, porte never
+      # mounts a password route. env.Load refuses to boot in production
+      # without OIDC_ISSUER.
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}

@@ -18,7 +18,7 @@ import (
 // nothing, and the API reported an honest zero the whole time.
 func TestRecordCheckStoresTheRawRowAndTheHourlyBucket(t *testing.T) {
 	router, db := liveAPI(t)
-	session := adminSession(t, router)
+	session := adminSession(t, db)
 
 	created := call(t, router, http.MethodPost, "/api/monitors", csrfHeaders(session.Token), map[string]any{
 		"slug": "website", "name": "Website", "type": "http", "target": "https://facile.studio",

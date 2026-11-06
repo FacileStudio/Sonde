@@ -48,14 +48,15 @@ func TestBackfillFillsOnlyEmptyAvatars(t *testing.T) {
 	users := auth.NewUserStore(db)
 	ctx := context.Background()
 
-	legacyID, err := users.CreateFromPassword(ctx, "legacy@facile.studio", "Legacy")
-	if err != nil {
+	legacy := schemas.User{Email: "legacy@facile.studio", Name: "Legacy"}
+	kept := schemas.User{Email: "kept@facile.studio", Name: "Kept"}
+	if err := db.Create(&legacy).Error; err != nil {
 		t.Fatalf("legacy account: %v", err)
 	}
-	keptID, err := users.CreateFromPassword(ctx, "kept@facile.studio", "Kept")
-	if err != nil {
+	if err := db.Create(&kept).Error; err != nil {
 		t.Fatalf("kept account: %v", err)
 	}
+	legacyID, keptID := legacy.ID, kept.ID
 	linkIdentity(t, db, legacyID, "legacy-sub")
 	linkIdentity(t, db, keptID, "kept-sub")
 	if err := db.Exec(`UPDATE users SET avatar_url = 'https://elsewhere.example/kept' WHERE id = ?`, keptID).Error; err != nil {

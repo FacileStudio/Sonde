@@ -8,7 +8,6 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
-	"net/http"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
@@ -23,8 +22,6 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
-	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/local"
 	"github.com/FacileStudio/porte/oidc"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
@@ -87,9 +84,8 @@ type routerDeps struct {
 // than inline in main so a test can walk the real route table; it tolerates a
 // nil database because no service touches the handle until a request arrives.
 //
-// One session manager owns one sessions table, and both kits issue through it:
-// a password login and a federated one are the same row, the same cookie and
-// the same logout.
+// One session manager owns the sessions table; the OIDC kit issues through it.
+// Sign-in goes through Registre only, so no password kit is built.
 func buildRouter(deps routerDeps) (chi.Router, error) {
 	db, sqlDB, appEnv, appLogger := deps.DB, deps.SQL, deps.Env, deps.Logger
 	identityStore := portepg.New(sqlDB)
@@ -104,34 +100,20 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 	}
 
 	kit, err := oidc.New(context.Background(), appEnv.Porte, oidc.Deps{
-		Users:       userStore,
-		Identities:  identityStore.Identities(),
-		Codes:       identityStore.LoginCodes(),
-		Sessions:    sessions,
-		Logger:      appLogger,
-		ConfigExtra: auth.ConfigExtra(appEnv.AllowRegistration),
+		Users:      userStore,
+		Identities: identityStore.Identities(),
+		Codes:      identityStore.LoginCodes(),
+		Sessions:   sessions,
+		Logger:     appLogger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure authentication: %w", err)
 	}
 	if kit.Enabled() {
-		appLogger.Info("single sign-on enabled",
-			slog.String("issuer", appEnv.Porte.Issuer),
-			slog.Bool("sso_only", appEnv.Porte.SSOOnly))
+		appLogger.Info("single sign-on enabled", slog.String("issuer", appEnv.Porte.Issuer))
 	}
 
-	passwords, err := local.New(local.Config{AllowRegistration: appEnv.AllowRegistration}, local.Deps{
-		Users:      userStore,
-		Identities: identityStore.Identities(),
-		Sessions:   sessions,
-		Logger:     appLogger,
-		Count:      userStore.CountUsers,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure the password login: %w", err)
-	}
-
-	authService := auth.NewService(db, passwords)
+	authService := auth.NewService(db)
 	userService := users.NewService(db)
 	httpService := httpapi.New(db, httpapi.Deps{
 		Monitors:         monitors.NewStore(db),
@@ -142,20 +124,20 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 		RawRetentionDays: appEnv.RawRetentionDays,
 	})
 
+	clientDir := spa.DirFromEnv()
 	router := httpx.NewRouter(httpx.Config{
-		Logger: appLogger,
+		Logger:   appLogger,
+		Security: securityConfig(clientDir, appLogger),
 		CORS: troncmiddleware.CORSConfig{
 			AllowedOrigins: appEnv.CORSAllowedOrigins,
 		},
 	})
 
 	health.Mount(router, health.DB(sqlDB))
+	router.Get("/version", versionHandler)
 	apiref.Mount(router, refConfig())
 
 	requireAuth := middleware.RequireAuth(sessions, authService)
-	clearCookie := func(w http.ResponseWriter, r *http.Request) {
-		sessions.ClearCookie(w, r, porte.SessionCookieName)
-	}
 
 	router.Route("/api", func(r chi.Router) {
 		webhookStore := webhooks.NewStore(db)
@@ -163,14 +145,13 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 
 		sessions.Mount(r)
 		kit.Mount(r)
-		auth.RegisterRoutes(r, authService, appEnv.Porte.SSOOnly, requireAuth, clearCookie)
+		auth.RegisterRoutes(r, authService, requireAuth)
 		checker.RegisterHeartbeat(r, deps.Engine)
 		users.RegisterRoutes(r, userService, requireAuth)
 		httpapi.RegisterRoutes(r, httpService, requireAuth)
 		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
 	})
 
-	clientDir := spa.DirFromEnv()
 	if spa.Available(clientDir) {
 		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
 		appLogger.Info("serving client", slog.String("dir", clientDir))
