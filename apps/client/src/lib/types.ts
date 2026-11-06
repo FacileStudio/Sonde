@@ -12,6 +12,7 @@ export type AuthUser = {
 	name: string;
 	is_admin: boolean;
 	avatar_url: string;
+	locale: string;
 	created_at: string;
 };
 
@@ -23,12 +24,6 @@ export type MeResponse = {
 export type ProfileUpdate = {
 	name?: string;
 	email?: string;
-};
-
-export type AuthConfig = {
-	sso_only: boolean;
-	oidc_enabled: boolean;
-	allow_registration: boolean;
 };
 
 export type Monitor = {

@@ -16,7 +16,7 @@ alerts go to Antenne, and the check history prunes itself instead of growing for
 - Serves public status pages at `/status/{slug}`, no login required
 - Exports monitors and status pages as JSON, secrets excluded
 - Rolls up raw checks into hourly and daily buckets and prunes what expires, on a daily job
-- Signs in with argon2id passwords or Registre SSO, through one session
+- Signs in through Registre SSO only, through one session
 - Ships both apps as a single distroless image, no client container
 
 ## Stack

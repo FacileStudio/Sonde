@@ -12,6 +12,8 @@
 		icons
 	} from '@facile/muse';
 	import { backend, type PublicMonitor, type PublicStatusPage } from '$lib/backend';
+	import { clock, dateTime, percent as formatPercent } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let data = $state<PublicStatusPage | null>(null);
 	let loading = $state(true);
@@ -37,16 +39,14 @@
 
 	const slices = $derived(
 		[
-			{ label: 'Up', value: up },
-			{ label: 'Down', value: down },
-			{ label: 'Unknown', value: unknown }
+			{ label: t('monitor.status.up'), value: up },
+			{ label: t('monitor.status.down'), value: down },
+			{ label: t('public.slice.unknown'), value: unknown }
 		].filter((slice) => slice.value > 0)
 	);
 
 	const tone = (monitor: PublicMonitor) =>
 		monitor.current_status === 'up' ? 'success' : monitor.current_status === 'down' ? 'danger' : 'neutral';
-
-	const percent = (value: number | null) => (value === null ? '—' : `${value.toFixed(2)}%`);
 
 	const REFRESH_MS = 60_000;
 
@@ -56,7 +56,7 @@
 			error = '';
 			fetchedAt = new Date();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'No public status page lives at this address.';
+			error = err instanceof Error ? err.message : t('public.notFound.description');
 		} finally {
 			loading = false;
 		}
@@ -78,7 +78,7 @@
 </script>
 
 <svelte:head>
-	<title>{data ? `${data.title} — Status` : 'Status — Sonde'}</title>
+	<title>{data ? t('public.title', { title: data.title }) : t('public.titleFallback')}</title>
 </svelte:head>
 
 <div class="min-h-dvh bg-fc-page px-4 py-10">
@@ -88,8 +88,8 @@
 		{#if error && !data}
 			<EmptyState
 				icon={icons.globe}
-				title="Page not found"
-				description="No public status page lives at this address."
+				title={t('public.notFound.title')}
+				description={t('public.notFound.description')}
 			/>
 		{:else if loading || !data}
 			<div class="flex flex-col gap-4">
@@ -102,8 +102,8 @@
 				<h1 class="text-fc-2xl font-semibold text-fc-fg">{data.title}</h1>
 				<p class="text-fc-sm text-fc-fg-muted">
 					{fetchedAt
-						? `Read at ${fetchedAt.toLocaleTimeString()}, and again every minute.`
-						: 'Refreshed every minute.'}
+						? t('public.readAt', { time: clock(fetchedAt) })
+						: t('public.refreshed')}
 				</p>
 			</header>
 
@@ -113,48 +113,48 @@
 				     "0 of 0 services answering normally" above the empty state. -->
 				<EmptyState
 					icon={icons.monitor}
-					title="Nothing published yet"
-					description="This status page has no monitors on it."
+					title={t('public.empty.title')}
+					description={t('public.empty.description')}
 				/>
 			{:else}
 				<Alert
 					tone={down > 0 ? 'danger' : unknown > 0 ? 'warning' : 'success'}
 					title={down > 0
-						? 'Some systems are down'
+						? t('public.verdict.down')
 						: unknown > 0
-							? 'Some systems have not reported yet'
-							: 'All systems operational'}
+							? t('public.verdict.unknown')
+							: t('public.verdict.ok')}
 				>
 					{down > 0
-						? `${down} of ${monitors.length} services are failing their checks. We are on it.`
-						: `${up} of ${monitors.length} services are answering normally.`}
+						? t('public.verdict.downText', { down, total: monitors.length })
+						: t('public.verdict.okText', { up, total: monitors.length })}
 				</Alert>
 
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-					<StatCard label="Operational" value={`${up} / ${monitors.length}`} />
+					<StatCard label={t('public.stat.operational')} value={`${up} / ${monitors.length}`} />
 					<StatCard
-						label="Open incidents"
+						label={t('public.stat.openIncidents')}
 						value={openIncidents}
-						delta={openIncidents === 0 ? 'Nothing ongoing' : 'Being worked on'}
+						delta={openIncidents === 0 ? t('incidents.stat.nothingOngoing') : t('public.stat.beingWorked')}
 					/>
 					<StatCard
-						label="Average uptime, 24h"
-						value={average24h === null ? '—' : `${average24h.toFixed(2)}%`}
+						label={t('public.stat.average')}
+						value={formatPercent(average24h)}
 						delta={measured.length === 0
-							? 'No checks recorded yet'
-							: `Across ${measured.length} services`}
+							? t('monitor.noChecks')
+							: t('public.stat.across', { count: measured.length })}
 					/>
 				</div>
 
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
 					<Card class="flex flex-col gap-4 lg:col-span-1">
-						<span class="text-fc-xs tracking-wide text-fc-fg-muted uppercase">Services by state</span>
+						<span class="text-fc-xs tracking-wide text-fc-fg-muted uppercase">{t('public.byState')}</span>
 						<DonutChart
 							data={slices}
 							class="flex-1"
 							size={180}
 							centerValue={`${up}/${monitors.length}`}
-							centerLabel="operational"
+							centerLabel={t('public.operational')}
 						/>
 					</Card>
 
@@ -164,15 +164,17 @@
 								<div class="flex min-w-0 flex-wrap items-center gap-3">
 									<StatusDot tone={tone(monitor)} pulse={monitor.current_status === 'down'} />
 									<span class="min-w-0 flex-1 truncate font-medium text-fc-fg">{monitor.name}</span>
-									<Badge tone="neutral">{percent(monitor.uptime_24h)} · 24h</Badge>
-									<Badge tone="neutral">{percent(monitor.uptime_7d)} · 7d</Badge>
+									<Badge tone="neutral">{t('public.badge24', { percent: formatPercent(monitor.uptime_24h) })}</Badge>
+									<Badge tone="neutral">{t('public.badge7', { percent: formatPercent(monitor.uptime_7d) })}</Badge>
 								</div>
 								{#if monitor.open_incidents.length > 0}
 									<ul class="flex flex-col gap-1 pt-3">
 										{#each monitor.open_incidents as incident (incident.id)}
 											<li class="text-fc-xs text-fc-danger">
-												{incident.cause || 'Failing checks'}, since
-												{new Date(incident.opened_at).toLocaleString()}
+												{t('public.failingSince', {
+													cause: incident.cause || t('public.failingChecks'),
+													when: dateTime(incident.opened_at)
+												})}
 											</li>
 										{/each}
 									</ul>
@@ -183,7 +185,7 @@
 				</div>
 			{/if}
 
-			<p class="text-center text-fc-xs text-fc-fg-muted">Powered by Sonde</p>
+			<p class="text-center text-fc-xs text-fc-fg-muted">{t('public.poweredBy')}</p>
 		{/if}
 	</div>
 </div>

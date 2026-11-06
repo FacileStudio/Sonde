@@ -39,25 +39,22 @@ code.
 |---|---|---|---|---|
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
-| POST | `/api/auth/register` | none | `{email, name, password}` | `{token, user}` |
-| POST | `/api/auth/login` | none | `{email, password}` | `{token, user}` |
 | GET | `/api/auth/me` | session | — | `{user}` |
-| GET | `/api/auth/config` | none | — | `{sso_only, oidc_enabled, allow_registration}` |
+| GET | `/api/auth/config` | none | — | `{sso_only, oidc_enabled}` |
 | POST | `/api/auth/logout` | session | — | Idempotent; a stale cookie is still cleared |
 | GET | `/api/auth/oidc` | none | — | 302 to Registre, PKCE |
 | GET | `/api/auth/oidc/callback` | none | — | 302 to the success URL, or to `/login?error=…` |
 
-A `user` is `{id, email, name, is_admin, created_at}`. `register` and `login` are not
-registered at all when `SSO_ONLY=true`, so there is no endpoint left to probe for an account.
-Everything except `register`, `login` and `me` comes from the porte kits, not from
-`modules/auth`. Passwords are argon2id, hashed by `porte/local`.
+A `user` is `{id, email, name, is_admin, avatar_url, locale, created_at}`. Sign-in goes through
+Registre only: there is no register or login route. Everything except `me` comes from the
+porte kits, not from `modules/auth`. `GET /version` answers `{version}` at the root.
 
 ## Users
 
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
 | GET | `/api/users/me` | session | — | `{user}` |
-| PATCH | `/api/users/me` | session | `{email?, password?}` | `{user}` |
+| PATCH | `/api/users/me` | session | `{email?, name?}` | `{user}` |
 
 Both fields on the `PATCH` are optional pointers, so omitting one leaves it alone rather than
 clearing it.

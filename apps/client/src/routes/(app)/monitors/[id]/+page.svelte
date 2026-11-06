@@ -27,7 +27,8 @@
 		type MonitorInput,
 		type UptimeResponse
 	} from '$lib/backend';
-	import { duration, percent } from '$lib/format';
+	import { dateTime, duration, percent } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let monitorId = $derived(Number(page.params.id));
 
@@ -71,7 +72,7 @@
 				backend.monitorUptimeSummary(monitorId)
 			]);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load monitor.';
+			error = err instanceof Error ? err.message : t('monitor.loadFailed');
 		} finally {
 			loading = false;
 		}
@@ -84,9 +85,9 @@
 		formError = '';
 		try {
 			monitor = await backend.updateMonitor(monitorId, value);
-			toast.success('Monitor saved.');
+			toast.success(t('monitor.saved'));
 		} catch (err) {
-			formError = err instanceof Error ? err.message : 'Failed to save the monitor.';
+			formError = err instanceof Error ? err.message : t('monitor.saveFailed');
 		} finally {
 			busy = false;
 		}
@@ -95,12 +96,12 @@
 	async function confirmDelete() {
 		try {
 			await backend.deleteMonitor(monitorId);
-			toast.success(`${monitor?.name ?? 'Monitor'} deleted.`);
+			toast.success(t('monitors.deleted', { name: monitor?.name ?? t('monitor.title') }));
 			goto('/monitors');
 		} catch (err) {
 			/* `error` is the load failure, and it has no dismissal. A failed delete leaves the
 			   monitor on screen and intact, so the toast is the right and only report. */
-			toast.danger(err instanceof Error ? err.message : 'Could not delete the monitor.');
+			toast.danger(err instanceof Error ? err.message : t('monitors.deleteFailed'));
 			throw err;
 		}
 	}
@@ -110,20 +111,20 @@
 		return duration((end - new Date(incident.opened_at).getTime()) / 1000);
 	}
 
-	const windowLabel: Record<string, string> = {
-		'24h': 'Uptime, 24 hours',
-		'7d': 'Uptime, 7 days',
-		'30d': 'Uptime, 30 days',
-		'90d': 'Uptime, 90 days'
-	};
+	const windowKeys = {
+		'24h': 'monitor.window.24h',
+		'7d': 'monitor.window.7d',
+		'30d': 'monitor.window.30d',
+		'90d': 'monitor.window.90d'
+	} as const;
 </script>
 
 <svelte:head>
-	<title>{monitor ? `${monitor.name} — Sonde` : 'Monitor — Sonde'}</title>
+	<title>{monitor ? monitor.name : t('monitor.title')} · Sonde</title>
 </svelte:head>
 
 {#if error && !monitor}
-	<Alert tone="danger" title="Could not load this monitor">{error}</Alert>
+	<Alert tone="danger" title={t('monitor.loadError')}>{error}</Alert>
 {:else if loading || !monitor || !value}
 	<div class="flex flex-col gap-4">
 		<Skeleton class="h-10 w-64" />
@@ -134,34 +135,34 @@
 	<div class="flex flex-col gap-10">
 		<PageHeader
 			title={monitor.name}
-			description={monitor.type === 'push' ? 'Push heartbeat' : monitor.target}
-			back={{ href: '/monitors', label: 'Monitors' }}
+			description={monitor.type === 'push' ? t('monitor.pushHeartbeat') : monitor.target}
+			back={{ href: '/monitors', label: t('nav.monitors') }}
 		>
 			{#snippet actions()}
 				{@const current = monitor!}
 				<Badge tone="neutral">{current.type}</Badge>
 				<StatusDot
 					tone={current.enabled ? 'success' : 'neutral'}
-					label={current.enabled ? 'Watching' : 'Paused'}
+					label={current.enabled ? t('monitor.watching') : t('monitor.status.paused')}
 				/>
 				<Button variant="danger" icon={icons.remove} onclick={() => (confirmOpen = true)}>
-					Delete
+					{t('monitor.delete')}
 				</Button>
 			{/snippet}
 		</PageHeader>
 
 		{#if error}
-			<Alert tone="danger" title="Something went wrong">{error}</Alert>
+			<Alert tone="danger" title={t('monitor.somethingWrong')}>{error}</Alert>
 		{/if}
 
 		<div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
 			{#each uptime as stat (stat.window)}
 				<StatCard
-					label={windowLabel[stat.window] ?? stat.window}
+					label={stat.window in windowKeys ? t(windowKeys[stat.window as keyof typeof windowKeys]) : stat.window}
 					value={percent(stat.uptime)}
 					delta={stat.total === 0
-						? 'No checks recorded yet'
-						: `${stat.failed} failed of ${stat.total} checks`}
+						? t('monitor.noChecks')
+						: t('monitor.failedOf', { failed: stat.failed, total: stat.total })}
 				/>
 			{/each}
 		</div>
@@ -173,29 +174,29 @@
 			     the SPA catch-all and answers 200 with HTML, so a curl line without -X POST
 			     reports success while the monitor goes down. -->
 			<Section
-				title="Heartbeat"
-				description="Have the job POST this URL every interval. A GET answers 200 without recording anything, so the method matters. Silence past the interval opens an incident."
+				title={t('monitor.heartbeat.title')}
+				description={t('monitor.heartbeat.description')}
 			>
 				<div class="flex flex-col gap-4">
-					<SecretField label="Heartbeat URL" value={heartbeatUrl} />
-					<SecretField label="Cron command" value={heartbeatCommand} />
+					<SecretField label={t('monitor.heartbeat.url')} value={heartbeatUrl} />
+					<SecretField label={t('monitor.heartbeat.cron')} value={heartbeatCommand} />
 				</div>
 			</Section>
 		{/if}
 
 		<div class="grid grid-cols-1 gap-10 lg:grid-cols-3">
-			<Section title="Settings" class="lg:col-span-2">
+			<Section title={t('monitor.settings')} class="lg:col-span-2">
 				<Card>
 					<form onsubmit={save} class="flex flex-col gap-4">
 						{#if formError}
-							<Alert tone="danger" title="Not saved">{formError}</Alert>
+							<Alert tone="danger" title={t('monitor.notSaved')}>{formError}</Alert>
 						{/if}
 						<MonitorForm {value} {busy} />
 					</form>
 				</Card>
 			</Section>
 
-			<Section title="Incidents">
+			<Section title={t('nav.incidents')}>
 				{#snippet actions()}
 					{#if incidents.length > 0}
 						<Badge tone={incidents.some((entry) => !entry.resolved_at) ? 'danger' : 'neutral'}>
@@ -206,8 +207,8 @@
 				{#if incidents.length === 0}
 					<EmptyState
 						icon={icons.shield}
-						title="No incidents"
-						description="Nothing has gone wrong on this monitor yet."
+						title={t('incidents.empty.title')}
+						description={t('monitor.noIncidents')}
 					/>
 				{:else}
 					<ul class="flex flex-col gap-3">
@@ -220,9 +221,9 @@
 								<span class="text-fc-sm text-fc-fg">{incident.cause || '—'}</span>
 								<span class="flex flex-wrap items-center gap-2 text-fc-xs text-fc-fg-muted">
 									<span class="font-fc-mono">{incidentLength(incident)}</span>
-									<span>{incident.resolved_at ? 'down' : 'down, still open'}</span>
+									<span>{incident.resolved_at ? t('monitor.incident.closed') : t('monitor.incident.open')}</span>
 									<span>·</span>
-									<span>{new Date(incident.opened_at).toLocaleString()}</span>
+									<span>{dateTime(incident.opened_at)}</span>
 								</span>
 							</li>
 						{/each}
@@ -236,8 +237,10 @@
 <ConfirmModal
 	bind:open={confirmOpen}
 	tone="danger"
-	title={monitor ? `Delete ${monitor.name}?` : 'Delete monitor?'}
-	description="Its check history, uptime record and incidents are deleted with it. This cannot be undone."
-	confirmLabel="Delete monitor"
+	title={monitor
+		? t('monitors.delete.title', { name: monitor.name })
+		: t('monitors.delete.titleFallback')}
+	description={t('monitors.delete.description')}
+	confirmLabel={t('monitors.delete.confirm')}
 	onConfirm={confirmDelete}
 />

@@ -1,7 +1,6 @@
 import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import type {
-	AuthConfig,
 	Bucket,
 	Check,
 	Fleet,
@@ -116,9 +115,6 @@ async function toError(response: Response, fallback: string): Promise<Error> {
 
 export const backend = {
 	baseUrl: backendBaseUrl,
-	authConfig() {
-		return apiFetch<AuthConfig>('/auth/config');
-	},
 	me() {
 		return apiFetch<MeResponse>('/auth/me');
 	},

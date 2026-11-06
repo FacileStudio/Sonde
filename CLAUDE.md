@@ -10,12 +10,12 @@ check history instead of growing an unbounded table.
 
 ## Tech stack
 
-- **API** (`apps/api`): Go 1.25, Chi v5, GORM over PostgreSQL 16, ordered goose migrations
-- **Auth**: [`porte`](https://github.com/FacileStudio/porte) v0.3.1, argon2id passwords and
-  OIDC through one session manager
+- **API** (`apps/api`): Go 1.26, Chi v5, GORM over PostgreSQL 16, ordered goose migrations
+- **Auth**: [`porte`](https://github.com/FacileStudio/porte) v0.12.0, sign-in through Registre
+  (OIDC) only, no local passwords
 - **Client** (`apps/client`): SvelteKit 2 (`adapter-static`), Svelte 5 runes, Tailwind CSS 4,
   Vite 7, and the [`@facile/muse`](https://github.com/FacileStudio/muse) design system
-- **Chassis**: [`tronc`](https://github.com/FacileStudio/tronc) v0.12.0 supplies `errors`,
+- **Chassis**: [`tronc`](https://github.com/FacileStudio/tronc) v0.17.1 supplies `errors`,
   `httpjson`, `logger`, `middleware`, `httpx`, `health`, `healthcheck`, `spa`, `apiref`,
   `migrate` and `testdb`. Do not reimplement any of them locally
 - **Tooling**: mise (monorepo mode, experimental) + bun for the client; dev Postgres via
@@ -152,8 +152,8 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `CLIENT_DIR` | `./client` | Where the built SPA lives. Set by the image layout, not by hand |
 | `JOURNAL_URL` / `JOURNAL_TOKEN` | empty | Optional log shipping to Journal |
 | `SONDE_RAW_RETENTION_DAYS` | `30` | Days of raw checks kept. Fails soft: a bad value silently becomes 30 |
-| `ALLOW_REGISTRATION` | `true` | Whether `POST /api/auth/register` accepts new accounts |
-| `SSO_ONLY` | `false` | Unregisters the password routes. Refuses to boot without an issuer |
+| `APP_ENV` | `production` in compose | `production` refuses to boot without `OIDC_ISSUER` |
+| `APP_VERSION` | `dev` | Build arg, served at `GET /version`. Set it in the Dokploy env at release |
 | `OIDC_ISSUER` | empty | `https://sso.facile.studio`. Empty disables SSO |
 | `OIDC_CLIENT_ID` | empty | `sonde` |
 | `OIDC_CLIENT_SECRET` | empty | Set on the Dokploy service, never committed |
@@ -205,9 +205,11 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 
 ## Gotchas
 
-- **Auth is porte.** One session manager owns the sessions table; `porte/local` (argon2id
-  passwords) and `porte/oidc` (PKCE) both issue through it, so a password login and a
-  federated one are the same row, the same cookie and the same logout. Cookie-authenticated
+- **Auth is porte, through Registre only.** One session manager owns the sessions table and
+  `porte/oidc` (PKCE) issues through it. There is no password route and no sign-up page. An
+  account created before the cutover links by verified email at its first Facile sign-in, and
+  only when it holds no other subject of the same issuer. `porte/directory` polls Registre for
+  erased people and `UserStore.EraseAccount` deletes their data (GDPR). Cookie-authenticated
   mutations require `X-Facile-CSRF`; bearer requests are exempt, which is why a bearer-token
   test passes while every browser write 403s. See `docs/AUTH.md`.
 - **The identity provider is Registre at `https://sso.facile.studio`, one issuer at the

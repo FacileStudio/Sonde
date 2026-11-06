@@ -13,6 +13,7 @@
 	import UptimeBar from '$lib/components/UptimeBar.svelte';
 	import { backend, UPTIME_WINDOWS, type MonitorHistory, type UptimeWindow } from '$lib/backend';
 	import { latencySeries, milliseconds, shortDay, shortTime } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let { monitorId, onError }: { monitorId: number; onError?: (message: string) => void } = $props();
 
@@ -30,14 +31,14 @@
 		)
 	);
 	const latency = $derived([
-		{ name: 'Average latency', data: latencySeries(buckets), color: chartColor(0) }
+		{ name: t('history.avgLatency'), data: latencySeries(buckets), color: chartColor(0) }
 	]);
 	/* One "failed checks" series, not failed stacked on successful: a healthy
 	   monitor reports ~60 successes to a single failure per bucket, and the
 	   failed segment of that stack is under a pixel — the one thing the chart
 	   exists to show. */
 	const failures = $derived([
-		{ name: 'Failed checks', data: buckets.map((bucket) => bucket.failed), color: chartColor(3) }
+		{ name: t('history.failedChecks'), data: buckets.map((bucket) => bucket.failed), color: chartColor(3) }
 	]);
 
 	async function load(window: UptimeWindow) {
@@ -45,7 +46,7 @@
 		try {
 			history = await backend.monitorHistory(monitorId, window);
 		} catch (err) {
-			onError?.(err instanceof Error ? err.message : 'Failed to load the history.');
+			onError?.(err instanceof Error ? err.message : t('history.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -59,9 +60,9 @@
 	onMount(() => load(range));
 </script>
 
-<Section title="History" description="Coverage, latency and failures over the chosen window.">
+<Section title={t('history.title')} description={t('history.description')}>
 	{#snippet actions()}
-		<Tabs items={rangeTabs} value={range} onChange={selectRange} label="History window" />
+		<Tabs items={rangeTabs} value={range} onChange={selectRange} label={t('history.window')} />
 	{/snippet}
 
 	{#if loading}
@@ -69,14 +70,14 @@
 	{:else}
 		<div class="flex flex-col gap-4">
 			<Card class="p-5">
-				<UptimeBar {buckets} {resolution} height={32} label="Uptime history" />
+				<UptimeBar {buckets} {resolution} height={32} label={t('history.uptimeHistory')} />
 			</Card>
 
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 				<Card class="flex flex-col gap-4 p-5">
 					<div>
-						<h3 class="text-fc-md font-semibold text-fc-fg">Response time</h3>
-						<p class="text-fc-xs text-fc-fg-muted">Average latency per {resolution}</p>
+						<h3 class="text-fc-md font-semibold text-fc-fg">{t('history.response')}</h3>
+						<p class="text-fc-xs text-fc-fg-muted">{resolution === 'day' ? t('history.latencyDay') : t('history.latencyHour')}</p>
 					</div>
 					<LineChart
 						class="flex-1"
@@ -85,21 +86,21 @@
 						area
 						height={220}
 						yFormat={(n) => milliseconds(n)}
-						emptyLabel="No checks in this window"
+						emptyLabel={t('history.noChecks')}
 					/>
 				</Card>
 
 				<Card class="flex flex-col gap-4 p-5">
 					<div>
-						<h3 class="text-fc-md font-semibold text-fc-fg">Failed checks</h3>
-						<p class="text-fc-xs text-fc-fg-muted">Probes that did not pass, per {resolution}</p>
+						<h3 class="text-fc-md font-semibold text-fc-fg">{t('history.failedChecks')}</h3>
+						<p class="text-fc-xs text-fc-fg-muted">{resolution === 'day' ? t('history.failedDay') : t('history.failedHour')}</p>
 					</div>
 					<BarChart
 						class="flex-1"
 						series={failures}
 						{labels}
 						height={220}
-						emptyLabel="No checks in this window"
+						emptyLabel={t('history.noChecks')}
 					/>
 				</Card>
 			</div>

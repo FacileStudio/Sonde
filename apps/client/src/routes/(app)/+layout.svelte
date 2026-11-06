@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { Button, EmptyState, MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
+	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
 
 	let { children } = $props();
 
@@ -32,13 +33,13 @@
 	   so the row is only a route a member can actually walk. The page itself refuses too, for
 	   anyone arriving on a link. */
 	const navPages = $derived([
-		{ href: '/monitors', label: 'Monitors', icon: icons.monitor, active: isActive('/monitors') },
-		{ href: '/incidents', label: 'Incidents', icon: icons.warning, active: isActive('/incidents') },
+		{ href: '/monitors', label: t('nav.monitors'), icon: icons.monitor, active: isActive('/monitors') },
+		{ href: '/incidents', label: t('nav.incidents'), icon: icons.warning, active: isActive('/incidents') },
 		...(user?.is_admin
 			? [
 					{
 						href: '/status-pages',
-						label: 'Status pages',
+						label: t('nav.statusPages'),
 						icon: icons.globe,
 						active: isActive('/status-pages')
 					}
@@ -56,6 +57,7 @@
 	onMount(async () => {
 		try {
 			user = (await backend.me()).user;
+			setSessionLocale(user.locale);
 			checked = true;
 		} catch (err) {
 			/* Only a refused credential logs someone out. A 500 or a dropped connection means
@@ -105,10 +107,10 @@
 			{:else if unreachable}
 				<EmptyState
 					icon={icons.error}
-					title="Sonde is not answering"
-					description="The server did not return your account. It may be restarting, or the connection dropped. You are still signed in."
+					title={t('shell.unreachable.title')}
+					description={t('shell.unreachable.description')}
 				>
-					<Button icon={icons.refresh} onclick={() => location.reload()}>Try again</Button>
+					<Button icon={icons.refresh} onclick={() => location.reload()}>{t('shell.tryAgain')}</Button>
 				</EmptyState>
 			{:else}
 				<div class="flex min-h-[50dvh] items-center justify-center">

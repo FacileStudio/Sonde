@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Alert, Button, Drawer, Field, Input, Select, Spinner, icons, toast } from '@facile/muse';
 	import { backend, type Monitor, type MonitorInput } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open = $bindable(false),
@@ -10,11 +11,11 @@
 		onCreated: (monitor: Monitor) => void;
 	} = $props();
 
-	const types = [
-		{ value: 'http', label: 'HTTP(S) — probe a URL' },
-		{ value: 'tcp', label: 'TCP — check a port accepts connections' },
-		{ value: 'push', label: 'Push — a cron job pings Sonde' }
-	] as const;
+	const types = $derived([
+		{ value: 'http', label: t('drawer.types.http') },
+		{ value: 'tcp', label: t('drawer.types.tcp') },
+		{ value: 'push', label: t('drawer.types.push') }
+	] as const);
 
 	let name = $state('');
 	let slug = $state('');
@@ -70,7 +71,7 @@
 			open = false;
 			onCreated(monitor);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Could not create the monitor.';
+			error = err instanceof Error ? err.message : t('drawer.createFailed');
 			/* The Alert lives inside the sheet. A toast survives it being closed. */
 			toast.danger(error);
 		} finally {
@@ -81,17 +82,17 @@
 
 <Drawer
 	bind:open
-	title="New monitor"
-	description="Checks start on the next tick, every 60 seconds. Tune the rest on the monitor itself."
+	title={t('monitors.new')}
+	description={t('drawer.description')}
 	showClose
 	dismissible={!submitting}
 >
 	<form id="new-monitor" class="flex flex-col gap-4" onsubmit={create}>
-		<Field label="Name" helper="How it appears in your monitor list.">
-			<Input bind:value={name} placeholder="Marketing site" required disabled={submitting} />
+		<Field label={t('common.name')} helper={t('drawer.nameHelper')}>
+			<Input bind:value={name} placeholder={t('form.namePlaceholder')} required disabled={submitting} />
 		</Field>
 
-		<Field label="Slug" helper="Identifies the monitor on public status pages.">
+		<Field label={t('common.slug')} helper={t('form.slugHelper')}>
 			<Input
 				value={effectiveSlug}
 				oninput={(event: Event) => {
@@ -104,7 +105,7 @@
 			/>
 		</Field>
 
-		<Field label="Type">
+		<Field label={t('common.type')}>
 			<Select bind:value={type} disabled={submitting}>
 				{#each types as option (option.value)}
 					<option value={option.value}>{option.label}</option>
@@ -114,10 +115,8 @@
 
 		{#if needsTarget}
 			<Field
-				label={type === 'http' ? 'URL' : 'Host and port'}
-				helper={type === 'http'
-					? 'A 200 with any body counts as up until you narrow it.'
-					: 'Sonde only opens the connection, it sends nothing.'}
+				label={type === 'http' ? t('form.url') : t('form.hostPort')}
+				helper={type === 'http' ? t('drawer.httpHelper') : t('drawer.tcpHelper')}
 			>
 				<Input
 					bind:value={target}
@@ -127,14 +126,11 @@
 				/>
 			</Field>
 		{:else}
-			<Alert tone="info" title="Push monitor">
-				Sonde issues a heartbeat URL once the monitor exists. Silence past the interval counts as
-				down.
-			</Alert>
+			<Alert tone="info" title={t('drawer.push.title')}>{t('drawer.push.text')}</Alert>
 		{/if}
 
 		{#if error}
-			<Alert tone="danger" title="Not added">{error}</Alert>
+			<Alert tone="danger" title={t('drawer.notAdded')}>{error}</Alert>
 		{/if}
 	</form>
 
@@ -147,7 +143,7 @@
 				disabled={submitting}
 				onclick={() => (open = false)}
 			>
-				Cancel
+				{t('common.cancel')}
 			</Button>
 			<Button
 				type="submit"
@@ -158,7 +154,7 @@
 				disabled={submitting || !ready}
 			>
 				{#if submitting}<Spinner size="sm" />{/if}
-				{submitting ? 'Adding…' : 'Add monitor'}
+				{submitting ? t('drawer.adding') : t('drawer.add')}
 			</Button>
 		</div>
 	{/snippet}
