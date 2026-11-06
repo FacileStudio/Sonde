@@ -14,8 +14,7 @@ var keys = []string{
 	"JOURNAL_URL",
 	"JOURNAL_TOKEN",
 	"SONDE_RAW_RETENTION_DAYS",
-	"ALLOW_REGISTRATION",
-	"SSO_ONLY",
+	"APP_ENV",
 	"OIDC_ISSUER",
 	"OIDC_CLIENT_ID",
 	"OIDC_CLIENT_SECRET",
@@ -72,12 +71,24 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
-			name: "sso only without an issuer",
+			name: "production without an issuer",
 			env: map[string]string{
 				"DATABASE_URL": databaseURL,
-				"SSO_ONLY":     "true",
+				"APP_ENV":      "production",
 			},
 			wantErr: true,
+		},
+		{
+			name: "production with an issuer",
+			env: map[string]string{
+				"DATABASE_URL":       databaseURL,
+				"APP_ENV":            "production",
+				"OIDC_ISSUER":        "https://sso.facile.studio",
+				"OIDC_CLIENT_ID":     "sonde",
+				"OIDC_CLIENT_SECRET": "secret",
+				"OIDC_REDIRECT_URL":  "https://sonde.facile.studio/api/auth/oidc/callback",
+				"OIDC_SUCCESS_URL":   "https://sonde.facile.studio/",
+			},
 		},
 		{
 			name: "a port that is not a port",
@@ -100,14 +111,6 @@ func TestLoad(t *testing.T) {
 			env: map[string]string{
 				"DATABASE_URL":         databaseURL,
 				"CORS_ALLOWED_ORIGINS": "sonde.facile.studio",
-			},
-			wantErr: true,
-		},
-		{
-			name: "a boolean that is not a boolean",
-			env: map[string]string{
-				"DATABASE_URL":       databaseURL,
-				"ALLOW_REGISTRATION": "yes please",
 			},
 			wantErr: true,
 		},

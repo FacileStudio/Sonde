@@ -118,6 +118,7 @@ func run() int {
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
+	runDeletions(backgroundCtx, newDeletions(db, sqlDB, appEnv, appLogger))
 	go func() {
 		for {
 			select {

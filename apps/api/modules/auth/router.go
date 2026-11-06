@@ -6,17 +6,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// RegisterRoutes mounts the routes porte does not own.
+// RegisterRoutes mounts the routes porte does not own: GET /auth/me.
 //
-// /auth/config, /auth/logout and the whole OIDC flow come from the kits; what
-// is left here is the local password path and /auth/me. Under SSO_ONLY the
-// credential routes are not registered rather than rejected, so there is no
-// endpoint left to probe for an account.
-func RegisterRoutes(router chi.Router, service *Service, ssoOnly bool, requireAuth func(http.Handler) http.Handler, clearCookie func(http.ResponseWriter, *http.Request)) {
-	handler := newHandler(service, clearCookie)
-	if !ssoOnly {
-		router.Post("/auth/register", handler.register)
-		router.Post("/auth/login", handler.login)
-	}
+// /auth/config, /auth/logout and the whole OIDC flow come from the porte kits,
+// and sign-in goes through Registre only, so no credential route exists to
+// probe for an account.
+func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.Handler) http.Handler) {
+	handler := newHandler(service)
 	router.With(requireAuth).Get("/auth/me", handler.me)
 }

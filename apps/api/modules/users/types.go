@@ -6,6 +6,7 @@ type User struct {
 	Name      string `json:"name"`
 	IsAdmin   bool   `json:"is_admin"`
 	AvatarURL string `json:"avatar_url"`
+	Locale    string `json:"locale"`
 }
 
 type MeResponse struct {

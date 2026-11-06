@@ -69,6 +69,7 @@ func toUser(user *schemas.User) User {
 		Name:      user.Name,
 		IsAdmin:   user.IsAdmin,
 		AvatarURL: user.AvatarURL,
+		Locale:    user.Locale,
 	}
 }
 
