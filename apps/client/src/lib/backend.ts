@@ -55,7 +55,11 @@ function sessionRefused() {
 	void goto(`/login?next=${encodeURIComponent(next)}`, { replaceState: true });
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiFetch<T>(
+	path: string,
+	options: RequestInit = {},
+	silent = false
+): Promise<T> {
 	const headers = new Headers(options.headers);
 	if (!headers.has('Content-Type') && options.body) {
 		headers.set('Content-Type', 'application/json');
@@ -71,7 +75,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 		credentials: 'same-origin'
 	});
 	if (!response.ok) {
-		if (response.status === 401) sessionRefused();
+		if (response.status === 401 && !silent) sessionRefused();
 		let payload: ApiErrorPayload | undefined;
 		try {
 			payload = (await response.json()) as ApiErrorPayload;
@@ -117,6 +121,9 @@ export const backend = {
 	},
 	me() {
 		return apiFetch<MeResponse>('/auth/me');
+	},
+	probeSession() {
+		return apiFetch<MeResponse>('/auth/me', {}, true);
 	},
 	logout() {
 		return apiFetch<void>('/auth/logout', { method: 'POST' });
