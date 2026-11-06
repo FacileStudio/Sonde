@@ -19,7 +19,8 @@
 	import MonitorDrawer from '$lib/components/MonitorDrawer.svelte';
 	import UptimeBar from '$lib/components/UptimeBar.svelte';
 	import { backend, type Fleet, type MonitorSummary } from '$lib/backend';
-	import { milliseconds, percent, since, STATUS_LABEL, STATUS_TONE } from '$lib/format';
+	import { milliseconds, percent, since, statusLabel, STATUS_TONE } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let fleet = $state<Fleet | null>(null);
 	let loading = $state(true);
@@ -34,7 +35,7 @@
 		try {
 			fleet = await backend.monitorsOverview();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load monitors.';
+			error = err instanceof Error ? err.message : t('monitors.loadFailed');
 		} finally {
 			loading = false;
 		}
@@ -65,7 +66,7 @@
 	});
 
 	async function onCreated(monitor: { name: string }) {
-		toast.success(`${monitor.name} is being watched.`);
+		toast.success(t('monitors.created', { name: monitor.name }));
 		await load();
 	}
 
@@ -80,31 +81,31 @@
 		try {
 			await backend.deleteMonitor(monitor.id);
 			pendingDelete = null;
-			toast.success(`${monitor.name} deleted.`);
+			toast.success(t('monitors.deleted', { name: monitor.name }));
 			await load();
 		} catch (err) {
 			/* The toast is the whole report. `error` means "the list never loaded" and is the
 			   first render branch, so writing a failed delete into it replaces the table the
 			   user is still looking at with a load error that did not happen. */
-			toast.danger(err instanceof Error ? err.message : 'Could not delete the monitor.');
+			toast.danger(err instanceof Error ? err.message : t('monitors.deleteFailed'));
 			throw err;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Monitors — Sonde</title>
+	<title>{t('nav.monitors')} · Sonde</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
-	<PageHeader title="Monitors" description="What Sonde watches, and whether it is alive right now.">
+	<PageHeader title={t('nav.monitors')} description={t('monitors.description')}>
 		{#snippet actions()}
-			<Button icon={icons.plus} onclick={() => (creating = true)}>New monitor</Button>
+			<Button icon={icons.plus} onclick={() => (creating = true)}>{t('monitors.new')}</Button>
 		{/snippet}
 	</PageHeader>
 
 	{#if error}
-		<Alert tone="danger" title="Could not load monitors">{error}</Alert>
+		<Alert tone="danger" title={t('monitors.loadError')}>{error}</Alert>
 	{:else if loading}
 		<div class="flex flex-col gap-4">
 			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -120,42 +121,46 @@
 	{:else if monitors.length === 0}
 		<EmptyState
 			icon={icons.monitor}
-			title="No monitors yet"
-			description="Add an HTTP endpoint, a TCP port, or a push heartbeat to start watching."
+			title={t('monitors.empty.title')}
+			description={t('monitors.empty.description')}
 		>
 			<Button variant="outline" icon={icons.plus} onclick={() => (creating = true)}>
-				Create your first monitor
+				{t('monitors.empty.cta')}
 			</Button>
 		</EmptyState>
 	{:else if totals}
 		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			<StatCard label="Up" value={totals.up} delta={`of ${totals.monitors} monitors`} />
 			<StatCard
-				label="Down"
+				label={t('monitors.stat.up')}
+				value={totals.up}
+				delta={t('monitors.stat.ofMonitors', { count: totals.monitors })}
+			/>
+			<StatCard
+				label={t('monitors.stat.down')}
 				value={totals.down}
 				delta={totals.open_incidents > 0
-					? `${totals.open_incidents} open incidents`
-					: 'no open incidents'}
+					? t('monitors.stat.openIncidents', { count: totals.open_incidents })
+					: t('monitors.stat.noOpenIncidents')}
 			/>
 			<StatCard
-				label="Uptime 24 h"
+				label={t('monitors.stat.uptime24')}
 				value={percent(totals.uptime_24h)}
-				delta={`${totals.checks_24h} checks`}
+				delta={t('monitors.stat.checks', { count: totals.checks_24h })}
 			/>
-			<StatCard label="Avg latency 24 h" value={milliseconds(totals.avg_latency_24h)}>
-				<Sparkline data={latencySeries} height={28} emptyLabel="No probes yet" />
+			<StatCard label={t('monitors.stat.latency24')} value={milliseconds(totals.avg_latency_24h)}>
+				<Sparkline data={latencySeries} height={28} emptyLabel={t('monitors.stat.noProbes')} />
 			</StatCard>
 		</div>
 
 		<Table>
 			<thead>
 				<tr>
-					<th scope="col">Monitor</th>
-					<th scope="col" class="w-48">Last 24 h</th>
-					<th scope="col">Uptime</th>
-					<th scope="col">Latency</th>
-					<th scope="col">Checked</th>
-					<th scope="col"><span class="sr-only">Actions</span></th>
+					<th scope="col">{t('monitors.col.monitor')}</th>
+					<th scope="col" class="w-48">{t('monitors.col.last24')}</th>
+					<th scope="col">{t('monitors.col.uptime')}</th>
+					<th scope="col">{t('monitors.col.latency')}</th>
+					<th scope="col">{t('monitors.col.checked')}</th>
+					<th scope="col"><span class="sr-only">{t('common.actions')}</span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -172,7 +177,7 @@
 							<div class="flex min-w-0 items-center gap-2">
 								<StatusDot
 									tone={STATUS_TONE[monitor.status]}
-									label={STATUS_LABEL[monitor.status]}
+									label={statusLabel(monitor.status)}
 								/>
 								<span
 									class="truncate font-medium text-fc-fg transition-colors group-hover:text-fc-accent"
@@ -182,7 +187,7 @@
 								<Badge tone="neutral">{monitor.type}</Badge>
 								{#if monitor.open_incidents > 0}
 									<Badge tone="danger">
-										{monitor.open_incidents} open
+										{t('monitors.openBadge', { count: monitor.open_incidents })}
 									</Badge>
 								{/if}
 							</div>
@@ -191,7 +196,7 @@
 							<UptimeBar
 								buckets={monitor.history}
 								height={16}
-								label={`${monitor.name} uptime, last 24 hours`}
+								label={t('monitors.uptimeLabel', { name: monitor.name })}
 							/>
 						</td>
 						<td class="font-fc-mono text-fc-sm text-fc-fg-muted">
@@ -207,14 +212,14 @@
 									variant="ghost"
 									size="sm"
 									icon={icons.edit}
-									aria-label={`Open ${monitor.name}`}
+									aria-label={t('monitors.openAria', { name: monitor.name })}
 									href={`/monitors/${monitor.id}`}
 								/>
 								<Button
 									variant="ghost-danger"
 									size="sm"
 									icon={icons.remove}
-									aria-label={`Delete ${monitor.name}`}
+									aria-label={t('monitors.deleteAria', { name: monitor.name })}
 									onclick={() => askDelete(monitor)}
 								/>
 							</div>
@@ -231,9 +236,11 @@
 <ConfirmModal
 	bind:open={confirmOpen}
 	tone="danger"
-	title={pendingDelete ? `Delete ${pendingDelete.name}?` : 'Delete monitor?'}
-	description="Its check history, uptime record and incidents are deleted with it. This cannot be undone."
-	confirmLabel="Delete monitor"
+	title={pendingDelete
+		? t('monitors.delete.title', { name: pendingDelete.name })
+		: t('monitors.delete.titleFallback')}
+	description={t('monitors.delete.description')}
+	confirmLabel={t('monitors.delete.confirm')}
 	onConfirm={confirmDelete}
 	onCancel={() => (pendingDelete = null)}
 />

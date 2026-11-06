@@ -23,6 +23,7 @@
 	} from '@facile/muse';
 	import { backend, type Integrations, type BusState } from '$lib/backend';
 	import { since } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let integrations = $state<Integrations | null>(null);
 	let loading = $state(true);
@@ -35,13 +36,6 @@
 		disabled: 'neutral'
 	};
 
-	const LABEL: Record<BusState, string> = {
-		connected: 'Connected',
-		connecting: 'Connecting',
-		reconnecting: 'Reconnecting',
-		disabled: 'Disabled'
-	};
-
 	const bus = $derived(integrations?.bus);
 	const inFlight = $derived(bus?.state === 'connecting' || bus?.state === 'reconnecting');
 
@@ -51,7 +45,7 @@
 			integrations = await backend.integrations();
 			error = '';
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Could not read this instance’s integrations.';
+			error = err instanceof Error ? err.message : t('bus.loadFailed');
 		} finally {
 			loading = false;
 		}
@@ -61,35 +55,33 @@
 </script>
 
 <SettingsSection
-	title="Antenne"
-	description="Sonde publishes every monitor transition to the Antenne bus, and Antenne decides who hears about it. Sonde does not fan out to humans itself."
+	title={t('bus.title')}
+	description={t('bus.description')}
 >
 	{#snippet actions()}
 		<Button variant="outline" size="sm" icon={icons.refresh} disabled={loading} onclick={load}>
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	{/snippet}
 
 	{#if error}
-		<Alert tone="danger" title="Could not read the bus state">{error}</Alert>
+		<Alert tone="danger" title={t('bus.loadError')}>{error}</Alert>
 	{:else if loading && !bus}
 		<Skeleton class="h-24 w-full" />
 	{:else if bus}
 		<SettingsRow
-			label="Connection"
-			description={bus.configured
-				? 'Publishing runs in the background and retries on its own. A restart is never the fix.'
-				: 'ANTENNE_INSTANCE is empty on this instance, so nothing is published. Set it, with ANTENNE_SECRET, and restart.'}
+			label={t('bus.connection')}
+			description={bus.configured ? t('bus.connection.configured') : t('bus.connection.unconfigured')}
 		>
-			<StatusDot tone={TONE[bus.state]} label={LABEL[bus.state]} pulse={inFlight} />
+			<StatusDot tone={TONE[bus.state]} label={t(`bus.state.${bus.state}`)} pulse={inFlight} />
 		</SettingsRow>
 
 		{#if bus.configured}
 			<SettingsRow stacked>
-				<SecretField label="Instance" value={bus.instance} sensitive={false} class="w-full" />
+				<SecretField label={t('bus.instance')} value={bus.instance} sensitive={false} class="w-full" />
 			</SettingsRow>
 
-			<SettingsRow label="App identity" description="The name events are attributed to on the bus.">
+			<SettingsRow label={t('bus.appIdentity')} description={t('bus.appIdentityHint')}>
 				<span class="font-fc-mono text-fc-sm text-fc-fg">
 					{bus.app}{bus.instance_id ? `:${bus.instance_id}` : ''}
 				</span>
@@ -97,36 +89,36 @@
 
 			{#each bus.channels as channel (channel)}
 				<SettingsRow
-					label={channel === 'monitor.down' ? 'Outage channel' : 'Recovery channel'}
+					label={channel === 'monitor.down' ? t('bus.channel.down') : t('bus.channel.up')}
 					description={channel}
 				>
-					<Badge tone="neutral">emitting</Badge>
+					<Badge tone="neutral">{t('bus.emitting')}</Badge>
 				</SettingsRow>
 			{/each}
 
 			<SettingsRow
-				label="Events published"
-				description="Since this container started. A restart resets the count, not the delivery."
+				label={t('bus.published')}
+				description={t('bus.publishedHint')}
 			>
 				<span class="font-fc-mono text-fc-sm text-fc-fg">{bus.published}</span>
 			</SettingsRow>
 
 			{#if bus.dropped > 0}
 				<SettingsRow
-					label="Events dropped"
-					description="Emitted while the bus was unreachable. Sonde does not buffer: a monitor that keeps probing matters more than a queue that keeps growing."
+					label={t('bus.dropped')}
+					description={t('bus.droppedHint')}
 				>
 					<span class="font-fc-mono text-fc-sm text-fc-danger">{bus.dropped}</span>
 				</SettingsRow>
 			{/if}
 
-			<SettingsRow label="Last event" description="The most recent transition that left this box.">
+			<SettingsRow label={t('bus.lastEvent')} description={t('bus.lastEventHint')}>
 				<span class="text-fc-sm text-fc-fg-muted">{since(bus.last_event_at)}</span>
 			</SettingsRow>
 
 			{#if bus.last_error}
 				<SettingsRow stacked>
-					<Alert tone="warning" title="Last error from the bus">
+					<Alert tone="warning" title={t('bus.lastError')}>
 						<span class="font-fc-mono text-fc-xs">{bus.last_error}</span>
 					</Alert>
 				</SettingsRow>
@@ -137,40 +129,38 @@
 
 {#if integrations}
 	<SettingsSection
-		title="History"
-		description="How much of the past this instance can still answer questions about."
+		title={t('retention.title')}
+		description={t('retention.description')}
 	>
 		<SettingsRow
-			label="Raw checks"
-			description="Every individual probe. Set with SONDE_RAW_RETENTION_DAYS."
+			label={t('retention.raw')}
+			description={t('retention.rawHint')}
 		>
-			<span class="font-fc-mono text-fc-sm text-fc-fg">{integrations.retention.raw_days} days</span>
+			<span class="font-fc-mono text-fc-sm text-fc-fg">{t('retention.days', { count: integrations.retention.raw_days })}</span>
 		</SettingsRow>
 		<SettingsRow
-			label="Hourly rollups"
-			description="What every uptime percentage and chart is read from, so this is the real limit on how far back a window can go."
+			label={t('retention.hourly')}
+			description={t('retention.hourlyHint')}
 		>
 			<span class="font-fc-mono text-fc-sm text-fc-fg">
-				{integrations.retention.hourly_months} months
+				{t('retention.months', { count: integrations.retention.hourly_months })}
 			</span>
 		</SettingsRow>
 		<SettingsRow
-			label="Failure threshold"
-			description="Consecutive failed checks before an incident opens and the bus hears about it."
+			label={t('retention.threshold')}
+			description={t('retention.thresholdHint')}
 		>
 			<span class="font-fc-mono text-fc-sm text-fc-fg">
 				{integrations.retention.failure_threshold}
 			</span>
 		</SettingsRow>
 		<SettingsRow
-			label="Log shipping"
-			description={integrations.journal.configured
-				? integrations.journal.url
-				: 'JOURNAL_URL is empty, so logs stay in this container.'}
+			label={t('retention.logs')}
+			description={integrations.journal.configured ? integrations.journal.url : t('retention.logsLocal')}
 		>
 			<StatusDot
 				tone={integrations.journal.configured ? 'success' : 'neutral'}
-				label={integrations.journal.configured ? 'Journal' : 'Local only'}
+				label={integrations.journal.configured ? t('retention.journal') : t('retention.localOnly')}
 			/>
 		</SettingsRow>
 	</SettingsSection>

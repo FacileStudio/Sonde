@@ -1,0 +1,25 @@
+# Changelog
+
+## [Unreleased]
+
+### Changed
+
+- porte v0.5.2 to v0.12.0, porte/directory v0.3.0, tronc v0.16.0 to v0.17.1, @facile/muse v0.11.0 to v0.12.1.
+- Sign-in goes through Registre only. The login page is muse `AuthScreen`, the landing page uses `LandingHeader`, `LandingFooter` and `SignInWithFacile`.
+- An existing local account links by verified email at its first Facile sign-in, and only when it holds no other subject of the same issuer. An unverified claim never rewrites a stored address.
+- `GET /api/auth/me` and `GET /api/users/me` return the user's `locale`.
+- The UI is translated into fr, en, es and de. Dates, numbers and durations use Intl in the session locale.
+- The production boot refuses to start without `OIDC_ISSUER`.
+- tronc security headers are on: enforced anti-framing, report-only CSP with the client's inline script hashes.
+- CI runs build, tests against Postgres, svelte-check and filet.
+
+### Removed
+
+- `POST /api/auth/register`, `POST /api/auth/login`, the local password kit, the register tab and the password form.
+- `ALLOW_REGISTRATION` and `SSO_ONLY` (delete `SSO_ONLY` from the Dokploy env after deploy).
+
+### Added
+
+- Migration `00005_launch.sql`: `porte_login_codes.provider` and `.subject`, `users.locale`, `directory_state`.
+- GDPR deletion: Registre erasures delete the person's monitors, webhooks, sessions and account.
+- `GET /version`, fed by the `APP_VERSION` build arg.

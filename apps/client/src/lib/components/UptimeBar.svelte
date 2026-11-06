@@ -10,13 +10,14 @@
 	 * window the page claimed. This reads the rollups, so 90 days is 90 ticks.
 	 */
 	import type { Bucket } from '$lib/backend';
-	import { duration, milliseconds, percent, shortDay, shortTime } from '$lib/format';
+	import { dateTime, duration, milliseconds, percent, shortDay, shortTime } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		buckets = [],
 		height = 28,
 		resolution = 'hour',
-		label = 'Uptime history'
+		label
 	}: {
 		buckets?: Bucket[];
 		height?: number;
@@ -43,8 +44,13 @@
 
 	function describe(bucket: Bucket): string {
 		const when = resolution === 'day' ? shortDay(bucket.bucket_start) : shortTime(bucket.bucket_start);
-		if (bucket.total === 0) return `${when}: not probed`;
-		return `${when}: ${percent(bucket.uptime, 1)} of ${bucket.total} checks, ${milliseconds(bucket.avg_latency_ms)} average`;
+		if (bucket.total === 0) return t('uptimeBar.notProbed', { when });
+		return t('uptimeBar.describe', {
+			when,
+			uptime: percent(bucket.uptime, 1),
+			total: bucket.total,
+			latency: milliseconds(bucket.avg_latency_ms)
+		});
 	}
 
 	const measured = $derived(buckets.filter((bucket) => bucket.total > 0));
@@ -81,22 +87,22 @@
 
 	{#if buckets.length > 0}
 		<div class="flex items-center justify-between font-fc-mono text-fc-xs text-fc-fg-muted">
-			<span>{covered}% covered</span>
-			<span>{outage > 0 ? `${duration(outage)} down` : 'no downtime'}</span>
+			<span>{t('uptimeBar.covered', { percent: percent(covered, 0) })}</span>
+			<span>{outage > 0 ? t('uptimeBar.down', { duration: duration(outage) }) : t('uptimeBar.noDowntime')}</span>
 		</div>
 	{/if}
 
 	<div class="sr-only">
 		<table>
-			<caption>{label}</caption>
+			<caption>{label ?? t('history.uptimeHistory')}</caption>
 			<thead>
-				<tr><th scope="col">Bucket</th><th scope="col">Uptime</th><th scope="col">Checks</th></tr>
+				<tr><th scope="col">{t('uptimeBar.bucket')}</th><th scope="col">{t('uptimeBar.uptime')}</th><th scope="col">{t('uptimeBar.checks')}</th></tr>
 			</thead>
 			<tbody>
 				{#each buckets as bucket (bucket.bucket_start)}
 					<tr>
-						<td>{new Date(bucket.bucket_start).toLocaleString()}</td>
-						<td>{bucket.total === 0 ? 'not probed' : percent(bucket.uptime, 1)}</td>
+						<td>{dateTime(bucket.bucket_start)}</td>
+						<td>{bucket.total === 0 ? t('uptimeBar.notProbedShort') : percent(bucket.uptime, 1)}</td>
 						<td>{bucket.total}</td>
 					</tr>
 				{/each}

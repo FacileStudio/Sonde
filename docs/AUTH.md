@@ -1,12 +1,13 @@
 # Authentication
 
-Sonde authenticates through [porte](https://github.com/FacileStudio/porte) v0.3.x. One
-session manager owns one sessions table; both kits issue through it, so a password login
-and a federated one are the same row, the same cookie (`session`) and the same logout.
+Sonde authenticates through [porte](https://github.com/FacileStudio/porte) v0.12.x, and only
+through Registre. One session manager owns the sessions table (cookie `session`). There is no
+local password, register or login route.
 
-- **Local**: `POST /api/auth/register` + `POST /api/auth/login`, argon2id via porte/local.
-  Gated by `ALLOW_REGISTRATION`; removed entirely when `SSO_ONLY=true` (not rejected;
-  unregistered, so there is no endpoint to probe).
+- **Account linking**: an account that predates the cutover links by verified email at its first
+  Facile sign-in, and only when it holds no other subject of the same issuer.
+- **Deletion**: `porte/directory` polls Registre for erased people; `UserStore.EraseAccount`
+  deletes their monitors, webhooks, sessions and account. Status pages stay.
 - **SSO**: `GET /api/auth/oidc` starts a PKCE flow against Registre (`OIDC_ISSUER`);
   `GET /api/auth/oidc/callback` lands the user in the same session shape.
 - **Config**: `GET /api/auth/config` returns `{sso_only, oidc_enabled,

@@ -45,8 +45,7 @@ at startup rather than failing on somebody's first login attempt.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `ALLOW_REGISTRATION` | no | `true` | Whether `POST /api/auth/register` accepts new accounts. The first account ever created is admin regardless |
-| `SSO_ONLY` | no | `false` | Unregisters the password routes entirely. Refuses to boot without an issuer |
+| `APP_ENV` | no | — | `production` refuses to boot without `OIDC_ISSUER`. The first account ever created is admin |
 | `OIDC_ISSUER` | no | — | `https://sso.facile.studio`. Empty disables SSO |
 | `OIDC_CLIENT_ID` | with issuer | — | `sonde` |
 | `OIDC_CLIENT_SECRET` | with issuer | — | Set on the Dokploy service, never committed |
@@ -143,8 +142,7 @@ put a database back in `[tools]`.
 | `LOG_LEVEL` | `info` | |
 | `CORS_ALLOWED_ORIGINS` | empty | Same-origin in production, so it only matters for a cross-origin dev client |
 | `JOURNAL_URL` / `JOURNAL_TOKEN` | empty | Optional log shipping |
-| `ALLOW_REGISTRATION` | `true` | |
-| `SSO_ONLY` | `false` | |
+| `APP_VERSION` | `dev` | Build arg served at `GET /version`; set it in the Dokploy env at release |
 | `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URL` / `OIDC_SUCCESS_URL` | empty | All or nothing; see Authentication above |
 | `OIDC_CLI_AUDIENCE` | empty | `facile-cli` in production |
 | `ANTENNE_INSTANCE` / `ANTENNE_SECRET` / `ANTENNE_INSTANCE_ID` | empty | Empty instance disables publishing |

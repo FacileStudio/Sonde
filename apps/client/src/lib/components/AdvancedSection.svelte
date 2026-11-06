@@ -8,39 +8,37 @@
 	import { page } from '$app/state';
 	import { Button, SecretField, SettingsRow, SettingsSection, icons, toast } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
+	import { date } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		user,
-		ssoOnly,
 		onClearLocalData
 	}: {
 		user: AuthUser | null;
-		ssoOnly: boolean;
 		onClearLocalData: () => void;
 	} = $props();
 
 	const memberSince = $derived(
-		user?.created_at ? new Date(user.created_at).toLocaleDateString() : '\u2014'
+		user?.created_at ? date(user.created_at) : '\u2014'
 	);
 
 	async function exportConfig() {
 		try {
 			await backend.exportConfig();
 		} catch (err) {
-			toast.danger(err instanceof Error && err.message ? err.message : 'Export failed.');
+			toast.danger(err instanceof Error && err.message ? err.message : t('advanced.export.failed'));
 		}
 	}
 </script>
 
 	<SettingsSection
-		title="Configuration export"
-		description="Every monitor and status page as JSON, with no secrets in it. Keep it in git."
+		title={t('advanced.export.title')}
+		description={t('advanced.export.description')}
 	>
 		<SettingsRow
-			label="Download sonde-config.json"
-			description={user?.is_admin
-				? 'A snapshot of what this instance is watching, taken now.'
-				: 'Administrators only. Ask whoever runs this instance.'}
+			label={t('advanced.export.label')}
+			description={user?.is_admin ? t('advanced.export.adminHint') : t('advanced.export.memberHint')}
 		>
 			<Button
 				variant="outline"
@@ -48,55 +46,52 @@
 				disabled={!user?.is_admin}
 				onclick={exportConfig}
 			>
-				Export
+				{t('advanced.export.button')}
 			</Button>
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection title="Instance" description="What this browser is talking to.">
+	<SettingsSection title={t('advanced.instance.title')} description={t('advanced.instance.description')}>
 		<SettingsRow stacked>
 			<SecretField
-				label="Instance URL"
+				label={t('advanced.instance.url')}
 				value={page.url.origin}
 				sensitive={false}
 				class="w-full"
 			/>
 		</SettingsRow>
-		<SettingsRow label="API base path" description="Every request is scoped under it.">
+		<SettingsRow label={t('advanced.api.base')} description={t('advanced.api.baseHint')}>
 			<span class="font-fc-mono text-fc-sm text-fc-fg">{backend.baseUrl}</span>
 		</SettingsRow>
-		<SettingsRow label="API reference" description="Every endpoint this instance serves.">
-			<Button variant="outline" href="/docs" iconRight={icons.arrow}>Open</Button>
+		<SettingsRow label={t('advanced.api.reference')} description={t('advanced.api.referenceHint')}>
+			<Button variant="outline" href="/docs" iconRight={icons.arrow}>{t('common.open')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection title="Account" description="Facts an operator may ask you for.">
+	<SettingsSection title={t('advanced.account.title')} description={t('advanced.account.description')}>
 		<SettingsRow stacked>
 			<SecretField
-				label="User ID"
+				label={t('advanced.account.userId')}
 				value={String(user?.id ?? '')}
 				sensitive={false}
 				class="w-full"
 			/>
 		</SettingsRow>
-		<SettingsRow label="Member since" description="When this account was created.">
+		<SettingsRow label={t('settings.memberSince')} description={t('advanced.account.createdHint')}>
 			<span class="text-fc-sm text-fc-fg-muted">{memberSince}</span>
-		</SettingsRow>
-		<SettingsRow label="Single sign-on" description="Whether local passwords are disabled.">
-			<span class="font-fc-mono text-fc-sm text-fc-fg">{ssoOnly ? 'required' : 'optional'}</span>
 		</SettingsRow>
 	</SettingsSection>
 
 	<SettingsSection
-		title="Danger zone"
-		description="Irreversible from this browser. Your monitors, incidents and status pages are untouched."
+		title={t('advanced.danger.title')}
+		description={t('advanced.danger.description')}
 	>
 		<SettingsRow
-			label="Clear local data"
-			description="Removes the theme preference stored here, then signs you out. Sonde has no self-service account deletion, an administrator has to remove the account server-side."
+			label={t('advanced.danger.clear')}
+			description={t('advanced.danger.clearHint')}
 		>
 			<Button variant="danger" icon={icons.remove} onclick={onClearLocalData}>
-				Clear local data
+				{t('advanced.danger.clear')}
 			</Button>
 		</SettingsRow>
 	</SettingsSection>

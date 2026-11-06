@@ -19,6 +19,8 @@
 		toast
 	} from '@facile/muse';
 	import { backend, type AuthUser, type ProfileUpdate } from '$lib/backend';
+	import { date } from '$lib/format';
+	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
 	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
 	import WebhookList from '$lib/components/WebhookList.svelte';
 	import BusSection from '$lib/components/BusSection.svelte';
@@ -33,11 +35,11 @@
 	 * and a webhook is what you reach for when they are not.
 	 */
 	const SECTIONS = [
-		{ id: 'profile', label: 'Profile', icon: icons.userCircle },
-		{ id: 'appearance', label: 'Appearance', icon: icons.palette },
-		{ id: 'bus', label: 'Bus', icon: icons.plug },
-		{ id: 'notifications', label: 'Notifications', icon: icons.notification },
-		{ id: 'advanced', label: 'Advanced', icon: icons.server }
+		{ id: 'profile', icon: icons.userCircle },
+		{ id: 'appearance', icon: icons.palette },
+		{ id: 'bus', icon: icons.plug },
+		{ id: 'notifications', icon: icons.notification },
+		{ id: 'advanced', icon: icons.server }
 	] as const;
 
 	/*
@@ -48,29 +50,25 @@
 	const section = $derived(
 		SECTIONS.some((s) => s.id === page.params.section) ? page.params.section! : 'profile'
 	);
-	const tabs = SECTIONS.map((s) => ({ ...s, href: `/settings/${s.id}` }));
+	const tabs = $derived(
+		SECTIONS.map((s) => ({ ...s, label: t(`settings.section.${s.id}`), href: `/settings/${s.id}` }))
+	);
 
 	let profileName = $state('');
 	let profileEmail = $state('');
 	let profileSaving = $state(false);
-	let ssoOnly = $state(false);
 	let loggingOut = $state(false);
 	let clearingLocal = $state(false);
 	let themeMode = $state<string>(theme.mode);
 
 	const user = $derived(app.user);
 	const memberSince = $derived(
-		user?.created_at ? new Date(user.created_at).toLocaleDateString() : '—'
+		user?.created_at ? date(user.created_at) : '—'
 	);
 
-	onMount(async () => {
+	onMount(() => {
 		profileName = user?.name ?? '';
 		profileEmail = user?.email ?? '';
-		try {
-			ssoOnly = (await backend.authConfig()).sso_only;
-		} catch {
-			toast.danger('Could not read this instance’s auth configuration.');
-		}
 	});
 
 	$effect(() => {
@@ -84,9 +82,8 @@
 		const update: ProfileUpdate = {};
 		const trimmedName = profileName.trim();
 		if (trimmedName) update.name = trimmedName;
-		if (!ssoOnly) update.email = profileEmail.trim();
-		if (!update.name && !update.email) {
-			toast.danger('Enter a display name to save.');
+		if (!update.name) {
+			toast.danger(t('settings.nameRequired'));
 			return;
 		}
 
@@ -99,9 +96,10 @@
 			app.setUser(fresh.user);
 			profileName = fresh.user.name ?? '';
 			profileEmail = fresh.user.email;
-			toast.success('Profile updated.');
+			setSessionLocale(fresh.user.locale);
+			toast.success(t('settings.profileUpdated'));
 		} catch (err) {
-			toast.danger(message(err, 'Could not update your profile.'));
+			toast.danger(message(err, t('settings.profileFailed')));
 		}
 		profileSaving = false;
 	}
@@ -124,30 +122,22 @@
 		return error instanceof Error && error.message ? error.message : fallback;
 	}
 
-	const themeOptions = [
-		{ value: 'system', label: 'System', icon: icons.monitor },
-		{ value: 'light', label: 'Light', icon: icons.sun },
-		{ value: 'dark', label: 'Dark', icon: icons.moon }
-	];
-
-	async function exportConfig() {
-		try {
-			await backend.exportConfig();
-		} catch (err) {
-			toast.danger(message(err, 'Export failed.'));
-		}
-	}
+	const themeOptions = $derived([
+		{ value: 'system', label: t('settings.theme.system'), icon: icons.monitor },
+		{ value: 'light', label: t('settings.theme.light'), icon: icons.sun },
+		{ value: 'dark', label: t('settings.theme.dark'), icon: icons.moon }
+	]);
 </script>
 
 <svelte:head>
-	<title>Settings — Sonde</title>
+	<title>{t('nav.settings')} · Sonde</title>
 </svelte:head>
 
 <div class="flex flex-col gap-8">
 	<div class="flex flex-col gap-6">
-		<PageHeader title="Settings" description="Your account, this browser, and this instance." />
+		<PageHeader title={t('nav.settings')} description={t('settings.description')} />
 		<div class="flex flex-col gap-4">
-			<Tabs items={tabs} value={section} label="Settings sections" />
+			<Tabs items={tabs} value={section} label={t('settings.sections')} />
 			<Divider class="my-0" />
 		</div>
 	</div>
@@ -158,69 +148,61 @@
 			name={user?.name?.trim() || user?.email || ''}
 			email={user?.email ?? ''}
 			avatar={user?.avatar_url || undefined}
-			role={user?.is_admin ? 'admin' : 'member'}
+			role={user?.is_admin ? t('settings.role.admin') : t('settings.role.member')}
 			meta={[
-				{ label: 'Member since', value: memberSince },
-				{ label: 'Role', value: user?.is_admin ? 'Administrator' : 'Member' }
+				{ label: t('settings.memberSince'), value: memberSince },
+				{ label: t('settings.role'), value: user?.is_admin ? t('settings.role.admin') : t('settings.role.member') }
 			]}
 		/>
 
-		<SettingsSection title="Identity" description="How Sonde names you across the app.">
+		<SettingsSection title={t('settings.identity.title')} description={t('settings.identity.description')}>
 			<!-- The row's label is the input's `<label for>`: SettingsRow renders a plain <span>
 			     without `for`, and a bare Field emits no label at all, so the control had no
 			     accessible name. Field takes the same id so it stops minting its own. -->
-			<SettingsRow label="Display name" for="profile-name" stacked>
+			<SettingsRow label={t('settings.displayName')} for="profile-name" stacked>
 				<Field for="profile-name">
-					<Input bind:value={profileName} placeholder="Your name" />
+					<Input bind:value={profileName} placeholder={t('settings.namePlaceholder')} />
 				</Field>
 			</SettingsRow>
 			<SettingsRow
-				label="Email"
+				label={t('settings.email')}
 				for="profile-email"
-				description={ssoOnly
-					? 'Owned by the identity provider at sso.facile.studio. Change it there and it lands here at your next sign-in.'
-					: 'Also the address you sign in with.'}
+				description={t('settings.emailOwned')}
 				stacked
 			>
 				<Field for="profile-email">
-					<Input bind:value={profileEmail} type="email" disabled={ssoOnly} />
+					<Input bind:value={profileEmail} type="email" disabled />
 				</Field>
 			</SettingsRow>
 			<SettingsRow>
 				<Button icon={icons.check} disabled={profileSaving} onclick={saveProfile}>
-					{profileSaving ? 'Saving…' : 'Save profile'}
+					{profileSaving ? t('common.saving') : t('settings.saveProfile')}
 				</Button>
 			</SettingsRow>
 		</SettingsSection>
 
 		<SettingsSection
-			title="Session"
-			description="This browser only. Your monitors keep running either way."
+			title={t('settings.session.title')}
+			description={t('settings.session.description')}
 		>
-			<SettingsRow
-				label="Log out"
-				description="You will need to sign in again to reach the dashboard."
-			>
+			<SettingsRow label={t('settings.logout')} description={t('settings.logout.description')}>
 				<Button variant="outline" icon={icons.logout} onclick={() => (loggingOut = true)}>
-					Log out
+					{t('settings.logout')}
 				</Button>
 			</SettingsRow>
 		</SettingsSection>
 	{:else if section === 'appearance'}
-		<SettingsSection
-			title="Theme"
-			description="Applied to this browser. Every device you sign in from keeps its own choice."
-		>
+		<SettingsSection title={t('settings.theme.title')} description={t('settings.theme.description')}>
 			<SettingsRow
-				label="Colour scheme"
-				description="System follows your OS for as long as the app is open."
+				label={t('settings.theme.scheme')}
+				description={t('settings.theme.schemeHint')}
 				stacked
 			>
 				<OptionCards
 					options={themeOptions}
 					bind:value={themeMode}
 					name="theme-mode"
-					label="Colour scheme"
+					label={t('settings.theme.scheme')}
 				/>
 			</SettingsRow>
 		</SettingsSection>
@@ -229,24 +211,24 @@
 	{:else if section === 'notifications'}
 		<WebhookList />
 	{:else}
-		<AdvancedSection {user} {ssoOnly} onClearLocalData={() => (clearingLocal = true)} />
+		<AdvancedSection {user} onClearLocalData={() => (clearingLocal = true)} />
 	{/if}
 	</div>
 </div>
 
 <ConfirmModal
 	bind:open={loggingOut}
-	title="Log out of Sonde?"
-	description="Your monitors keep running. You will need to sign in again on this browser."
-	confirmLabel="Log out"
+	title={t('settings.logout.title')}
+	description={t('settings.logout.confirmText')}
+	confirmLabel={t('settings.logout')}
 	onConfirm={logout}
 />
 
 <ConfirmModal
 	bind:open={clearingLocal}
 	tone="danger"
-	title="Clear local data?"
-	description="The theme preference stored in this browser is deleted and you are signed out. There is no undo. Your monitors, incidents and status pages stay on the server."
-	confirmLabel="Clear and sign out"
+	title={t('settings.clear.title')}
+	description={t('settings.clear.description')}
+	confirmLabel={t('settings.clear.confirm')}
 	onConfirm={clearLocalData}
 />

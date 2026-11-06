@@ -12,6 +12,7 @@
 		toast
 	} from '@facile/muse';
 	import { backend, type Monitor, type StatusPage } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	let {
 		open = $bindable(false),
@@ -89,7 +90,7 @@
 			open = false;
 			onSaved(saved);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Could not save the status page.';
+			error = err instanceof Error ? err.message : t('statusDrawer.saveFailed');
 			/* The Alert lives inside the sheet. A toast survives it being closed. */
 			toast.danger(error);
 		} finally {
@@ -100,17 +101,17 @@
 
 <Drawer
 	bind:open
-	title={editing ? 'Edit status page' : 'New status page'}
-	description="Anyone with the link sees these monitors and their uptime, in this order."
+	title={editing ? t('statusDrawer.edit') : t('statusPages.new')}
+	description={t('statusDrawer.description')}
 	showClose
 	dismissible={!submitting}
 >
 	<form id="status-page-form" class="flex flex-col gap-4" onsubmit={save}>
-		<Field label="Title" helper="Shown as the heading of the public page.">
-			<Input bind:value={title} placeholder="Acme status" required disabled={submitting} />
+		<Field label={t('statusPages.col.title')} helper={t('statusDrawer.titleHelper')}>
+			<Input bind:value={title} placeholder={t('statusDrawer.titlePlaceholder')} required disabled={submitting} />
 		</Field>
 
-		<Field label="Slug" helper="The public address is /status/ followed by this.">
+		<Field label={t('common.slug')} helper={t('statusDrawer.slugHelper')}>
 			<Input
 				value={effectiveSlug}
 				oninput={(event: Event) => {
@@ -124,7 +125,7 @@
 		</Field>
 
 		<div class="flex flex-col gap-2">
-			<span class="text-fc-sm font-medium text-fc-fg">Monitors</span>
+			<span class="text-fc-sm font-medium text-fc-fg">{t('statusPages.col.monitors')}</span>
 			{#if picked.length > 0}
 				<ul class="flex flex-col gap-1">
 					{#each picked as id, index (id)}
@@ -134,7 +135,7 @@
 							<span class="min-w-0 flex-1 truncate text-fc-sm text-fc-fg">{nameOf(id)}</span>
 							<IconButton
 								variant="ghost"
-								aria-label={`Move ${nameOf(id)} up`}
+								aria-label={t('statusDrawer.moveUp', { name: nameOf(id) })}
 								disabled={index === 0 || submitting}
 								onclick={() => move(id, -1)}
 							>
@@ -142,7 +143,7 @@
 							</IconButton>
 							<IconButton
 								variant="ghost"
-								aria-label={`Move ${nameOf(id)} down`}
+								aria-label={t('statusDrawer.moveDown', { name: nameOf(id) })}
 								disabled={index === picked.length - 1 || submitting}
 								onclick={() => move(id, 1)}
 							>
@@ -150,7 +151,7 @@
 							</IconButton>
 							<IconButton
 								variant="danger"
-								aria-label={`Remove ${nameOf(id)} from this page`}
+								aria-label={t('statusDrawer.removeFrom', { name: nameOf(id) })}
 								disabled={submitting}
 								onclick={() => toggle(id)}
 							>
@@ -178,13 +179,13 @@
 			{:else if picked.length === 0}
 				<p class="flex items-center gap-2 text-fc-sm text-fc-fg-muted">
 					<Icon icon={icons.monitor} size={16} />
-					No monitors to publish yet.
+					{t('statusDrawer.noMonitors')}
 				</p>
 			{/if}
 		</div>
 
 		{#if error}
-			<Alert tone="danger" title={editing ? 'Not saved' : 'Not added'}>{error}</Alert>
+			<Alert tone="danger" title={editing ? t('monitor.notSaved') : t('drawer.notAdded')}>{error}</Alert>
 		{/if}
 	</form>
 
@@ -197,7 +198,7 @@
 				disabled={submitting}
 				onclick={() => (open = false)}
 			>
-				Cancel
+				{t('common.cancel')}
 			</Button>
 			<Button
 				type="submit"
@@ -208,7 +209,7 @@
 				disabled={submitting || !ready}
 			>
 				{#if submitting}<Spinner size="sm" />{/if}
-				{submitting ? 'Saving…' : editing ? 'Save changes' : 'Create page'}
+				{submitting ? t('common.saving') : editing ? t('common.saveChanges') : t('statusDrawer.create')}
 			</Button>
 		</div>
 	{/snippet}

@@ -14,6 +14,7 @@
 	} from '@facile/muse';
 	import StatusPageDrawer from '$lib/components/StatusPageDrawer.svelte';
 	import { backend, type AuthUser, type Monitor, type StatusPage } from '$lib/backend';
+	import { t } from '$lib/i18n/index.svelte';
 
 	const app = getContext<{ user: AuthUser | null }>('app');
 
@@ -39,7 +40,7 @@
 		try {
 			[pages, monitors] = await Promise.all([backend.listStatusPages(), backend.listMonitors()]);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load status pages.';
+			error = err instanceof Error ? err.message : t('statusPages.loadFailed');
 		} finally {
 			loading = false;
 		}
@@ -60,7 +61,11 @@
 		pages = known
 			? pages.map((entry) => (entry.id === saved.id ? saved : entry))
 			: [...pages, saved];
-		toast.success(known ? `${saved.title} saved.` : `${saved.title} is live at /status/${saved.slug}.`);
+		toast.success(
+			known
+				? t('statusPages.saved', { title: saved.title })
+				: t('statusPages.live', { title: saved.title, slug: saved.slug })
+		);
 		editing = null;
 	}
 
@@ -76,29 +81,29 @@
 			await backend.deleteStatusPage(existing.id);
 			pages = pages.filter((entry) => entry.id !== existing.id);
 			pendingDelete = null;
-			toast.success(`${existing.title} taken down.`);
+			toast.success(t('statusPages.takenDown', { title: existing.title }));
 		} catch (err) {
 			/* The toast is the whole report. `error` means "the list never loaded" and is the
 			   first render branch, so writing a failed delete into it replaces the table the
 			   user is still looking at with a load error that did not happen. */
-			toast.danger(err instanceof Error ? err.message : 'Could not delete the status page.');
+			toast.danger(err instanceof Error ? err.message : t('statusPages.deleteFailed'));
 			throw err;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Status pages — Sonde</title>
+	<title>{t('nav.statusPages')} · Sonde</title>
 </svelte:head>
 
 <div class="flex flex-col gap-10">
 	<PageHeader
-		title="Status pages"
-		description="Public pages showing which of your projects are up. No account needed to read them."
+		title={t('nav.statusPages')}
+		description={t('statusPages.description')}
 	>
 		{#snippet actions()}
 			{#if isAdmin}
-				<Button icon={icons.plus} onclick={openCreate}>New status page</Button>
+				<Button icon={icons.plus} onclick={openCreate}>{t('statusPages.new')}</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
@@ -106,11 +111,11 @@
 	{#if !isAdmin}
 		<EmptyState
 			icon={icons.shield}
-			title="Administrators only"
-			description="Status pages are managed by whoever runs this instance. Ask them for access, or for a link to a page that is already published."
+			title={t('statusPages.adminOnly.title')}
+			description={t('statusPages.adminOnly.description')}
 		/>
 	{:else if error}
-		<Alert tone="danger" title="Could not load status pages">{error}</Alert>
+		<Alert tone="danger" title={t('statusPages.loadError')}>{error}</Alert>
 	{:else if loading}
 		<div class="flex flex-col gap-2">
 			<Skeleton class="h-10 w-full" />
@@ -119,19 +124,19 @@
 	{:else if pages.length === 0}
 		<EmptyState
 			icon={icons.globe}
-			title="No public pages yet"
-			description="Publish a page so clients can see uptime without an account."
+			title={t('statusPages.empty.title')}
+			description={t('statusPages.empty.description')}
 		>
-			<Button variant="outline" icon={icons.plus} onclick={openCreate}>Create a status page</Button>
+			<Button variant="outline" icon={icons.plus} onclick={openCreate}>{t('statusPages.empty.cta')}</Button>
 		</EmptyState>
 	{:else}
 		<Table>
 			<thead>
 				<tr>
-					<th scope="col">Title</th>
-					<th scope="col">Address</th>
-					<th scope="col">Monitors</th>
-					<th scope="col"><span class="sr-only">Actions</span></th>
+					<th scope="col">{t('statusPages.col.title')}</th>
+					<th scope="col">{t('statusPages.col.address')}</th>
+					<th scope="col">{t('statusPages.col.monitors')}</th>
+					<th scope="col"><span class="sr-only">{t('common.actions')}</span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -149,20 +154,20 @@
 									target="_blank"
 									rel="noopener"
 								>
-									View
+									{t('common.view')}
 								</Button>
 								<Button
 									variant="ghost"
 									size="sm"
 									icon={icons.edit}
-									aria-label={`Edit ${existing.title}`}
+									aria-label={t('statusPages.editAria', { title: existing.title })}
 									onclick={() => openEdit(existing)}
 								/>
 								<Button
 									variant="ghost-danger"
 									size="sm"
 									icon={icons.remove}
-									aria-label={`Delete ${existing.title}`}
+									aria-label={t('statusPages.deleteAria', { title: existing.title })}
 									onclick={() => askDelete(existing)}
 								/>
 							</div>
@@ -179,9 +184,11 @@
 <ConfirmModal
 	bind:open={confirmOpen}
 	tone="danger"
-	title={pendingDelete ? `Delete ${pendingDelete.title}?` : 'Delete status page?'}
-	description="The public address stops resolving immediately. The monitors it lists are untouched."
-	confirmLabel="Delete page"
+	title={pendingDelete
+		? t('statusPages.delete.title', { title: pendingDelete.title })
+		: t('statusPages.delete.titleFallback')}
+	description={t('statusPages.delete.description')}
+	confirmLabel={t('statusPages.delete.confirm')}
 	onConfirm={confirmDelete}
 	onCancel={() => (pendingDelete = null)}
 />

@@ -14,6 +14,8 @@
 		toast
 	} from '@facile/muse';
 	import { backend, type Webhook } from '$lib/backend';
+	import { milliseconds } from '$lib/format';
+	import { t } from '$lib/i18n/index.svelte';
 	import WebhookDrawer from './WebhookDrawer.svelte';
 
 	let webhooks = $state<Webhook[]>([]);
@@ -30,7 +32,7 @@
 		try {
 			webhooks = await backend.listWebhooks();
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : 'Could not load webhooks.');
+			toast.danger(err instanceof Error ? err.message : t('webhooks.error.load'));
 		} finally {
 			loading = false;
 		}
@@ -56,9 +58,9 @@
 				enabled: next
 			});
 			webhooks = webhooks.map((w) => (w.id === updated.id ? updated : w));
-			toast.success(next ? 'Webhook enabled.' : 'Webhook disabled.');
+			toast.success(next ? t('webhooks.toast.enabled') : t('webhooks.toast.disabled'));
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : 'Could not update webhook.');
+			toast.danger(err instanceof Error ? err.message : t('webhooks.error.update'));
 		}
 	}
 
@@ -67,12 +69,14 @@
 		try {
 			const res = await backend.testWebhook(webhook.id);
 			if (res.ok) {
-				toast.success(`HTTP ${res.status_code} in ${res.latency_ms}ms`);
+				toast.success(
+					t('webhooks.testResult', { status: res.status_code, latency: milliseconds(res.latency_ms) })
+				);
 			} else {
-				toast.danger(res.error || `HTTP ${res.status_code}`);
+				toast.danger(res.error || t('webhooks.testStatus', { status: res.status_code }));
 			}
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : 'Test failed.');
+			toast.danger(err instanceof Error ? err.message : t('webhooks.error.testFailed'));
 		} finally {
 			testingId = null;
 		}
@@ -93,9 +97,9 @@
 		try {
 			await backend.deleteWebhook(id);
 			webhooks = webhooks.filter((w) => w.id !== id);
-			toast.success('Webhook deleted.');
+			toast.success(t('webhooks.toast.deleted'));
 		} catch (err) {
-			toast.danger(err instanceof Error ? err.message : 'Could not delete webhook.');
+			toast.danger(err instanceof Error ? err.message : t('webhooks.error.delete'));
 		} finally {
 			deleting = null;
 		}
@@ -113,12 +117,12 @@
 <!-- `bare` because the body is a Table, which brings its own surface. A Table
      inside SettingsSection's default Card is a container inside a container. -->
 <SettingsSection
-	title="Webhooks"
-	description="HTTP POST endpoints told immediately when a monitor goes down or recovers. Each delivery carries the same envelope Antenne receives, signed HMAC-SHA256 as sha256=<digest>."
+	title={t('webhooks.title')}
+	description={t('webhooks.description')}
 	bare
 >
 	{#snippet actions()}
-		<Button size="sm" icon={icons.plus} onclick={openCreate}>Add webhook</Button>
+		<Button size="sm" icon={icons.plus} onclick={openCreate}>{t('webhooks.add')}</Button>
 	{/snippet}
 
 	{#if loading}
@@ -126,19 +130,19 @@
 	{:else if webhooks.length === 0}
 		<EmptyState
 			icon={icons.plug}
-			title="No webhooks configured"
-			description="Point one at Antenne to get alerts wherever the suite already sends them, or at any endpoint that accepts JSON."
+			title={t('webhooks.empty.title')}
+			description={t('webhooks.empty.description')}
 		>
-			<Button variant="outline" icon={icons.plus} onclick={openCreate}>Add your first webhook</Button>
+			<Button variant="outline" icon={icons.plus} onclick={openCreate}>{t('webhooks.empty.cta')}</Button>
 		</EmptyState>
 	{:else}
 		<Table>
 			<thead>
 				<tr>
-					<th scope="col">Endpoint</th>
-					<th scope="col">Signature</th>
-					<th scope="col">State</th>
-					<th scope="col"><span class="sr-only">Actions</span></th>
+					<th scope="col">{t('webhooks.col.endpoint')}</th>
+					<th scope="col">{t('webhooks.col.signature')}</th>
+					<th scope="col">{t('webhooks.col.state')}</th>
+					<th scope="col"><span class="sr-only">{t('common.actions')}</span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -154,13 +158,13 @@
 							{#if webhook.secret_header}
 								<span class="font-fc-mono text-fc-xs text-fc-fg-muted">{webhook.secret_header}</span>
 							{:else}
-								<Badge tone="warning">unsigned</Badge>
+								<Badge tone="warning">{t('webhooks.unsigned')}</Badge>
 							{/if}
 						</td>
 						<td>
 							<StatusDot
 								tone={webhook.enabled ? 'success' : 'neutral'}
-								label={webhook.enabled ? 'Enabled' : 'Disabled'}
+								label={webhook.enabled ? t('common.enabled') : t('common.disabled')}
 							/>
 						</td>
 						<td>
@@ -172,26 +176,26 @@
 									disabled={testingId === webhook.id}
 									onclick={() => test(webhook)}
 								>
-									{testingId === webhook.id ? 'Testing…' : 'Test'}
+									{testingId === webhook.id ? t('webhooks.testing') : t('webhooks.test')}
 								</Button>
 								<Button
 									variant="ghost"
 									size="sm"
 									icon={icons.edit}
-									aria-label={`Edit ${webhook.name || webhook.url}`}
+									aria-label={t('webhooks.editAria', { name: webhook.name || webhook.url })}
 									onclick={() => openEdit(webhook)}
 								/>
 								<Button
 									variant="ghost-danger"
 									size="sm"
 									icon={icons.remove}
-									aria-label={`Delete ${webhook.name || webhook.url}`}
+									aria-label={t('webhooks.deleteAria', { name: webhook.name || webhook.url })}
 									onclick={() => (deleting = webhook)}
 								/>
 								<Switch
 									checked={webhook.enabled}
 									onchange={() => toggle(webhook)}
-									aria-label={`Enable ${webhook.name || webhook.url}`}
+									aria-label={t('webhooks.enableAria', { name: webhook.name || webhook.url })}
 								/>
 							</div>
 						</td>
@@ -207,9 +211,9 @@
 <ConfirmModal
 	open={Boolean(deleting)}
 	tone="danger"
-	title="Delete webhook?"
-	description="Nothing else changes: the monitors keep running and the bus keeps publishing. This endpoint simply stops being told, and no alert already sent is recalled."
-	confirmLabel="Delete webhook"
+	title={t('webhooks.delete.title')}
+	description={t('webhooks.delete.description')}
+	confirmLabel={t('webhooks.delete.confirm')}
 	onConfirm={confirmDelete}
 	onCancel={() => (deleting = null)}
 />
