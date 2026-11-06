@@ -32,7 +32,7 @@
 
 	onMount(async () => {
 		try {
-			await backend.me();
+			await backend.probeSession();
 			goto('/monitors');
 		} catch {
 			checking = false;
