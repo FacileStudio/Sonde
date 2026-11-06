@@ -14,7 +14,9 @@ import (
 // EraseAccount deletes the account behind a (provider, subject) identity and
 // everything it owns: its monitors, with their checks, incidents and status
 // page memberships, its webhooks, its sessions and its login codes. Status
-// pages themselves are administrator-owned and stay.
+// pages themselves are administrator-owned and stay. When the erased account
+// was the only administrator, the oldest remaining account takes the role, so
+// the status pages never end up with nobody able to manage them.
 //
 // It is the OnPersonDeleted callback of porte's deletion receiver, which
 // delivers at least once, so an identity that is already gone is a success.
@@ -22,6 +24,9 @@ import (
 // can still be resolved from porte_identities here.
 func (s *UserStore) EraseAccount(ctx context.Context, provider, subject string) error {
 	err := s.orm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(registrationLockKey)).Error; err != nil {
+			return err
+		}
 		var userID int64
 		row := tx.Raw(`SELECT user_id FROM porte_identities WHERE provider = ? AND subject = ?`,
 			provider, subject).Row()
@@ -34,7 +39,12 @@ func (s *UserStore) EraseAccount(ctx context.Context, provider, subject string) 
 		if err := tx.Exec(`DELETE FROM monitors WHERE owner_id = ?`, userID).Error; err != nil {
 			return err
 		}
-		return tx.Exec(`DELETE FROM users WHERE id = ?`, userID).Error
+		if err := tx.Exec(`DELETE FROM users WHERE id = ?`, userID).Error; err != nil {
+			return err
+		}
+		return tx.Exec(`UPDATE users SET is_admin = true
+			 WHERE id = (SELECT min(id) FROM users)
+			   AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin)`).Error
 	})
 	if err != nil {
 		return errors.Internal("failed to erase the account", err)

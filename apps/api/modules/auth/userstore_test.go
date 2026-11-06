@@ -207,6 +207,39 @@ func TestEraseAccountDeletesThePersonsDataOnceAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestErasingTheOnlyAdministratorHandsTheRoleToTheOldestAccount(t *testing.T) {
+	db := openTestDatabase(t)
+	store := NewUserStore(db)
+	ctx := context.Background()
+
+	admin := seed(t, db, "admin@facile.studio", "Admin")
+	older := seed(t, db, "older@facile.studio", "Older")
+	newer := seed(t, db, "newer@facile.studio", "Newer")
+	if err := db.Exec(`UPDATE users SET is_admin = true WHERE id = ?`, admin.ID).Error; err != nil {
+		t.Fatalf("promote: %v", err)
+	}
+	link(t, db, admin.ID, "sub-admin")
+	link(t, db, older.ID, "sub-older")
+
+	if err := store.EraseAccount(ctx, testIssuer, "sub-admin"); err != nil {
+		t.Fatalf("erase: %v", err)
+	}
+	if got := countRows(t, db, `SELECT count(*) FROM users WHERE is_admin AND id = ?`, older.ID); got != 1 {
+		t.Errorf("the oldest remaining account is not administrator")
+	}
+	if got := countRows(t, db, `SELECT count(*) FROM users WHERE is_admin AND id = ?`, newer.ID); got != 0 {
+		t.Errorf("a newer account was promoted too")
+	}
+
+	link(t, db, newer.ID, "sub-newer")
+	if err := store.EraseAccount(ctx, testIssuer, "sub-newer"); err != nil {
+		t.Fatalf("erase non-admin: %v", err)
+	}
+	if got := countRows(t, db, `SELECT count(*) FROM users WHERE is_admin`, nil...); got != 1 {
+		t.Errorf("administrators = %d, want 1 after erasing a non-admin", got)
+	}
+}
+
 func TestDeletionStateRoundTrips(t *testing.T) {
 	db := openTestDatabase(t)
 	state := NewDeletionState(db)
