@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import LandingOffers from '$lib/components/LandingOffers.svelte';
 	import { Button } from '@facile/muse';
 	import { backend } from '$lib/backend';
 
@@ -92,6 +93,8 @@
 				{/each}
 			</div>
 		</main>
+
+		<LandingOffers />
 
 		<footer class="px-6 pb-8 sm:px-12">
 			<p class="text-xs text-white/30">© {new Date().getFullYear()} Sonde by Facile.</p>
