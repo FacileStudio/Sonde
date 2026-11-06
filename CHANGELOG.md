@@ -21,5 +21,5 @@
 ### Added
 
 - Migration `00005_launch.sql`: `porte_login_codes.provider` and `.subject`, `users.locale`, `directory_state`.
-- GDPR deletion: Registre erasures delete the person's monitors, webhooks, sessions and account.
+- GDPR deletion: Registre erasures delete the person's monitors, webhooks, sessions and account. Erasing the only administrator promotes the oldest remaining account, so status pages stay manageable.
 - `GET /version`, fed by the `APP_VERSION` build arg.
