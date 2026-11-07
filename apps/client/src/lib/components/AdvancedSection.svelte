@@ -35,7 +35,7 @@
 			description={user?.is_admin ? t('advanced.export.adminHint') : t('advanced.export.memberHint')}
 		>
 			<Button
-				variant="outline"
+				variant="secondary"
 				icon={icons.download}
 				disabled={!user?.is_admin}
 				onclick={exportConfig}
@@ -58,7 +58,7 @@
 			<span class="font-fc-mono text-fc-sm text-fc-fg">{backend.baseUrl}</span>
 		</SettingsRow>
 		<SettingsRow label={t('advanced.api.reference')} description={t('advanced.api.referenceHint')}>
-			<Button variant="outline" href="/docs" iconRight={icons.arrow}>{t('common.open')}</Button>
+			<Button variant="secondary" href="/docs" iconRight={icons.arrow}>{t('common.open')}</Button>
 		</SettingsRow>
 	</SettingsSection>
 

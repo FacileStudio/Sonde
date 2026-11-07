@@ -124,7 +124,7 @@
 			title={t('monitors.empty.title')}
 			description={t('monitors.empty.description')}
 		>
-			<Button variant="outline" icon={icons.plus} onclick={() => (creating = true)}>
+			<Button variant="secondary" icon={icons.plus} onclick={() => (creating = true)}>
 				{t('monitors.empty.cta')}
 			</Button>
 		</EmptyState>

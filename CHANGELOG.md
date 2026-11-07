@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- build(client): bump muse to v0.16.1 (from v0.14.4). Secondary buttons use the `secondary` variant in place of the deprecated `outline`, and the remove button of a status page's monitor list uses `ghost-danger`. The icon generator accepts Iconify aliases, which the new muse icons need.
+- `GET /version` comes from the `VERSION` file, which the release commit bumps (still `v` plus the number). The `APP_VERSION` build arg and the Dokploy env no longer take part, so a stale env value cannot make the server report an old release.
+
 ## [0.2.4] - 2026-11-07
 
 ### Changed

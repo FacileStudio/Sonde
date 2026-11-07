@@ -150,7 +150,7 @@
 								<Icon icon={icons.chevronDown} size={18} />
 							</IconButton>
 							<IconButton
-								variant="danger"
+								variant="ghost-danger"
 								aria-label={t('statusDrawer.removeFrom', { name: nameOf(id) })}
 								disabled={submitting}
 								onclick={() => toggle(id)}
@@ -166,7 +166,7 @@
 				<div class="flex flex-wrap gap-2">
 					{#each available as monitor (monitor.id)}
 						<Button
-							variant="outline"
+							variant="secondary"
 							size="lg"
 							icon={icons.plus}
 							disabled={submitting}
