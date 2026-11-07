@@ -213,17 +213,19 @@
 				{:else}
 					<ul class="flex flex-col gap-3">
 						{#each incidents as incident (incident.id)}
-							<li
-								class="flex min-w-0 flex-col gap-1 border-l-2 pl-3 {incident.resolved_at
-									? 'border-fc-border'
-									: 'border-fc-danger'}"
-							>
-								<span class="text-fc-sm text-fc-fg">{incident.cause || '—'}</span>
-								<span class="flex flex-wrap items-center gap-2 text-fc-xs text-fc-fg-muted">
-									<span class="font-fc-mono">{incidentLength(incident)}</span>
-									<span>{incident.resolved_at ? t('monitor.incident.closed') : t('monitor.incident.open')}</span>
-									<span>·</span>
-									<span>{dateTime(incident.opened_at)}</span>
+							<li class="flex min-w-0 gap-3">
+								<span
+									aria-hidden="true"
+									class="mt-1.5 size-2 shrink-0 rounded-full {incident.resolved_at ? 'bg-fc-fg-muted' : 'bg-fc-danger'}"
+								></span>
+								<span class="flex min-w-0 flex-col gap-1">
+									<span class="text-fc-sm text-fc-fg">{incident.cause || '—'}</span>
+									<span class="flex flex-wrap items-center gap-2 text-fc-xs text-fc-fg-muted">
+										<span class="font-fc-mono">{incidentLength(incident)}</span>
+										<span>{incident.resolved_at ? t('monitor.incident.closed') : t('monitor.incident.open')}</span>
+										<span>·</span>
+										<span>{dateTime(incident.opened_at)}</span>
+									</span>
 								</span>
 							</li>
 						{/each}
