@@ -23,7 +23,6 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
 	"github.com/FacileStudio/porte/oidc"
-	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/porte/session"
 	"github.com/FacileStudio/tronc/apiref"
 	"github.com/FacileStudio/tronc/health"
@@ -88,7 +87,11 @@ type routerDeps struct {
 // Sign-in goes through Registre only, so no password kit is built.
 func buildRouter(deps routerDeps) (chi.Router, error) {
 	db, sqlDB, appEnv, appLogger := deps.DB, deps.SQL, deps.Env, deps.Logger
-	identityStore := portepg.New(sqlDB)
+	identityStore, err := newPorteStore(sqlDB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open the porte store: %w", err)
+	}
+	resealInBackground(context.Background(), identityStore, appLogger)
 	userStore := auth.NewUserStore(db)
 
 	sessions, err := session.New(appEnv.Porte, session.Deps{
