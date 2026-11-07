@@ -61,13 +61,15 @@ for (const [prefix, names] of byPrefix) {
 	const response = await fetch(url);
 	if (!response.ok) throw new Error(`${prefix}: ${response.status} ${response.statusText}`);
 
-	const data = (await response.json()) as { icons?: Record<string, unknown>; not_found?: string[] };
+	const data = (await response.json()) as { icons?: Record<string, unknown>; aliases?: Record<string, unknown>; not_found?: string[] };
 	/* A missing glyph must fail the generator, not fall through to a silent runtime fetch of
 	   the one icon that is not bundled — that would put the CDN dependency back for good. */
 	if (data.not_found?.length) throw new Error(`${prefix}: not found — ${data.not_found.join(', ')}`);
 
+	const served = { ...data.icons, ...data.aliases };
+	const missing = names.filter((name) => !(name in served));
+	if (missing.length) throw new Error(`${prefix}: asked for ${names.length}, missing ${missing.join(', ')}`);
 	const count = Object.keys(data.icons ?? {}).length;
-	if (count !== names.length) throw new Error(`${prefix}: asked for ${names.length}, got ${count}`);
 
 	await writeFile(join(OUT_DIR, `${prefix}.json`), `${JSON.stringify(data)}\n`);
 	console.log(`${prefix}: ${count} icons`);

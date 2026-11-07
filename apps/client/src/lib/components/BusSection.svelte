@@ -59,7 +59,7 @@
 	description={t('bus.description')}
 >
 	{#snippet actions()}
-		<Button variant="outline" size="sm" icon={icons.refresh} disabled={loading} onclick={load}>
+		<Button variant="secondary" size="sm" icon={icons.refresh} disabled={loading} onclick={load}>
 			{t('common.refresh')}
 		</Button>
 	{/snippet}

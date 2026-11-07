@@ -133,7 +133,7 @@
 			title={t('webhooks.empty.title')}
 			description={t('webhooks.empty.description')}
 		>
-			<Button variant="outline" icon={icons.plus} onclick={openCreate}>{t('webhooks.empty.cta')}</Button>
+			<Button variant="secondary" icon={icons.plus} onclick={openCreate}>{t('webhooks.empty.cta')}</Button>
 		</EmptyState>
 	{:else}
 		<Table>
@@ -170,7 +170,7 @@
 						<td>
 							<div class="flex items-center justify-end gap-2">
 								<Button
-									variant="outline"
+									variant="secondary"
 									size="sm"
 									icon={icons.refresh}
 									disabled={testingId === webhook.id}

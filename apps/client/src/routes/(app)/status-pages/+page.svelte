@@ -127,7 +127,7 @@
 			title={t('statusPages.empty.title')}
 			description={t('statusPages.empty.description')}
 		>
-			<Button variant="outline" icon={icons.plus} onclick={openCreate}>{t('statusPages.empty.cta')}</Button>
+			<Button variant="secondary" icon={icons.plus} onclick={openCreate}>{t('statusPages.empty.cta')}</Button>
 		</EmptyState>
 	{:else}
 		<Table>

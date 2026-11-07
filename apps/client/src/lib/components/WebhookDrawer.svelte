@@ -165,7 +165,7 @@
 		<div class="mt-4 flex items-center justify-between gap-2">
 			<Button
 				type="button"
-				variant="outline"
+				variant="secondary"
 				icon={icons.refresh}
 				disabled={!ready || testing}
 				onclick={testEndpoint}
@@ -174,7 +174,7 @@
 			</Button>
 
 			<div class="flex items-center gap-2">
-				<Button type="button" variant="outline" onclick={() => (open = false)}>{t('common.cancel')}</Button>
+				<Button type="button" variant="secondary" onclick={() => (open = false)}>{t('common.cancel')}</Button>
 				<Button type="submit" disabled={!ready || submitting} icon={icons.check}>
 					{submitting ? t('common.saving') : editing ? t('common.saveChanges') : t('webhooks.add')}
 				</Button>

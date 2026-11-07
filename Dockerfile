@@ -9,7 +9,6 @@ FROM golang:1.26-alpine AS api-build
 
 ARG TARGETOS=linux
 ARG TARGETARCH
-ARG APP_VERSION=dev
 
 WORKDIR /repo/apps/api
 
@@ -17,9 +16,11 @@ COPY apps/api/go.mod apps/api/go.sum ./
 RUN go mod download
 
 COPY apps/api ./
+COPY VERSION /repo/VERSION
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-amd64} \
-    go build -trimpath -ldflags="-s -w -X main.version=${APP_VERSION}" -o bin/api .
+RUN VERSION="$(tr -d '[:space:]' < /repo/VERSION)" && \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH:-amd64} \
+    go build -trimpath -ldflags="-s -w -X main.version=v${VERSION}" -o bin/api .
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
