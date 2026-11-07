@@ -4,7 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { Button, EmptyState, MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
-	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
+	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
+	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
@@ -50,8 +51,23 @@
 	/* The email is the fallback for a missing name, not the name itself. The avatar is
 	   Registre's stable URL; muse's Avatar draws the initial when it 404s. */
 	const navUser = $derived(
-		user ? { name: user.name?.trim() || user.email, avatar: user.avatar_url || undefined } : undefined
+		user
+			? { name: user.name?.trim() || user.email, email: user.email, avatar: user.avatar_url || undefined }
+			: undefined
 	);
+
+	async function signOut() {
+		await backend.logout().catch(() => undefined);
+		goto('/login');
+	}
+
+	const userMenu = $derived({
+		helpHref: 'https://github.com/FacileStudio/Sonde/tree/master/docs',
+		onSignOut: signOut,
+		onLocaleChange: rememberLocale,
+		theme: theme.mode,
+		onThemeChange: (next: string) => setTheme(next as ThemeMode)
+	});
 	const settingsActive = $derived(isActive('/settings'));
 
 	onMount(async () => {
@@ -93,6 +109,7 @@
 			user={navUser}
 			userHref="/settings"
 			userActive={settingsActive}
+			{userMenu}
 		/>
 	</div>
 	<main
@@ -124,5 +141,6 @@
 		user={navUser}
 		profileHref="/settings"
 		profileActive={settingsActive}
+		{userMenu}
 	/>
 </div>
