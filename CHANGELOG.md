@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `@facile/muse` v0.14.1 to v0.14.2: the user menu clamps itself inside the viewport at the right edge of a header.
+- The user menu has a Subscription row that opens `https://sso.facile.studio/spaces`, where plans are managed.
+
 ## [0.2.1] - 2026-11-07
 
 ### Fixed
