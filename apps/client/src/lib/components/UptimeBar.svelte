@@ -39,7 +39,7 @@
 		ok: 'bg-fc-success',
 		degraded: 'bg-fc-warning',
 		down: 'bg-fc-danger',
-		empty: 'bg-fc-border'
+		empty: 'bg-fc-field'
 	} as const;
 
 	function describe(bucket: Bucket): string {
@@ -81,7 +81,7 @@
 				title={describe(bucket)}
 			></div>
 		{:else}
-			<div class="h-full w-full rounded-fc-xs bg-fc-border opacity-40"></div>
+			<div class="h-full w-full rounded-fc-xs bg-fc-field opacity-40"></div>
 		{/each}
 	</div>
 

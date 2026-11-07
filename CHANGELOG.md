@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- build(client): bump muse to v0.14.1. The sidebar user card and the mobile avatar open muse's `UserMenu` (Account, Settings, Language, Theme, Help, Sign out); the settings cog is gone. The language and theme picks are persisted (cookie and `sonde-theme`) and the theme is applied before hydration.
+- Settings use muse's `SettingsLayout` in the canonical order: Profile, Preferences, Notifications, Bus, Advanced. Profile is read-only with "Manage on Facile"; Preferences (language and theme) replaces Appearance; the danger zone ends Advanced; sign-out left the settings and lives in the user menu.
+- `/settings/appearance` redirects to `/settings/preferences`.
+- The language picked in the menu now wins over the Registre profile locale on the next load.
+- The uptime bar's empty cells use `fc-field` instead of the deprecated `fc-border`.
+
 ## [0.1.1] - 2026-11-07
 
 ### Changed

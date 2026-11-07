@@ -1,12 +1,6 @@
 <script lang="ts">
-	/*
-	 * The Advanced tab: what this instance is, and the danger zone at the
-	 * bottom of it. Danger never gets a tab of its own (CHARTE §14) — a
-	 * destructive action should cost a scroll, not sit one mis-click from
-	 * every other tab all day.
-	 */
 	import { page } from '$app/state';
-	import { Button, SecretField, SettingsRow, SettingsSection, icons, toast } from '@facile/muse';
+	import { Button, DangerZone, SecretField, SettingsRow, SettingsSection, icons, toast } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
 	import { date } from '$lib/format';
 	import { t } from '$lib/i18n/index.svelte';
@@ -82,16 +76,8 @@
 		</SettingsRow>
 	</SettingsSection>
 
-	<SettingsSection
-		title={t('advanced.danger.title')}
-		description={t('advanced.danger.description')}
-	>
-		<SettingsRow
-			label={t('advanced.danger.clear')}
-			description={t('advanced.danger.clearHint')}
-		>
-			<Button variant="danger" icon={icons.remove} onclick={onClearLocalData}>
-				{t('advanced.danger.clear')}
-			</Button>
-		</SettingsRow>
-	</SettingsSection>
+	<DangerZone title={t('advanced.danger.title')} description={t('advanced.danger.description')}>
+		<Button variant="danger" icon={icons.remove} onclick={onClearLocalData}>
+			{t('advanced.danger.clear')}
+		</Button>
+	</DangerZone>
