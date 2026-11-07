@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-07
+
 ### Fixed
 
 - The bundled Solar icon collection is regenerated for muse v0.14.1, so the user menu's glyphs (Help, external link, Language, Theme) are served locally instead of fetched from the icon API, which the CSP blocks.
