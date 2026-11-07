@@ -62,7 +62,7 @@
 	}
 
 	const userMenu = $derived({
-		subscription: { plan: '', href: 'https://sso.facile.studio/spaces' },
+		subscription: { href: 'https://sso.facile.studio/spaces' },
 		helpHref: 'https://github.com/FacileStudio/Sonde/tree/master/docs',
 		onSignOut: signOut,
 		onLocaleChange: rememberLocale,
