@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- build(api): bump porte to v0.12.1. The GDPR erasure no longer fails on a schema without `porte_magic_links`.
+- build(client): bump muse to v0.13.0. Form controls are borderless fills, `Select` is muse's own combobox and badges stay on one line.
+- The incident list on a monitor page marks each row with a filled dot instead of a left border.
+
 ## [0.1.0] - 2026-11-06
 
 ### Changed
