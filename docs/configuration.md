@@ -18,6 +18,8 @@ error it returns stops the process before the database is opened.
 | `JOURNAL_URL` | no | — | Journal ingest URL. Shipping needs both this and the token |
 | `JOURNAL_TOKEN` | no | — | Per-app Journal key |
 | `SONDE_RAW_RETENTION_DAYS` | no | `30` | Days of raw checks kept before the pruner deletes them |
+| `SONDE_FLEET_TOKEN` | no | empty | Bearer token the fleet runner presents to `POST /api/fleet/reports`. Empty turns ingest off (404). At least 32 characters, or the app refuses to boot |
+| `SONDE_FLEET_ADMINS` | no | empty | Comma-separated emails allowed to read fleet data. The account must also be an administrator. Empty closes every fleet read route |
 
 The `CORS_ALLOWED_ORIGINS` default is `http://localhost:3000`, `http://127.0.0.1:3000`,
 `http://localhost:5173`, `http://127.0.0.1:5173`. An explicitly empty list is rejected —

@@ -122,4 +122,11 @@ growth problem. It is a scope problem: the shortest-lived copy of the probe's er
 a 30-day clock and the longest-lived copy has none. Give `incidents` a window before Sonde
 monitors anything whose failure messages could quote a person.
 
+## Fleet tables
+
+The same daily job prunes the fleet tables after 90 days: resolved rows in `fleet_findings`
+(by `resolved_at`) and rows in `fleet_runs`. An open finding is current state and is never
+pruned, however old. `fleet_pins` and `fleet_latest` hold only the latest report, so they do
+not grow.
+
 Back to the [documentation index](README.md).

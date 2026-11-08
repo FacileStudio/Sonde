@@ -111,6 +111,7 @@ nothing about what the browser gets.
 │   │   │   ├── database/     # GORM connection
 │   │   │   ├── documentation/# The type the API reference registry is built from
 │   │   │   ├── env/          # Environment config loader and validation
+│   │   │   ├── fleet/        # Fleet maintenance: report ingest, ranked actions, version drift, holds
 │   │   │   ├── httpapi/      # Monitors, incidents, export, status pages, public feed
 │   │   │   ├── middleware/   # RequireAuth over a porte session
 │   │   │   ├── monitors/     # Monitor store and validation
@@ -152,6 +153,8 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `CLIENT_DIR` | `./client` | Where the built SPA lives. Set by the image layout, not by hand |
 | `JOURNAL_URL` / `JOURNAL_TOKEN` | empty | Optional log shipping to Journal |
 | `SONDE_RAW_RETENTION_DAYS` | `30` | Days of raw checks kept. Fails soft: a bad value silently becomes 30 |
+| `SONDE_FLEET_TOKEN` | empty | Token for the fleet runner's report delivery. Empty turns ingest off. At least 32 characters |
+| `SONDE_FLEET_ADMINS` | empty | Emails allowed to read fleet data, on top of `is_admin`. Empty closes the read routes |
 | `APP_ENV` | `production` in compose | `production` refuses to boot without `OIDC_ISSUER` |
 | `APP_VERSION` | `dev` | Build arg, served at `GET /version`. Set it in the Dokploy env at release |
 | `OIDC_ISSUER` | empty | `https://sso.facile.studio`. Empty disables SSO |
@@ -204,6 +207,11 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
   that: it builds from source and fails on macOS.
 
 ## Gotchas
+
+- **`is_admin` does not open fleet data.** The first account to sign in becomes admin, and
+  erasing the last admin promotes the lowest-numbered user, who under public sign-up can be a
+  stranger. Every fleet read route goes through `fleet.Gate`, which also requires the email to
+  be in `SONDE_FLEET_ADMINS`. Never guard fleet data with `is_admin` alone. See `docs/FLEET.md`.
 
 - **Auth is porte, through Registre only.** One session manager owns the sessions table and
   `porte/oidc` (PKCE) issues through it. There is no password route and no sign-up page. An

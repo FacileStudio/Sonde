@@ -19,6 +19,10 @@ const (
 	// because settings reports it: the number that decides how far back a
 	// chart can go should not be a secret of this package.
 	HourlyRetentionMonths = 13
+
+	// FleetRetentionDays is how long a resolved fleet finding and a fleet run
+	// are kept. An open finding is never pruned: it is current state.
+	FleetRetentionDays = 90
 )
 
 type Job struct {
@@ -45,7 +49,24 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := j.rollupDays(ctx); err != nil {
 		return err
 	}
-	return j.prune(ctx)
+	if err := j.prune(ctx); err != nil {
+		return err
+	}
+	return j.pruneFleet(ctx)
+}
+
+func (j *Job) pruneFleet(ctx context.Context) error {
+	findings := j.db.WithContext(ctx).Exec(
+		`DELETE FROM fleet_findings WHERE resolved_at IS NOT NULL AND resolved_at < now() - make_interval(days => ?)`,
+		FleetRetentionDays)
+	j.log("pruned resolved fleet findings", findings)
+
+	runs := j.db.WithContext(ctx).Exec(
+		`DELETE FROM fleet_runs WHERE created_at < now() - make_interval(days => ?)`,
+		FleetRetentionDays)
+	j.log("pruned fleet runs", runs)
+
+	return firstError(findings.Error, runs.Error)
 }
 
 func (j *Job) rollupHours(ctx context.Context) error {

@@ -1,0 +1,249 @@
+package fleet
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
+	"github.com/FacileStudio/tronc/errors"
+	"github.com/FacileStudio/tronc/httpjson"
+	"github.com/go-chi/chi/v5"
+)
+
+const (
+	maxCompressedReport   = 8 << 20
+	maxDecompressedReport = 96 << 20
+	defaultRunLimit       = 30
+)
+
+// Handler serves the fleet routes.
+type Handler struct {
+	store *Store
+	now   func() time.Time
+}
+
+// NewHandler serves the fleet routes over store.
+func NewHandler(store *Store) *Handler {
+	return &Handler{store: store, now: time.Now}
+}
+
+// Ingest accepts a gzip-compressed report. Compression is required rather than
+// optional: a full report is several megabytes of repeated keys, and the server
+// reads and writes under tight timeouts.
+func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
+	var report Report
+	if err := httpjson.DecodeGzipJSONLimit(w, r, &report, maxCompressedReport, maxDecompressedReport); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	now := h.now().UTC().Truncate(time.Microsecond)
+	if err := report.Validate(now); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	result, err := h.store.Ingest(r.Context(), report, now)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusOK, result)
+}
+
+// ActionsResponse is the ranked inbox.
+type ActionsResponse struct {
+	Actions []Action `json:"actions"`
+	Counts  Counts   `json:"counts"`
+}
+
+// Counts totals the inbox by level.
+type Counts struct {
+	Act      int `json:"act"`
+	Schedule int `json:"schedule"`
+	Track    int `json:"track"`
+}
+
+func (h *Handler) Actions(w http.ResponseWriter, r *http.Request) {
+	actions, err := h.store.Actions(r.Context())
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	want := Level(r.URL.Query().Get("level"))
+	var counts Counts
+	filtered := make([]Action, 0, len(actions))
+	for _, action := range actions {
+		switch action.Level {
+		case LevelAct:
+			counts.Act++
+		case LevelSchedule:
+			counts.Schedule++
+		default:
+			counts.Track++
+		}
+		if want == "" || want == action.Level {
+			filtered = append(filtered, action)
+		}
+	}
+	httpjson.WriteJSON(w, http.StatusOK, ActionsResponse{Actions: filtered, Counts: counts})
+}
+
+// DriftResponse is the version drift of the tracked packages.
+type DriftResponse struct {
+	Packages []DriftRow `json:"packages"`
+}
+
+func (h *Handler) Drift(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.store.Drift(r.Context(), h.now())
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusOK, DriftResponse{Packages: rows})
+}
+
+// Health is what the last scan saw of a project's state.
+type Health struct {
+	CIConclusion    string `json:"ci_conclusion"`
+	FiletWired      bool   `json:"filet_wired"`
+	FiletPin        string `json:"filet_pin"`
+	DeployedVersion string `json:"deployed_version"`
+	GoDirective     string `json:"go_directive"`
+}
+
+// ProjectResponse is one project as the page shows it.
+type ProjectResponse struct {
+	ID            int64      `json:"id"`
+	GithubRepoID  int64      `json:"github_repo_id"`
+	Name          string     `json:"name"`
+	DefaultBranch string     `json:"default_branch"`
+	Tier          string     `json:"tier"`
+	VersionURL    string     `json:"version_url"`
+	JournalApp    string     `json:"journal_app"`
+	Covered       bool       `json:"covered"`
+	NotCovered    string     `json:"not_covered"`
+	LastScannedAt *time.Time `json:"last_scanned_at"`
+	Health        Health     `json:"health"`
+	OpenFindings  int        `json:"open_findings"`
+}
+
+func (h *Handler) Projects(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.store.Projects(r.Context())
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	out := make([]ProjectResponse, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, ProjectResponse{
+			ID: row.ID, GithubRepoID: row.GithubRepoID, Name: row.Name, DefaultBranch: row.DefaultBranch,
+			Tier: row.Tier, VersionURL: row.VersionURL, JournalApp: row.JournalApp, Covered: row.Covered,
+			NotCovered: row.NotCovered, LastScannedAt: row.LastScannedAt, OpenFindings: row.OpenFindings,
+			Health: Health{
+				CIConclusion: row.CIConclusion, FiletWired: row.FiletWired, FiletPin: row.FiletPin,
+				DeployedVersion: row.DeployedVersion, GoDirective: row.GoDirective,
+			},
+		})
+	}
+	httpjson.WriteJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	var in ProjectUpdate
+	if err := httpjson.DecodeJSON(w, r, &in); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	project, err := h.store.UpdateProject(r.Context(), id, in)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusOK, map[string]any{
+		"id": project.ID, "tier": project.Tier, "version_url": project.VersionURL, "journal_app": project.JournalApp,
+	})
+}
+
+// RunResponse is one delivery from the runner.
+type RunResponse struct {
+	ID            int64     `json:"id"`
+	StartedAt     time.Time `json:"started_at"`
+	FinishedAt    time.Time `json:"finished_at"`
+	DouaneVersion string    `json:"douane_version"`
+	ReposExpected int       `json:"repos_expected"`
+	ReposScanned  int       `json:"repos_scanned"`
+	Complete      bool      `json:"complete"`
+	FindingsOpen  int       `json:"findings_open"`
+	ReceivedAt    time.Time `json:"received_at"`
+}
+
+func (h *Handler) Runs(w http.ResponseWriter, r *http.Request) {
+	runs, err := h.store.Runs(r.Context(), defaultRunLimit)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	out := make([]RunResponse, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, RunResponse{
+			ID: run.ID, StartedAt: run.StartedAt, FinishedAt: run.FinishedAt, DouaneVersion: run.DouaneVersion,
+			ReposExpected: run.ReposExpected, ReposScanned: run.ReposScanned, Complete: run.Complete,
+			FindingsOpen: run.FindingsOpen, ReceivedAt: run.CreatedAt,
+		})
+	}
+	httpjson.WriteJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) ListPolicies(w http.ResponseWriter, r *http.Request) {
+	policies, err := h.store.Policies(r.Context())
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusOK, policies)
+}
+
+func (h *Handler) CreatePolicy(w http.ResponseWriter, r *http.Request) {
+	identity, ok := authcontext.IdentityFromContext(r.Context())
+	if !ok {
+		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
+		return
+	}
+	var in PolicyInput
+	if err := httpjson.DecodeJSON(w, r, &in); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	policy, err := h.store.CreatePolicy(r.Context(), in, identity.Email, h.now())
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	httpjson.WriteJSON(w, http.StatusCreated, policy)
+}
+
+func (h *Handler) DeletePolicy(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	if err := h.store.DeletePolicy(r.Context(), id); err != nil {
+		httpjson.WriteError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func pathID(r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id < 1 {
+		return 0, errors.Invalid("invalid id")
+	}
+	return id, nil
+}

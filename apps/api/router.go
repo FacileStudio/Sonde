@@ -13,6 +13,7 @@ import (
 	documentation "github.com/FacileStudio/Sonde/apps/api/internal/documentation"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
+	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
 	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
 	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
@@ -48,6 +49,7 @@ func registry() documentation.Response {
 		Modules: []documentation.Module{
 			auth.Documentation,
 			checker.Documentation,
+			fleet.Documentation,
 			httpapi.Documentation,
 			httpapi.StatusPagesDocumentation,
 			users.Documentation,
@@ -153,6 +155,7 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 		users.RegisterRoutes(r, userService, requireAuth)
 		httpapi.RegisterRoutes(r, httpService, requireAuth)
 		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
+		fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins})
 	})
 
 	if spa.Available(clientDir) {
