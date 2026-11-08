@@ -102,6 +102,24 @@ The token is the monitor's `push_token`, and it is the credential. An unknown to
 403 otherwise. `/api/public/status/{slug}` is deliberately unauthenticated, which is what a
 status page is for.
 
+## Fleet
+
+Fleet maintenance data, delivered by a scheduled runner. Read routes need a signed-in
+administrator whose email is in `SONDE_FLEET_ADMINS`; anyone else gets 403. See
+[FLEET.md](FLEET.md).
+
+| Method | Path | Auth | Returns |
+|---|---|---|---|
+| POST | `/api/fleet/reports` | fleet token | Stores one gzip-compressed report. 404 until `SONDE_FLEET_TOKEN` is set |
+| GET | `/api/fleet/actions` | fleet admin | Open findings grouped by the upgrade that clears them, ranked `act`, `schedule`, `track`. `?level=` narrows the list, never the counts |
+| GET | `/api/fleet/drift` | fleet admin | Per tracked package, the projects not on the latest version, with holds marked |
+| GET | `/api/fleet/projects` | fleet admin | Every repository, uncovered first |
+| PATCH | `/api/fleet/projects/{id}` | fleet admin | Sets `tier`, `version_url`, `journal_app` |
+| GET | `/api/fleet/runs` | fleet admin | The newest deliveries and how complete each was |
+| GET | `/api/fleet/policies` | fleet admin | Holds, expired ones included |
+| POST | `/api/fleet/policies` | fleet admin | Holds a package on a version. Needs a reason and an end within a year |
+| DELETE | `/api/fleet/policies/{id}` | fleet admin | Removes a hold |
+
 ## Adding a route
 
 Inside your package's `router.go`:

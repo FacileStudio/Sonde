@@ -11,6 +11,8 @@ import (
 	"github.com/FacileStudio/porte"
 )
 
+const minFleetTokenLength = 32
+
 type Config struct {
 	DatabaseURL        string
 	Port               string
@@ -19,6 +21,8 @@ type Config struct {
 	JournalURL         string
 	JournalToken       string
 	RawRetentionDays   int
+	FleetToken         string
+	FleetAdmins        []string
 	Porte              porte.Config
 	Events             events.Config
 }
@@ -37,6 +41,8 @@ func Load() (Config, error) {
 		JournalURL:       os.Getenv("JOURNAL_URL"),
 		JournalToken:     os.Getenv("JOURNAL_TOKEN"),
 		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
+		FleetToken:       os.Getenv("SONDE_FLEET_TOKEN"),
+		FleetAdmins:      csvOrDefault("SONDE_FLEET_ADMINS", nil),
 		Events: events.Config{
 			Instance:   os.Getenv("ANTENNE_INSTANCE"),
 			App:        valueOrDefault("ANTENNE_APP", events.DefaultApp),
@@ -62,6 +68,10 @@ func Load() (Config, error) {
 
 	if env.Events.Enabled() && env.Events.Secret == "" {
 		return Config{}, fmt.Errorf("ANTENNE_INSTANCE is set but ANTENNE_SECRET is empty")
+	}
+
+	if env.FleetToken != "" && len(env.FleetToken) < minFleetTokenLength {
+		return Config{}, fmt.Errorf("SONDE_FLEET_TOKEN must be at least %d characters", minFleetTokenLength)
 	}
 
 	if env.DatabaseURL == "" {

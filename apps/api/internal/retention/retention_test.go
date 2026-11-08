@@ -30,11 +30,20 @@ func TestMain(m *testing.M) {
 }
 
 func applySchema(db *gorm.DB) error {
-	raw, err := os.ReadFile("../../migrations/00001_sonde.sql")
-	if err != nil {
-		return err
+	for _, file := range []string{"00001_sonde.sql", "00006_fleet.sql"} {
+		raw, err := os.ReadFile("../../migrations/" + file)
+		if err != nil {
+			return err
+		}
+		if err := applyUp(db, string(raw)); err != nil {
+			return err
+		}
 	}
-	up := strings.Split(string(raw), "-- +goose Down")[0]
+	return nil
+}
+
+func applyUp(db *gorm.DB, script string) error {
+	up := strings.Split(script, "-- +goose Down")[0]
 	up = strings.ReplaceAll(up, "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
 	up = strings.ReplaceAll(up, "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
 	for _, statement := range strings.Split(up, ";") {
@@ -108,5 +117,34 @@ func TestRunPrunesRawAndRollsUp(t *testing.T) {
 	cutoff := now.AddDate(0, -13, 0)
 	if got := count(t, `SELECT COUNT(*) FROM checks_hourly WHERE bucket_start < ?`, cutoff); got != 0 {
 		t.Fatalf("13-month-old hourly rollups survived: %d", got)
+	}
+}
+
+func TestRunPrunesResolvedFleetFindingsAndOldRunsOnly(t *testing.T) {
+	mustExec(t, `TRUNCATE fleet_findings, fleet_runs, fleet_projects RESTART IDENTITY CASCADE`)
+	mustExec(t, `INSERT INTO fleet_projects (github_repo_id, name) VALUES (1, 'a')`)
+	insert := `INSERT INTO fleet_findings (project_id, key, advisory, package, ecosystem, first_seen, last_seen, resolved_at)
+		VALUES (1, ?, 'CVE', 'p', 'npm', now(), now(), ?)`
+	mustExec(t, insert, "resolved-long-ago", gorm.Expr("now() - interval '100 days'"))
+	mustExec(t, insert, "resolved-recently", gorm.Expr("now() - interval '10 days'"))
+	mustExec(t, insert, "open-and-old", nil)
+	mustExec(t, `UPDATE fleet_findings SET first_seen = now() - interval '400 days' WHERE key = 'open-and-old'`)
+	run := `INSERT INTO fleet_runs (started_at, finished_at, repos_expected, repos_scanned, complete, created_at)
+		VALUES (now(), now(), 1, 1, true, ?)`
+	mustExec(t, run, gorm.Expr("now() - interval '100 days'"))
+	mustExec(t, run, gorm.Expr("now() - interval '1 day'"))
+
+	if err := New(testDB, 30, nil).Run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if got := count(t, `SELECT count(*) FROM fleet_findings`); got != 2 {
+		t.Fatalf("findings = %d, want 2: the old resolved one goes, the recent and the open ones stay", got)
+	}
+	if got := count(t, `SELECT count(*) FROM fleet_findings WHERE key = 'open-and-old'`); got != 1 {
+		t.Fatal("an open finding was pruned for being old")
+	}
+	if got := count(t, `SELECT count(*) FROM fleet_runs`); got != 1 {
+		t.Fatalf("runs = %d, want 1", got)
 	}
 }
