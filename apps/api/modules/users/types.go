@@ -13,6 +13,8 @@ type MeResponse struct {
 	User User `json:"user"`
 }
 
+// UpdateRequest changes the display name. Email is accepted only to refuse it
+// with a clear message: the address comes from Registre.
 type UpdateRequest struct {
 	Email *string `json:"email"`
 	Name  *string `json:"name"`

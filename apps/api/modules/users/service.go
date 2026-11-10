@@ -32,23 +32,15 @@ func (service *Service) userByID(context context.Context, userID int64) (*schema
 	return &record, nil
 }
 
-func (service *Service) updateUser(context context.Context, userID int64, email *string, name string) (*schemas.User, error) {
-	updates := map[string]any{}
-	if email != nil {
-		updates["email"] = *email
-	}
-	if name != "" {
-		updates["name"] = name
-	}
-
+// updateName changes the display name. The email is not editable here: it
+// comes from the identity provider on every sign-in, and the fleet allow-list
+// trusts it.
+func (service *Service) updateName(context context.Context, userID int64, name string) (*schemas.User, error) {
 	result := service.orm.WithContext(context).
 		Model(&schemas.User{}).
 		Where("id = ?", userID).
-		Updates(updates)
+		Update("name", name)
 	if result.Error != nil {
-		if stderrors.Is(result.Error, gorm.ErrDuplicatedKey) {
-			return nil, errors.Conflict("email already registered")
-		}
 		return nil, errors.Internal("failed to update user", result.Error)
 	}
 	return service.userByID(context, userID)
