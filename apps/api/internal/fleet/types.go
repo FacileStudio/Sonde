@@ -43,6 +43,10 @@ type RunInfo struct {
 	DouaneVersion string    `json:"douane_version"`
 	ReposExpected int       `json:"repos_expected"`
 	ReposScanned  int       `json:"repos_scanned"`
+	// AcceptShrink confirms that projects really left the fleet, deleted or
+	// transferred, so a complete run listing far fewer projects than are
+	// covered may resolve them. Without it such a run is stored as incomplete.
+	AcceptShrink bool `json:"accept_shrink,omitempty"`
 }
 
 // ProjectReport is what the runner learned about one repository. Covered false
@@ -95,43 +99,6 @@ func normalizeSeverity(raw string) string {
 		return upper
 	}
 	return "UNKNOWN"
-}
-
-// Names lists every identifier the flaw goes by, trimmed, sorted and without
-// repeats. Blank aliases are dropped: an empty string would sort first and turn
-// into the key of every advisory that carried one.
-func (f FindingReport) Names() []string {
-	return cleanNames(append([]string{f.ID}, f.Aliases...))
-}
-
-func cleanNames(raw []string) []string {
-	names := make([]string, 0, len(raw))
-	for _, name := range raw {
-		if trimmed := strings.TrimSpace(name); trimmed != "" {
-			names = append(names, trimmed)
-		}
-	}
-	slices.Sort(names)
-	return slices.Compact(names)
-}
-
-// canonicalName is the name a stored finding is shown under: the smallest of
-// its advisory and its comma-separated aliases, the same rule Key uses.
-func canonicalName(advisory, aliases string) string {
-	names := cleanNames(append(strings.Split(aliases, ","), advisory))
-	if len(names) == 0 {
-		return advisory
-	}
-	return names[0]
-}
-
-// Key identifies a finding across nights. It is built from the smallest name the
-// flaw has, not from the identifier the scanner reported it under, because that
-// choice moves between a CVE and its GHSA alias and a key that followed it would
-// read every move as one finding resolved and one new. Deriving the key here
-// keeps Sonde correct whichever scanner version delivered the report.
-func (f FindingReport) Key() string {
-	return f.Ecosystem + "|" + f.Package + "|" + f.Installed + "|" + f.Names()[0]
 }
 
 // Validate refuses a report the store should not touch. It reports the first
