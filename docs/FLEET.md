@@ -110,6 +110,12 @@ Empty turns ingest off.
   incomplete.
 - **Finding keys** are derived by the server from the smallest name in the alias set, so a
   flaw that flips between its CVE and its GHSA name between nights is neither resolved nor new.
+  A finding also keeps its key when a new alias appears, for example a CVE assigned after its
+  GHSA.
+- **A complete run** (`repos_scanned == repos_expected > 0`) also resolves the findings of
+  projects it no longer lists, and marks them not covered.
+- **Deliveries are serialised.** A report that is not newer than the last stored one is refused
+  with 409, so a retried delivery is safe to repeat.
 
 ## Ranking
 
