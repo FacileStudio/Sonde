@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -56,6 +57,9 @@ const (
 // blockingKinds are the gaps that can hide a finding. A severity or range gap
 // only qualifies a finding douane did report, so it leaves the scan whole;
 // douane's own `complete` flag counts those too, which is why it is not read.
+// An unsupported lockfile blocks only a repository douane read nothing from:
+// it was never readable, so no finding from it exists to be wrongly resolved,
+// while a repository with nothing readable would otherwise pass as clean.
 var blockingKinds = []string{"unreadable", "unsupported", "upstream", "unresolved"}
 
 // rankingFeeds raise upstream gaps that cost the ranking, never a finding.
@@ -89,15 +93,33 @@ func douaneVersion(ctx context.Context, bin string) string {
 	return strings.TrimPrefix(strings.TrimSpace(string(out)), "douane ")
 }
 
-func blocking(gaps []douaneGap) []string {
+func blocking(gaps []douaneGap, packages int) []string {
 	var kinds []string
 	for _, gap := range gaps {
-		if !slices.Contains(blockingKinds, gap.Kind) || (gap.Kind == "upstream" && slices.Contains(rankingFeeds, gap.Subject)) {
+		if harmless(gap, packages) {
 			continue
 		}
 		kinds = append(kinds, gap.Kind)
 	}
 	return kinds
+}
+
+// harmless reports a gap that cannot hide a finding: a kind outside the
+// blocking list, a ranking feed being down, a Dockerfile whose Go module could
+// not be named while the module's own go.mod was read, or an unsupported
+// lockfile beside packages douane did read.
+func harmless(gap douaneGap, packages int) bool {
+	switch {
+	case !slices.Contains(blockingKinds, gap.Kind):
+		return true
+	case gap.Kind == "upstream":
+		return slices.Contains(rankingFeeds, gap.Subject)
+	case gap.Kind == "unresolved":
+		return isDockerfile(filepath.Base(gap.Subject))
+	case gap.Kind == "unsupported":
+		return packages > 0
+	}
+	return false
 }
 
 type verdict struct {
@@ -110,10 +132,10 @@ type verdict struct {
 // A gap at the sweep level comes from the shared OSV resolution and cannot be
 // pinned on one repository, so it withholds every repository that has packages.
 func (sweep douaneSweep) verdicts() map[string]verdict {
-	shared := blocking(sweep.Gaps)
+	shared := blocking(sweep.Gaps, 1)
 	out := make(map[string]verdict, len(sweep.Repos))
 	for _, repo := range sweep.Repos {
-		kinds := blocking(repo.Gaps)
+		kinds := blocking(repo.Gaps, repo.Packages)
 		if repo.Packages > 0 {
 			kinds = append(kinds, shared...)
 		}
