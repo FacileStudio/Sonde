@@ -54,10 +54,11 @@ porte kits, not from `modules/auth`. `GET /version` answers `{version}` at the r
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
 | GET | `/api/users/me` | session | — | `{user}` |
-| PATCH | `/api/users/me` | session | `{email?, name?}` | `{user}` |
+| PATCH | `/api/users/me` | session | `{name}` | `{user}` |
 
-Both fields on the `PATCH` are optional pointers, so omitting one leaves it alone rather than
-clearing it.
+The `PATCH` changes the display name only. The email comes from Registre on every sign-in, and a
+request carrying `email` is refused with 400: the fleet allow-list trusts that address, so a user
+must not be able to set it.
 
 ## Monitors
 
@@ -110,10 +111,10 @@ administrator whose email is in `SONDE_FLEET_ADMINS`; anyone else gets 403. See
 
 | Method | Path | Auth | Returns |
 |---|---|---|---|
-| POST | `/api/fleet/reports` | fleet token | Stores one gzip-compressed report. 404 until `SONDE_FLEET_TOKEN` is set |
+| POST | `/api/fleet/reports` | fleet token | Stores one gzip-compressed report. 404 until `SONDE_FLEET_TOKEN` is set; 409 when the report is not newer than the last one stored |
 | GET | `/api/fleet/actions` | fleet admin | Open findings grouped by the upgrade that clears them, ranked `act`, `schedule`, `track`. `?level=` narrows the list, never the counts |
 | GET | `/api/fleet/drift` | fleet admin | Per tracked package, the projects not on the latest version, with holds marked |
-| GET | `/api/fleet/projects` | fleet admin | Every repository, uncovered first |
+| GET | `/api/fleet/projects` | fleet admin | Every repository: covered ones first, the most open findings first |
 | PATCH | `/api/fleet/projects/{id}` | fleet admin | Sets `tier`, `version_url`, `journal_app` |
 | GET | `/api/fleet/runs` | fleet admin | The newest deliveries and how complete each was |
 | GET | `/api/fleet/policies` | fleet admin | Holds, expired ones included |

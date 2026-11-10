@@ -53,7 +53,10 @@ func (s *Store) CreatePolicy(ctx context.Context, in PolicyInput, by string, now
 	db := s.db.WithContext(ctx)
 	if in.ProjectID != nil {
 		var count int64
-		if err := db.Model(&schemas.FleetProject{}).Where("id = ?", *in.ProjectID).Count(&count).Error; err != nil || count == 0 {
+		if err := db.Model(&schemas.FleetProject{}).Where("id = ?", *in.ProjectID).Count(&count).Error; err != nil {
+			return nil, errors.Internal("failed to check the policy's project", err)
+		}
+		if count == 0 {
 			return nil, errors.Invalid("project_id does not name a project")
 		}
 	}

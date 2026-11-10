@@ -22,6 +22,7 @@ type openRow struct {
 	ProjectName string    `gorm:"column:project_name"`
 	Tier        string    `gorm:"column:tier"`
 	Advisory    string    `gorm:"column:advisory"`
+	Aliases     string    `gorm:"column:aliases"`
 	Severity    string    `gorm:"column:severity"`
 	Package     string    `gorm:"column:package"`
 	Ecosystem   string    `gorm:"column:ecosystem"`
@@ -36,7 +37,7 @@ type openRow struct {
 func (s *Store) Actions(ctx context.Context) ([]Action, error) {
 	var rows []openRow
 	err := s.db.WithContext(ctx).Raw(`
-		SELECT f.project_id, p.name AS project_name, p.tier, f.advisory, f.severity, f.package,
+		SELECT f.project_id, p.name AS project_name, p.tier, f.advisory, f.aliases, f.severity, f.package,
 		       f.ecosystem, f.installed, f.fixed_in, f.kev, f.epss, f.first_seen
 		FROM fleet_findings f JOIN fleet_projects p ON p.id = f.project_id
 		WHERE f.resolved_at IS NULL`).Scan(&rows).Error
@@ -46,7 +47,7 @@ func (s *Store) Actions(ctx context.Context) ([]Action, error) {
 	findings := make([]OpenFinding, 0, len(rows))
 	for _, r := range rows {
 		findings = append(findings, OpenFinding{
-			ProjectID: r.ProjectID, ProjectName: r.ProjectName, Tier: Tier(r.Tier), Advisory: r.Advisory,
+			ProjectID: r.ProjectID, ProjectName: r.ProjectName, Tier: Tier(r.Tier), Advisory: canonicalName(r.Advisory, r.Aliases),
 			Severity: r.Severity, Package: r.Package, Ecosystem: r.Ecosystem, Installed: r.Installed,
 			FixedIn: r.FixedIn, KEV: r.KEV, EPSS: r.EPSS, FirstSeen: r.FirstSeen,
 		})
