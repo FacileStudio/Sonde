@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0] - 2026-11-10
+
+### Added
+
+- `fleetscan` derives dependency edges between repositories: library pins, calls from env names in `docker-compose.yml` and `apps/api/.env.example` (with their auth kind), Antenne events, Registre identity and Journal logs.
+- `fleetscan` reports conformance checks per repository: `gate.filet`, `gate.douane`, `gate.tests`, `gate.race`, `hooks.lefthook`, `migrations.sql`, `docker.single`, `pins.current` and `fuzz.present`. A check that does not apply is left out.
+- Migration `00007_fleet_graph` adds `fleet_edges` and `fleet_checks`. Ingest replaces a covered project's rows inside the delivery transaction.
+- `GET /api/fleet/graph` and `GET /api/fleet/conformance`, behind the fleet gate.
+- The maintenance page gains a graph tab and a conformance tab.
+
+### Changed
+
+- The report gains optional `edges` and `conformance` fields at `schema_version` 1. The server decodes strictly, so it must deploy before the nightly runner uses them. `docs/FLEET.md` states the order.
+
 ## [0.3.3] - 2026-11-10
 
 ### Fixed
