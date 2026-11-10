@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Badge, Card, EmptyState, icons } from '@facile/muse';
-	import type { MaintenanceDrift } from '$lib/backend';
+	import type { MaintenanceDrift, MaintenanceDriftProject } from '$lib/backend';
 	import { date } from '$lib/format';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -8,6 +8,12 @@
 
 	const packages = $derived(data.packages.filter((row) => row.current > 0 || (row.behind?.length ?? 0) > 0));
 	const shortName = (name: string) => name.replace(/^github\.com\/FacileStudio\//, '');
+
+	function holdText(project: MaintenanceDriftProject) {
+		const until = project.expires_at ? date(project.expires_at) : '';
+		if (!project.reason) return t('maintenance.drift.heldUntilBare', { date: until });
+		return t('maintenance.drift.heldUntil', { date: until, reason: project.reason });
+	}
 </script>
 
 {#if packages.length === 0}
@@ -27,20 +33,18 @@
 				{:else}
 					<ul class="flex flex-col gap-3">
 						{#each row.behind as version (version.resolved)}
-							<li class="flex flex-col gap-1">
+							<li class="flex flex-col gap-1.5">
 								<span class="font-mono text-fc-sm text-fc-fg">{version.resolved}</span>
 								<div class="flex flex-wrap gap-1.5">
 									{#each version.projects as project (project.id)}
-										<Badge
-											tone={project.held ? 'info' : 'warning'}
-											title={project.held && project.expires_at
-												? t('maintenance.drift.heldUntil', { date: date(project.expires_at), reason: project.reason ?? '' })
-												: undefined}
-										>
+										<Badge tone={project.held ? 'info' : 'warning'}>
 											{project.name}{project.held ? ` · ${t('maintenance.drift.held')}` : ''}
 										</Badge>
 									{/each}
 								</div>
+								{#each version.projects.filter((project) => project.held) as project (project.id)}
+									<p class="text-fc-xs break-words text-fc-fg-muted">{project.name}: {holdText(project)}</p>
+								{/each}
 							</li>
 						{/each}
 					</ul>

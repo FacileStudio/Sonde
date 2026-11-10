@@ -24,11 +24,21 @@
 	let error = $state('');
 	let tab = $state('actions');
 
+	const panelId = 'maintenance-panel';
+
 	const tabs = $derived([
 		{ id: 'actions', label: t('maintenance.tab.actions') },
 		{ id: 'drift', label: t('maintenance.tab.drift') },
 		{ id: 'projects', label: t('maintenance.tab.projects') }
 	]);
+
+	const activeLabel = $derived(tabs.find((item) => item.id === tab)?.label ?? '');
+
+	/* A failed refresh after a successful save keeps the previous ranking: the role is stored, and
+	   replacing the whole page with an error would hide what was already on screen. */
+	async function refreshActions() {
+		actions = await backend.maintenanceActions().catch(() => actions);
+	}
 
 	const last = $derived(runs[0]);
 	const stale = $derived(
@@ -99,14 +109,16 @@
 			/>
 		</div>
 
-		<Tabs items={tabs} value={tab} onChange={(id) => (tab = id)} label={t('maintenance.view')} />
+		<Tabs items={tabs} value={tab} {panelId} onChange={(id) => (tab = id)} label={t('maintenance.view')} />
 
-		{#if tab === 'actions'}
-			<MaintenanceActions data={actions} />
-		{:else if tab === 'drift'}
-			<MaintenanceDrift data={drift} />
-		{:else}
-			<MaintenanceProjects {projects} />
-		{/if}
+		<div id={panelId} role="tabpanel" aria-label={activeLabel}>
+			{#if tab === 'actions'}
+				<MaintenanceActions data={actions} />
+			{:else if tab === 'drift'}
+				<MaintenanceDrift data={drift} />
+			{:else}
+				<MaintenanceProjects {projects} onSaved={refreshActions} />
+			{/if}
+		</div>
 	{/if}
 </div>

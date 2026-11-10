@@ -31,7 +31,7 @@ export const maintenance = {
 	'maintenance.stale.title': ['The last scan is old', 'Le dernier scan est ancien', 'El último análisis es antiguo', 'Der letzte Scan ist alt'],
 	'maintenance.stale.body': [
 		'The newest report finished {when}. Anything published since is not here yet.',
-		'Le rapport le plus récent date de {when}. Ce qui a été publié depuis n’y figure pas.',
+		'Le rapport le plus récent a fini {when}. Ce qui a été publié depuis n’y figure pas.',
 		'El informe más reciente terminó {when}. Lo publicado después aún no aparece.',
 		'Der neueste Bericht endete {when}. Was seitdem veröffentlicht wurde, fehlt noch.'
 	],
@@ -55,10 +55,10 @@ export const maintenance = {
 	],
 	'maintenance.stat.open': ['Open findings', 'Failles ouvertes', 'Hallazgos abiertos', 'Offene Befunde'],
 	'maintenance.stat.openHint': [
-		'{count} upgrades clear them',
-		'{count} mises à jour les corrigent',
-		'{count} actualizaciones los resuelven',
-		'{count} Updates beheben sie'
+		{ one: '{count} upgrade clears them', other: '{count} upgrades clear them' },
+		{ one: '{count} mise à jour les corrige', other: '{count} mises à jour les corrigent' },
+		{ one: '{count} actualización los resuelve', other: '{count} actualizaciones los resuelven' },
+		{ one: '{count} Update behebt sie', other: '{count} Updates beheben sie' }
 	],
 	'maintenance.tab.actions': ['Actions', 'Actions', 'Acciones', 'Aktionen'],
 	'maintenance.tab.drift': ['Drift', 'Écarts', 'Desviación', 'Abweichung'],
@@ -76,7 +76,12 @@ export const maintenance = {
 	'maintenance.col.exploit': ['Exploit odds', 'Risque d’exploit', 'Prob. de explotación', 'Ausnutzungsrisiko'],
 	'maintenance.noFix': ['no fix yet', 'pas de correctif', 'sin corrección', 'noch kein Fix'],
 	'maintenance.kev': ['Exploited', 'Exploitée', 'Explotada', 'Ausgenutzt'],
-	'maintenance.more': ['+{count} more', '+{count} autres', '+{count} más', '+{count} weitere'],
+	'maintenance.more': [
+		{ one: '+{count} more', other: '+{count} more' },
+		{ one: '+{count} autre', other: '+{count} autres' },
+		{ one: '+{count} más', other: '+{count} más' },
+		{ one: '+{count} weiteres', other: '+{count} weitere' }
+	],
 	'maintenance.actions.empty.title': ['Nothing at this level', 'Rien à ce niveau', 'Nada en este nivel', 'Nichts auf dieser Stufe'],
 	'maintenance.actions.empty.description': [
 		'No open finding ranks here. Classify repositories to sharpen the order.',
@@ -86,10 +91,10 @@ export const maintenance = {
 	],
 	'maintenance.drift.latest': ['Latest {version}', 'Dernière {version}', 'Última {version}', 'Neueste {version}'],
 	'maintenance.drift.current': [
-		'{count} on the latest',
-		'{count} à jour',
-		'{count} en la última',
-		'{count} auf dem neuesten Stand'
+		{ one: '{count} on the latest', other: '{count} on the latest' },
+		{ one: '{count} à jour', other: '{count} à jour' },
+		{ one: '{count} en la última', other: '{count} en la última' },
+		{ one: '{count} auf dem neuesten Stand', other: '{count} auf dem neuesten Stand' }
 	],
 	'maintenance.drift.allCurrent': [
 		'Every repository is on the latest version.',
@@ -99,6 +104,7 @@ export const maintenance = {
 	],
 	'maintenance.drift.held': ['Held', 'Retenu', 'Retenido', 'Gehalten'],
 	'maintenance.drift.heldUntil': ['until {date}: {reason}', 'jusqu’au {date} : {reason}', 'hasta {date}: {reason}', 'bis {date}: {reason}'],
+	'maintenance.drift.heldUntilBare': ['until {date}', 'jusqu’au {date}', 'hasta {date}', 'bis {date}'],
 	'maintenance.drift.empty': [
 		'No tracked package has been reported yet.',
 		'Aucun paquet suivi n’a encore été signalé.',
@@ -113,9 +119,24 @@ export const maintenance = {
 	'maintenance.col.open': ['Open', 'Ouvertes', 'Abiertos', 'Offen'],
 	'maintenance.covered': ['Scanned', 'Analysé', 'Analizado', 'Gescannt'],
 	'maintenance.filetMissing': ['not in CI', 'absent de la CI', 'fuera de CI', 'nicht in CI'],
+	'maintenance.filetWired': ['wired', 'branché', 'conectado', 'eingebunden'],
+	'maintenance.notScanned': ['Not scanned', 'Non analysé', 'Sin analizar', 'Nicht gescannt'],
+	'maintenance.severity.critical': ['Critical', 'Critique', 'Crítica', 'Kritisch'],
+	'maintenance.severity.high': ['High', 'Élevée', 'Alta', 'Hoch'],
+	'maintenance.severity.medium': ['Medium', 'Moyenne', 'Media', 'Mittel'],
+	'maintenance.severity.low': ['Low', 'Faible', 'Baja', 'Niedrig'],
+	'maintenance.severity.unknown': ['Unknown', 'Inconnue', 'Desconocida', 'Unbekannt'],
+	'maintenance.ci.success': ['passing', 'réussie', 'correcta', 'erfolgreich'],
+	'maintenance.ci.failure': ['failing', 'en échec', 'fallida', 'fehlgeschlagen'],
+	'maintenance.ci.cancelled': ['cancelled', 'annulée', 'cancelada', 'abgebrochen'],
+	'maintenance.ci.timed_out': ['timed out', 'expirée', 'agotó el tiempo', 'Zeitüberschreitung'],
+	'maintenance.ci.action_required': ['action required', 'action requise', 'acción requerida', 'Aktion nötig'],
+	'maintenance.ci.startup_failure': ['did not start', 'n’a pas démarré', 'no arrancó', 'nicht gestartet'],
+	'maintenance.ci.skipped': ['skipped', 'ignorée', 'omitida', 'übersprungen'],
+	'maintenance.ci.neutral': ['neutral', 'neutre', 'neutra', 'neutral'],
+	'maintenance.ci.stale': ['stale', 'périmée', 'obsoleta', 'veraltet'],
 	'maintenance.ciUnknown': ['no runs', 'aucune exécution', 'sin ejecuciones', 'keine Läufe'],
 	'maintenance.tierLabel': ['Role of {name}', 'Rôle de {name}', 'Rol de {name}', 'Rolle von {name}'],
-	'maintenance.tierSaved': ['Saved', 'Enregistré', 'Guardado', 'Gespeichert'],
 	'maintenance.tierFailed': ['Could not save the role', 'Impossible d’enregistrer le rôle', 'No se pudo guardar el rol', 'Rolle konnte nicht gespeichert werden'],
 	'maintenance.tier.unclassified': ['Unclassified', 'Non classé', 'Sin clasificar', 'Nicht eingeordnet'],
 	'maintenance.tier.deployed': ['Deployed', 'Déployé', 'Desplegado', 'Bereitgestellt'],
