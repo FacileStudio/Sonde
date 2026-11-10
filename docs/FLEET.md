@@ -11,25 +11,64 @@ scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/acti
 ## The runner
 
 `apps/api/cmd/fleetscan` runs nightly from `.github/workflows/fleet-scan.yml`. It lists the
-organisation's repositories, reads each default branch's tree, fetches the lockfiles,
-`package.json` files and workflow files through the contents API, runs `douane sweep` over
-them, and delivers one gzip report. It never clones and never runs a repository's code.
+organisation's non-archived repositories, reads each default branch's tree, fetches the files
+douane needs through the contents API, runs `douane sweep` over them, and delivers one gzip
+report. It never clones and never runs a repository's code.
+
+It fetches every lockfile douane recognises, including the ones it cannot parse (`yarn.lock`,
+`pnpm-lock.yaml`, `requirements.txt`, `.csproj` and the rest of douane's list), so douane can
+raise the gap instead of the repository reading as clean. It also fetches `package.json`
+files, workflow files and Dockerfiles. Each repository is written under its numeric GitHub
+id, so a repository named `.github` is not skipped as a hidden directory.
 
 Measured on 2026-11-10 against FacileStudio: 88 repositories listed, 79 scanned, 9 with nothing
 to scan, 75 seconds, 676 API calls, a 3 MB report. Two consecutive runs ingested with 0 new and
 0 resolved findings.
 
-- A repository with no lockfile, or an empty one, has nothing to scan. It is reported, not
-  expected.
-- A repository whose tree or files could not be fetched, that has more than 80 manifests, or
-  that douane returned nothing for, is reported as not covered and counts against the run.
-- The log prints counts only. Findings never reach the workflow log.
-- `-out report.json` writes the report instead of delivering it, for a dry run:
+Coverage decides whether Sonde may resolve a project's findings:
 
-  ```sh
-  cd apps/api && go build -o /tmp/fleetscan ./cmd/fleetscan
-  GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tmp/report.json
-  ```
+| Repository | `covered` | Counted in |
+|---|---|---|
+| No lockfile at all, or an empty repository | yes, with no findings | expected and scanned |
+| Scanned with no blocking gap | yes | expected and scanned |
+| douane `failed`, or an `unreadable`, `unsupported`, `upstream` or `unresolved` gap | no, `not_covered` names the gap kinds | expected |
+| Tree or files could not be fetched, more than 80 manifests, or douane returned nothing | no | expected |
+| Its data fails the server's `Validate` | no, `not_covered` is `invalid scan data` | expected |
+
+A `severity` or `range` gap only qualifies a finding douane did report, so it does not block
+coverage, and neither does an `upstream` gap on the `kev` or `epss` feed. A blocking gap at the
+sweep level comes from the shared OSV resolution and cannot be pinned on one repository, so it
+withholds every repository that has packages.
+
+- The report is checked with the server's own `Validate` before delivery. One invalid project
+  is demoted to not covered rather than failing the whole night.
+- Delivery is retried twice on a network error or a 5xx, never on a 4xx.
+- GitHub requests honour `Retry-After` and `X-RateLimit-Reset` (waiting at most 60 seconds) and
+  fail rather than truncate a response over 64 MB.
+- The log prints counts and exit codes only. Findings, douane's stderr and Sonde's error text
+  never reach the workflow log, which is public.
+- A pin's `resolved` value is the git ref after `#` in `package.json` (a `semver:` prefix is
+  dropped) or the version in `go.mod`. It is compared literally with the newest tag, so a
+  branch or a range always reads as drift. `replace` directives are ignored.
+- Filet counts as wired when a workflow uses `FacileStudio/filet@…` or runs `filet check` or
+  `filet test`.
+
+| Flag or variable | Default | What it does |
+|---|---|---|
+| `-org`, `FLEET_ORG` | `FacileStudio` | Organisation to scan |
+| `-github-api`, `GITHUB_API_URL` | `https://api.github.com` | GitHub API base URL |
+| `-douane`, `DOUANE_BIN` | `douane` | Path to the douane binary |
+| `-workers` | `8` | Repositories fetched in parallel |
+| `-out` | empty | Write the report as JSON to this file instead of delivering it |
+| `GITHUB_TOKEN` | required | App installation token |
+| `SONDE_URL`, `SONDE_FLEET_TOKEN` | required unless `-out` | Where to deliver, and the bearer |
+
+A dry run:
+
+```sh
+cd apps/api && go build -o /tmp/fleetscan ./cmd/fleetscan
+GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tmp/report.json
+```
 
 ## Setting it up
 
@@ -45,6 +84,10 @@ to scan, 75 seconds, 676 API calls, a 3 MB report. Two consecutive runs ingested
    (`https://sonde.facile.studio`) and `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key
    in Casier.
 5. Run the workflow once by hand. A missed night then opens a Sonde incident on `fleet-scan`.
+
+The workflow pins douane by version and by the sha256 of its Linux archive, and every action
+by commit. To move douane, change both `DOUANE_VERSION` and `DOUANE_SHA256`, taking the hash
+from the release you reviewed.
 
 ## Who can see it
 
