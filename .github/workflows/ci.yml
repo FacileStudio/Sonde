@@ -11,6 +11,7 @@ permissions:
 jobs:
   api:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/api
@@ -34,8 +35,10 @@ jobs:
       TEST_DATABASE_URL: postgres://sonde:sonde@127.0.0.1:5432/sonde_test?sslmode=disable
 
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
@@ -52,14 +55,22 @@ jobs:
       - name: tests
         run: go test -race -count=1 ./...
 
+      - name: version matches VERSION
+        run: go test -count=1 -run TestVersionMatchesTheVersionFile -ldflags "-X github.com/FacileStudio/Sonde/apps/api.version=v$(tr -d '[:space:]' < ../../VERSION)" .
+
   client:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/client
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
 
       - name: install
         run: bun install --frozen-lockfile
@@ -75,9 +86,12 @@ jobs:
 
   filet:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: FacileStudio/filet@v0.3.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: FacileStudio/filet@c0d3270a19a8a99af347e8104f718711ef6e9def # v0.3.0
         with:
           version: v0.3.0
           fail-on: error
