@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.1] - 2026-11-10
+
+### Security
+
+- `PATCH /api/users/me` no longer changes the email. The fleet allow-list could otherwise be met by a promoted account setting its email to a freed allow-listed address. The email comes only from Registre, refreshed on sign-in when the address is verified.
+
+### Fixed
+
+- The fleet runner no longer reports a repository as covered when douane could not read it, so Sonde never resolves findings that were not checked again. Only a gap that can hide a finding withholds coverage: an unreadable lockfile, a failed advisory fetch, an OSV failure, or an unsupported lockfile in a repository douane read nothing else from.
+- A finding keeps its key when a new alias appears, such as a CVE assigned after its GHSA, and blank aliases are ignored.
+- A complete run resolves the findings of repositories it no longer lists.
+- Fleet deliveries are serialised, and a report not newer than the last stored one is refused with 409.
+- Fleet reports with NUL bytes are refused, and an empty run is never marked complete.
+- Fleet pruning runs even when checks pruning fails.
+- The maintenance page saves one role change at a time and re-ranks after it. It translates severities, CI states and scan states, shows hold reasons as text, and lets every repository behind "+N more" be reached.
+
+### Changed
+
+- The nightly workflow uses douane 0.6.2, verified against a pinned sha256. Its actions are pinned to commits, and the App token is read-only.
+- The runner reads douane's full lockfile list, validates each project before delivering, and retries delivery on network errors and 5xx. It honours GitHub rate limits and logs only exit codes.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added
