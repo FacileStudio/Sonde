@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,8 +44,8 @@ func onlyReport(t *testing.T, sonde *fakeSonde) fleet.Report {
 func TestAScanDeliversAReportTheServerAccepts(t *testing.T) {
 	logs := quietLogs(t)
 	sonde, err := scanWith(t, treeChecks+douaneEmitting(goodSweep, 1), 0)
-	if err != nil {
-		t.Fatalf("scan: %v", err)
+	if !errors.Is(err, errIncomplete) || !strings.Contains(err.Error(), "scanned 4 of 6") {
+		t.Fatalf("scan: %v: an incomplete run is delivered, then fails the job", err)
 	}
 	report := onlyReport(t, sonde)
 
@@ -69,10 +70,8 @@ func TestAScanDeliversAReportTheServerAccepts(t *testing.T) {
 	if got := projectNamed(t, report, "broken"); got.Covered || !strings.HasPrefix(got.NotCovered, "tree failed") {
 		t.Fatalf("broken = %+v", got)
 	}
-	for _, project := range report.Projects {
-		if project.Name == "old" {
-			t.Fatal("an archived repository was reported")
-		}
+	if got := projectNamed(t, report, "old"); got.Covered || got.NotCovered != archivedReason || len(got.Findings) != 0 {
+		t.Fatalf("old = %+v: an archived repository is reported, not covered and counted nowhere", got)
 	}
 	if report.Latest["@facile/muse"] != "v0.16.1" {
 		t.Fatalf("latest = %v", report.Latest)
@@ -89,7 +88,7 @@ func TestARepoDouaneFailedOrCouldNotReadIsNotCovered(t *testing.T) {
  {"name":"16","packages":1,"findings":[],"gaps":[{"kind":"unreadable","subject":"go.mod"}]}
 ],"gaps":[]}`
 	sonde, err := scanWith(t, douaneEmitting(sweep, 3), 0)
-	if err != nil {
+	if err != nil && !errors.Is(err, errIncomplete) {
 		t.Fatalf("scan: %v", err)
 	}
 	report := onlyReport(t, sonde)
@@ -106,7 +105,7 @@ func TestAnOSVFailureWithholdsEveryRepoWithPackages(t *testing.T) {
 	quietLogs(t)
 	sweep := strings.Replace(goodSweep, `{"kind":"upstream","subject":"epss"}`, `{"kind":"upstream","subject":"next, vite"}`, 1)
 	sonde, err := scanWith(t, douaneEmitting(sweep, 3), 0)
-	if err != nil {
+	if err != nil && !errors.Is(err, errIncomplete) {
 		t.Fatalf("scan: %v", err)
 	}
 	report := onlyReport(t, sonde)
@@ -135,7 +134,7 @@ func TestAFailingScannerDeliversNothing(t *testing.T) {
 func TestARepoTheScannerSkippedIsNotReportedAsClean(t *testing.T) {
 	quietLogs(t)
 	sonde, err := scanWith(t, douaneEmitting(`{"repos":[],"gaps":[]}`, 0), 0)
-	if err != nil {
+	if err != nil && !errors.Is(err, errIncomplete) {
 		t.Fatalf("scan: %v", err)
 	}
 	if api := projectNamed(t, onlyReport(t, sonde), "api"); api.Covered || !strings.Contains(api.NotCovered, "douane returned nothing") {
@@ -147,7 +146,7 @@ func TestAnInvalidProjectIsDemotedInsteadOfLosingTheNight(t *testing.T) {
 	quietLogs(t)
 	sweep := strings.Replace(goodSweep, `"package":"next"`, `"package":""`, 1)
 	sonde, err := scanWith(t, douaneEmitting(sweep, 1), 0)
-	if err != nil {
+	if err != nil && !errors.Is(err, errIncomplete) {
 		t.Fatalf("scan: %v", err)
 	}
 	report := onlyReport(t, sonde)
@@ -163,7 +162,7 @@ func TestAnInvalidProjectIsDemotedInsteadOfLosingTheNight(t *testing.T) {
 func TestDeliveryRetriesServerErrorsButNotRefusals(t *testing.T) {
 	quietLogs(t)
 	sonde, err := scanWith(t, douaneEmitting(goodSweep, 1), 2)
-	if err != nil || len(sonde.received) != 1 || sonde.calls.Load() != 3 {
+	if !errors.Is(err, errIncomplete) || len(sonde.received) != 1 || sonde.calls.Load() != 3 {
 		t.Fatalf("err = %v, delivered = %d, calls = %d: two 503s then a success", err, len(sonde.received), sonde.calls.Load())
 	}
 
@@ -186,7 +185,7 @@ func TestOutWritesTheReportInsteadOfDeliveringIt(t *testing.T) {
 	}
 	var written fleet.Report
 	data, err := os.ReadFile(cfg.out)
-	if err != nil || json.Unmarshal(data, &written) != nil || len(written.Projects) != 6 || sonde.calls.Load() != 0 {
+	if err != nil || json.Unmarshal(data, &written) != nil || len(written.Projects) != 7 || sonde.calls.Load() != 0 {
 		t.Fatalf("written report wrong (err %v) or delivered anyway (%d calls)", err, sonde.calls.Load())
 	}
 }

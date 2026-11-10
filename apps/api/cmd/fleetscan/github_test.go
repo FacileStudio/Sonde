@@ -131,3 +131,23 @@ func TestWriteTreeRefusesAPathOutsideTheRepository(t *testing.T) {
 		t.Fatal("the file landed outside the root")
 	}
 }
+
+func TestTheOrganisationListingIsReadFromEveryPage(t *testing.T) {
+	server, calls := countingServer(t, func(_ int32, w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			page := make([]map[string]any, pageSize)
+			for i := range page {
+				page[i] = map[string]any{"id": i + 1, "name": "repo-" + strconv.Itoa(i), "default_branch": "main"}
+			}
+			writeJSON(w, page)
+			return
+		}
+		writeJSON(w, []map[string]any{{"id": 1000, "name": "last", "default_branch": "main"}})
+	})
+
+	repos, err := newGithubClient(server.URL, "t", time.Millisecond).repos(context.Background(), "Acme")
+
+	if err != nil || len(repos) != pageSize+1 || repos[pageSize].Name != "last" || calls.Load() != 2 {
+		t.Fatalf("repos = %d, calls = %d, err = %v: a full page must be followed by the next", len(repos), calls.Load(), err)
+	}
+}

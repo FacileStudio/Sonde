@@ -25,14 +25,23 @@ const (
 type runInfo struct {
 	started, finished time.Time
 	douaneVersion     string
+	acceptShrink      bool
 }
+
+var (
+	errAlreadyStored = errors.New("already stored")
+	errIncomplete    = errors.New("run incomplete")
+)
 
 func buildReport(info runInfo, repos []fetchedRepo, verdicts map[string]verdict, latest map[string]string) fleet.Report {
 	report := fleet.Report{
 		SchemaVersion: fleet.SchemaVersion,
-		Run:           fleet.RunInfo{StartedAt: info.started, FinishedAt: info.finished, DouaneVersion: info.douaneVersion},
-		Latest:        latest,
-		Projects:      make([]fleet.ProjectReport, 0, len(repos)),
+		Run: fleet.RunInfo{
+			StartedAt: info.started, FinishedAt: info.finished, DouaneVersion: info.douaneVersion,
+			AcceptShrink: info.acceptShrink,
+		},
+		Latest:   latest,
+		Projects: make([]fleet.ProjectReport, 0, len(repos)),
 	}
 	for _, repo := range repos {
 		report.Projects = append(report.Projects, projectOf(repo, verdicts))
@@ -51,7 +60,7 @@ func projectOf(repo fetchedRepo, verdicts map[string]verdict) fleet.ProjectRepor
 	case repo.nothing:
 		project.Covered = true
 		return project
-	case !repo.covered:
+	case repo.archived, !repo.covered:
 		return project
 	}
 	result, scanned := verdicts[repo.dir]
@@ -66,11 +75,16 @@ func projectOf(repo fetchedRepo, verdicts map[string]verdict) fleet.ProjectRepor
 	return project
 }
 
+// sanitize demotes any project the server would refuse and counts the run. An
+// archived repository is reported but counted in neither total.
 func sanitize(report *fleet.Report, now time.Time) {
-	report.Run.ReposExpected, report.Run.ReposScanned = len(report.Projects), 0
+	report.Run.ReposExpected, report.Run.ReposScanned = 0, 0
 	for i := range report.Projects {
 		if !projectValid(report.Projects[i], now) {
 			demote(&report.Projects[i])
+		}
+		if report.Projects[i].NotCovered != archivedReason {
+			report.Run.ReposExpected++
 		}
 		if report.Projects[i].Covered {
 			report.Run.ReposScanned++
@@ -121,6 +135,9 @@ func deliver(ctx context.Context, cfg config, report fleet.Report) (fleet.Ingest
 	for try := range deliveryAttempts {
 		result, err = post(ctx, cfg, body)
 		var refused deliveryError
+		if try > 0 && errors.As(err, &refused) && refused.status == http.StatusConflict {
+			return result, errAlreadyStored
+		}
 		if err == nil || (errors.As(err, &refused) && refused.status < 500) || try == deliveryAttempts-1 {
 			break
 		}
@@ -153,19 +170,39 @@ func post(ctx context.Context, cfg config, body []byte) (fleet.IngestResult, err
 	return result, json.Unmarshal(reply, &result)
 }
 
+// finish writes the report with -out, or delivers it. A retry refused as a
+// duplicate means an earlier attempt was stored and only its reply was lost.
+// A run Sonde stored as incomplete fails the job, so the workflow sends no
+// heartbeat and a coverage gap that persists opens an incident.
 func (r *runner) finish(ctx context.Context, report fleet.Report) error {
 	if r.cfg.out != "" {
-		data, err := json.MarshalIndent(report, "", "  ")
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(r.cfg.out, data, 0o600)
+		return writeReport(r.cfg.out, report)
 	}
 	result, err := deliver(ctx, r.cfg, report)
+	switch {
+	case errors.Is(err, errAlreadyStored):
+		log.Printf("fleetscan: an earlier attempt was stored; its reply was lost")
+		result.Complete = report.Run.Complete()
+	case err != nil:
+		return err
+	default:
+		log.Printf("fleetscan: delivered run %d: %d new, %d resolved, %d open, complete=%t",
+			result.RunID, result.NewFindings, result.Resolved, result.FindingsOpen, result.Complete)
+	}
+	return completeness(report, result)
+}
+
+func writeReport(path string, report fleet.Report) error {
+	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return err
 	}
-	log.Printf("fleetscan: delivered run %d: %d new, %d resolved, %d open, complete=%t",
-		result.RunID, result.NewFindings, result.Resolved, result.FindingsOpen, result.Complete)
-	return nil
+	return os.WriteFile(path, data, 0o600)
+}
+
+func completeness(report fleet.Report, result fleet.IngestResult) error {
+	if result.Complete {
+		return nil
+	}
+	return fmt.Errorf("%w: scanned %d of %d", errIncomplete, report.Run.ReposScanned, report.Run.ReposExpected)
 }
