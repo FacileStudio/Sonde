@@ -1,6 +1,6 @@
 # Authentication
 
-Sonde authenticates through [porte](https://github.com/FacileStudio/porte) v0.12.x, and only
+Sonde authenticates through [porte](https://github.com/FacileStudio/porte) v0.17.x, and only
 through Registre. One session manager owns the sessions table (cookie `session`). There is no
 local password, register or login route.
 

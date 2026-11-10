@@ -182,7 +182,7 @@ Everything cross-cutting comes from `tronc`, not from `internal/`:
 
 `migrate` and `apiref` come from `tronc` too: the first applies the embedded goose migrations,
 the second serves the OpenAPI document and its Scalar UI at `/docs`. `apps/api/go.mod` pins
-`tronc` at v0.12.0, `tronc/migrate` at v0.1.0 and `porte` at v0.3.1.
+`tronc` at v0.21.0, `tronc/migrate` at v0.1.0 and `porte` at v0.17.0.
 
 `internal/env` is the one deliberate exception to using the chassis: it is local rather than
 `troncenv`.

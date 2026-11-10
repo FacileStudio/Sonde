@@ -11,11 +11,11 @@ check history instead of growing an unbounded table.
 ## Tech stack
 
 - **API** (`apps/api`): Go 1.26, Chi v5, GORM over PostgreSQL 16, ordered goose migrations
-- **Auth**: [`porte`](https://github.com/FacileStudio/porte) v0.12.0, sign-in through Registre
+- **Auth**: [`porte`](https://github.com/FacileStudio/porte) v0.17.0, sign-in through Registre
   (OIDC) only, no local passwords
 - **Client** (`apps/client`): SvelteKit 2 (`adapter-static`), Svelte 5 runes, Tailwind CSS 4,
   Vite 7, and the [`@facile/muse`](https://github.com/FacileStudio/muse) design system
-- **Chassis**: [`tronc`](https://github.com/FacileStudio/tronc) v0.17.1 supplies `errors`,
+- **Chassis**: [`tronc`](https://github.com/FacileStudio/tronc) v0.21.0 supplies `errors`,
   `httpjson`, `logger`, `middleware`, `httpx`, `health`, `healthcheck`, `spa`, `apiref`,
   `migrate` and `testdb`. Do not reimplement any of them locally
 - **Tooling**: mise (monorepo mode) + bun for the client; dev Postgres via
