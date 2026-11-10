@@ -299,4 +299,8 @@ fast-forward, tag, push the tag, and watch CI. Then wait for production to serve
 and a 401 with what you captured before the push. If health, the login redirect or sign-in
 fails because of your change, push revert commits at once. Never force-push.
 
+For the real sign-in, run `APP_URL=https://<app>.facile.studio [APP_LOGIN_PATH=/api/auth/oidc] [ME_PATH=/api/auth/me] [LANDING_HINT=/] sh ~/.cache/facile-conv/tools/signin-smoke.sh`.
+It creates a throwaway Registre user, signs in through headless Chromium, checks `ME_PATH`, signs out, checks the 401, and always deletes and disables the user, ending with `RESULT PASS` or `RESULT FAIL <step>`.
+It never touches the app's database: Registre holds the deletion 30 days, so erase the row named by its `ERASE_HINT` line yourself, in one transaction guarded by `AND NOT is_admin`.
+
 Back to the [documentation index](README.md).
