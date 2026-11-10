@@ -29,8 +29,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOUANE_VERSION: "0.6.3"
-  DOUANE_SHA256: "36d693fa58c43c4f87ae3de6cb3c509090238fee02bbb3b7334ecc9e348cf6b0"
+  DOUANE_VERSION: "0.7.0"
+  DOUANE_SHA256: "718745c1440905ff9c87c1d5eef866d3994beaec39e92f3c033835016f4d7dbb"
 
 jobs:
   scan:
