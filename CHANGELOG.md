@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Sonde is licensed `AGPL-3.0-only`. `LICENSE` carries the canonical text and `apps/client/package.json` the SPDX id. Earlier versions were published without a licence.
+
 ## [0.4.1] - 2026-11-10
 
 ### Fixed
