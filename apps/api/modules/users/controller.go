@@ -36,24 +36,18 @@ func (controller *Controller) updateMe(context context.Context, req *UpdateReque
 		return nil, errors.Unauthorized("missing auth")
 	}
 
-	var email *string
 	if req.Email != nil {
-		normalized := strings.TrimSpace(strings.ToLower(*req.Email))
-		if normalized == "" || !strings.Contains(normalized, "@") {
-			return nil, errors.Invalid("invalid email")
-		}
-		email = &normalized
+		return nil, errors.Invalid("the email comes from your Registre account and cannot be changed here")
 	}
-	name := strings.TrimSpace(deref(req.Name))
-	if req.Name != nil && name == "" {
+	if req.Name == nil {
+		return nil, errors.Invalid("name is required")
+	}
+	name := strings.TrimSpace(*req.Name)
+	if name == "" {
 		return nil, errors.Invalid("invalid name")
 	}
 
-	if email == nil && req.Name == nil {
-		return nil, errors.Invalid("at least one field must be provided")
-	}
-
-	user, err := controller.service.updateUser(context, identity.UserID, email, name)
+	user, err := controller.service.updateName(context, identity.UserID, name)
 	if err != nil {
 		return nil, err
 	}
@@ -71,11 +65,4 @@ func toUser(user *schemas.User) User {
 		AvatarURL: user.AvatarURL,
 		Locale:    user.Locale,
 	}
-}
-
-func deref(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
