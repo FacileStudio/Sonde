@@ -114,6 +114,8 @@ administrator whose email is in `SONDE_FLEET_ADMINS`; anyone else gets 403. See
 | POST | `/api/fleet/reports` | fleet token | Stores one gzip-compressed report. 404 until `SONDE_FLEET_TOKEN` is set; 409 when the report is not newer than the last one stored |
 | GET | `/api/fleet/actions` | fleet admin | Open findings grouped by the upgrade that clears them, ranked `act`, `schedule`, `track`. `?level=` narrows the list, never the counts |
 | GET | `/api/fleet/drift` | fleet admin | Per tracked package, the projects not on the latest version, with holds marked |
+| GET | `/api/fleet/graph` | fleet admin | Every project as a node, and the `lib`, `call`, `event`, `identity` and `logs` edges the runner derived from its files |
+| GET | `/api/fleet/conformance` | fleet admin | The check matrix: one row per project, checks that did not apply left out, worst project first |
 | GET | `/api/fleet/projects` | fleet admin | Every repository: covered ones first, the most open findings first |
 | PATCH | `/api/fleet/projects/{id}` | fleet admin | Sets `tier`, `version_url`, `journal_app` |
 | GET | `/api/fleet/runs` | fleet admin | The newest deliveries and how complete each was |

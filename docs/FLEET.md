@@ -5,7 +5,7 @@ It stores what a scheduled runner reports and ranks it. It runs no scanner and t
 repository.
 
 ```text
-scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/actions, /drift, /projects
+scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/actions, /drift, /graph, /conformance, /projects
 ```
 
 ## The runner
@@ -72,6 +72,73 @@ one repository, so it withholds every repository that has packages.
   branch or a range always reads as drift. `replace` directives are ignored.
 - Filet counts as wired when a workflow uses `FacileStudio/filet@…` or runs `filet check` or
   `filet test`.
+- It also fetches `docker-compose.yml` (and `compose.yml`), every `.env.example`, `filet.yml`,
+  `lefthook.yml` and `scripts/check.sh`. These are read for the graph and the checks below only:
+  they are never written to douane's tree and do not count towards the 80-manifest limit.
+
+## Edges
+
+The runner derives each covered repository's dependencies from the files it fetched. An edge is
+`{to, kind, auth, evidence}`; the server stores it under the reporting project as `from`.
+
+| Kind | Read from | `to` | `evidence` |
+|---|---|---|---|
+| `lib` | every `github.com/FacileStudio/<x>` module in a `go.mod` and every `@facile/<x>` package in a `package.json`, tracked or not | the listed repository named `<x>`, ignoring case | the pin spec |
+| `call` | a variable `<APP>_URL`, `_API_URL`, `_AUDIENCE`, `_API_TOKEN`, `_SERVICE_KEY`, `_INTEGRATION_KEY` or `_WEBHOOK_SECRET`, where `<APP>` is a listed repository's name upper-cased with dashes as underscores | that repository | the variable |
+| `event` | `ANTENNE_URL` or `ANTENNE_INSTANCE` | `Antenne` | the variable |
+| `identity` | `OIDC_ISSUER` | `Registre` | the variable |
+| `logs` | `JOURNAL_URL` | `Journal` | the variable |
+
+A call edge carries `auth`: `url` for `_URL` and `_API_URL`, `audience` for `_AUDIENCE`,
+`static_key` for `_API_TOKEN`, `_SERVICE_KEY` and `_INTEGRATION_KEY`, and `webhook` for
+`_WEBHOOK_SECRET`. The graph draws `static_key` and `webhook` calls in the warning tone.
+
+Variables come from assignments in `.env.example`, commented examples included, and from the keys
+and `${...}` interpolations of a compose file outside its comments. An edge to the repository
+itself is dropped.
+
+## Conformance checks
+
+Each covered repository gets a list of `{id, ok, detail}`. A check that does not apply is left out,
+never failed.
+
+| Check | Passes when | Asked of |
+|---|---|---|
+| `gate.filet` | a workflow, `lefthook.yml` or `scripts/check.sh` uses `FacileStudio/filet@` or runs `filet check` or `filet test` | every repository |
+| `gate.douane` | the same places use `FacileStudio/douane@` or run `douane scan` or `douane sweep` | every repository |
+| `gate.tests` | the same places run `go test`, `bun test`, `cargo test` or `vitest` | every repository |
+| `gate.race` | a `go test` line there carries `-race` | repositories with a `go.mod` |
+| `hooks.lefthook` | `lefthook.yml` sits at the root | every repository |
+| `migrations.sql` | a `migrations/*.sql` path exists | repositories with `apps/api/go.mod` |
+| `docker.single` | exactly one Dockerfile exists, at the root | repositories with `apps/api` |
+| `pins.current` | every tracked pin equals the newest tag in `latest` | repositories with a tracked pin whose newest tag is known |
+| `fuzz.present` | a `testdata/fuzz/` or `fuzz/` directory is committed | repositories with a `go.mod` or `Cargo.toml` |
+
+Paths under `node_modules/` and `vendor/` are ignored for every path check.
+
+## The graph and conformance routes
+
+- `GET /api/fleet/graph` returns `{nodes, edges}`. A node is
+  `{id, name, tier, deployed_version, latest_tag, uptime_status, checks_ok, checks_total, open_act}`.
+  `id` is 0 for a target edges name but the runner never listed. `latest_tag` is known for tracked
+  libraries only. `uptime_status` is `up`, `down` or `unknown` from the newest check of the enabled
+  monitors whose name equals the project's, ignoring case, and empty when no monitor has that name.
+  `open_act` counts the `act` actions that touch the project.
+- `GET /api/fleet/conformance` returns `{checks, projects}`: every check id seen, and per project
+  its checks with `passed` and `total`, the smallest passing share first.
+
+Both sit behind the same gate as every other read route. A covered project's edges and checks are
+replaced wholesale on each delivery, inside the ingest transaction. A project that is not covered
+keeps the rows of its last covering scan.
+
+## Deploy order
+
+The report stays at `schema_version` 1: `edges` and `conformance` are additive and omitted when
+empty. The server decodes reports strictly (`DisallowUnknownFields`, through tronc's
+`httpjson.DecodeGzipJSONLimit`), so a server that predates them refuses a report that carries
+them with 400, and the runner does not retry a 4xx. Deploy the server before the workflow runs
+the new runner. The workflow builds the runner from the default branch, so merge and deploy in
+the same window, before the next night.
 
 | Flag or variable | Default | What it does |
 |---|---|---|
