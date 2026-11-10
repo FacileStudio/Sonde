@@ -2,12 +2,16 @@
 	import { onMount } from 'svelte';
 	import { Alert, EmptyState, PageHeader, Skeleton, StatCard, Tabs, icons } from '@facile/muse';
 	import MaintenanceActions from '$lib/components/MaintenanceActions.svelte';
+	import MaintenanceConformance from '$lib/components/MaintenanceConformance.svelte';
 	import MaintenanceDrift from '$lib/components/MaintenanceDrift.svelte';
+	import MaintenanceGraph from '$lib/components/MaintenanceGraph.svelte';
 	import MaintenanceProjects from '$lib/components/MaintenanceProjects.svelte';
 	import {
 		backend,
 		type MaintenanceActions as Actions,
+		type MaintenanceConformance as Conformance,
 		type MaintenanceDrift as Drift,
+		type MaintenanceGraph as Graph,
 		type MaintenanceProject,
 		type MaintenanceRun
 	} from '$lib/backend';
@@ -20,6 +24,8 @@
 	let actions = $state<Actions | null>(null);
 	let drift = $state<Drift | null>(null);
 	let projects = $state<MaintenanceProject[]>([]);
+	let graph = $state<Graph>({ nodes: [], edges: [] });
+	let conformance = $state<Conformance>({ checks: [], projects: [] });
 	let loading = $state(true);
 	let error = $state('');
 	let tab = $state('actions');
@@ -29,6 +35,8 @@
 	const tabs = $derived([
 		{ id: 'actions', label: t('maintenance.tab.actions') },
 		{ id: 'drift', label: t('maintenance.tab.drift') },
+		{ id: 'graph', label: t('maintenance.tab.graph') },
+		{ id: 'conformance', label: t('maintenance.tab.conformance') },
 		{ id: 'projects', label: t('maintenance.tab.projects') }
 	]);
 
@@ -47,11 +55,13 @@
 
 	onMount(async () => {
 		try {
-			[runs, actions, drift, projects] = await Promise.all([
+			[runs, actions, drift, projects, graph, conformance] = await Promise.all([
 				backend.maintenanceRuns(),
 				backend.maintenanceActions(),
 				backend.maintenanceDrift(),
-				backend.maintenanceProjects()
+				backend.maintenanceProjects(),
+				backend.maintenanceGraph(),
+				backend.maintenanceConformance()
 			]);
 		} catch (err) {
 			const status = (err as { status?: number }).status;
@@ -116,6 +126,10 @@
 				<MaintenanceActions data={actions} />
 			{:else if tab === 'drift'}
 				<MaintenanceDrift data={drift} />
+			{:else if tab === 'graph'}
+				<MaintenanceGraph data={graph} />
+			{:else if tab === 'conformance'}
+				<MaintenanceConformance data={conformance} />
 			{:else}
 				<MaintenanceProjects {projects} onSaved={refreshActions} />
 			{/if}

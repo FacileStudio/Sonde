@@ -73,3 +73,41 @@ export type MaintenanceRun = {
 	findings_open: number;
 	received_at: string;
 };
+
+export type MaintenanceEdgeKind = 'lib' | 'call' | 'event' | 'identity' | 'logs';
+
+export type MaintenanceEdge = {
+	from: string;
+	to: string;
+	kind: MaintenanceEdgeKind;
+	auth: '' | 'audience' | 'static_key' | 'webhook' | 'url';
+	evidence: string;
+};
+
+export type MaintenanceNode = {
+	id: number;
+	name: string;
+	tier: MaintenanceTier | '';
+	deployed_version: string;
+	latest_tag: string;
+	uptime_status: '' | 'up' | 'down' | 'unknown';
+	checks_ok: number;
+	checks_total: number;
+	open_act: number;
+};
+
+export type MaintenanceGraph = { nodes: MaintenanceNode[]; edges: MaintenanceEdge[] };
+
+export type MaintenanceCheck = { id: string; ok: boolean; detail: string };
+
+export type MaintenanceConformance = {
+	checks: string[];
+	projects: {
+		id: number;
+		name: string;
+		tier: MaintenanceTier;
+		passed: number;
+		total: number;
+		checks: MaintenanceCheck[];
+	}[];
+};

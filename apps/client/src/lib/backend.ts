@@ -24,7 +24,9 @@ import type {
 } from '$lib/types';
 import type {
 	MaintenanceActions,
+	MaintenanceConformance,
 	MaintenanceDrift,
+	MaintenanceGraph,
 	MaintenanceProject,
 	MaintenanceRun,
 	MaintenanceTier
@@ -178,6 +180,12 @@ export const backend = {
 	},
 	maintenanceDrift() {
 		return apiFetch<MaintenanceDrift>('/fleet/drift');
+	},
+	maintenanceGraph() {
+		return apiFetch<MaintenanceGraph>('/fleet/graph');
+	},
+	maintenanceConformance() {
+		return apiFetch<MaintenanceConformance>('/fleet/conformance');
 	},
 	maintenanceProjects() {
 		return apiFetch<MaintenanceProject[]>('/fleet/projects');
