@@ -4,6 +4,9 @@ name: fleet-scan
 # through a read-only GitHub App, runs douane over the lockfiles, and delivers
 # one report to Sonde. It never checks out or runs another repository's code.
 #
+# douane is verified against the sha256 pinned below, not against the
+# checksums file of the same release, and every action is pinned to a commit.
+#
 # Off until the repository variable FLEET_SCAN_ENABLED is "true". Setup is in
 # docs/FLEET.md. It has no pull_request trigger on purpose: the job holds the
 # App key and the Sonde token, and a fork must never reach either.
@@ -21,7 +24,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOUANE_VERSION: "0.6.1"
+  DOUANE_VERSION: "0.6.2"
+  DOUANE_SHA256: "4154fe74a9c7ca6e48f07623e705800641b716583149a80974d8ad0e53101bbd"
 
 jobs:
   scan:
@@ -29,20 +33,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
 
       - name: Mint a read-only token
         id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ secrets.FLEET_APP_ID }}
           private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
           owner: FacileStudio
+          permission-contents: read
+          permission-actions: read
 
       - name: Install douane
         working-directory: ${{ runner.temp }}
@@ -50,9 +58,8 @@ jobs:
           set -eu
           archive="douane_${DOUANE_VERSION}_linux_amd64.tar.gz"
           base="https://github.com/FacileStudio/douane/releases/download/v${DOUANE_VERSION}"
-          curl -fsSLO "$base/checksums.txt"
           curl -fsSLO "$base/$archive"
-          sha256sum --check --ignore-missing checksums.txt
+          echo "${DOUANE_SHA256}  $archive" | sha256sum -c -
           tar xzf "$archive" douane
           ./douane --version
 
