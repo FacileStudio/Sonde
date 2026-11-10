@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - 2026-11-10
+
+### Fixed
+
+- `docker-compose.yml` forwards `SONDE_FLEET_TOKEN` and `SONDE_FLEET_ADMINS` to the container. Without them, production ignored the values set in Dokploy, so the maintenance page could not be opened and ingest stayed off. A test now fails whenever the server reads a variable the compose file does not forward.
+
 ## [0.3.1] - 2026-11-10
 
 ### Security
