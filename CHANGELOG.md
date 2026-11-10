@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.3] - 2026-11-10
+
+### Fixed
+
+- A complete fleet run that lists far fewer repositories than are covered (below 90%, or more than 5 fewer) no longer resolves the rest of the fleet. It is stored as incomplete and logged; the workflow's `accept_shrink` input confirms a real removal.
+- A delivery whose reply was lost, then refused with 409 on retry, now counts as delivered, so a stored report cannot fail the night.
+- Archived repositories are reported as not covered with the reason `archived`, instead of being resolved as vanished.
+- A finding's key prefers its CVE, then its GHSA, then the ecosystem's own id, so an alias added later, such as a Bitnami copy, never becomes the key. Keys already stored are kept.
+- An ingest waits at most 5 seconds for the delivery lock, then answers 503.
+- The push-monitor interval in `docs/FLEET.md` is 13 hours, so a missed night raises an incident within 26 hours.
+
+### Changed
+
+- The server logs every fleet delivery with its counts, refusals with their code, internal failures with their cause, and refused tokens with the caller's address.
+- Accepted fleet deliveries are rate-limited to a burst of ten, refilled at one a minute.
+- `fleetscan` exits non-zero after delivering an incomplete run, so the workflow skips the heartbeat.
+- The nightly workflow uses douane 0.6.3, which reports an OSV outage on every repository it could have emptied, and the App's client id in place of the deprecated app id input. The secret is now `FLEET_APP_CLIENT_ID`.
+- CI pins every action by commit, does not persist credentials, has job timeouts, and checks the `VERSION` file.
+- The bun build image is pinned to the version mise uses, the container gets 15 seconds to stop, and `mise.toml` uses `monorepo_root`.
+- Filet runs with the strict suite limits, and the fleet code meets them.
+- The compose test now covers every variable the server reads, not only `env.go`.
+
+### Added
+
+- A runbook in `docs/FLEET.md` for a `fleet-scan` incident, including a scheduled workflow that GitHub disabled after 60 days without activity.
+
 ## [0.3.2] - 2026-11-10
 
 ### Fixed
