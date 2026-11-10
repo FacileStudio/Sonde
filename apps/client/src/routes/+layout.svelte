@@ -3,7 +3,7 @@
 	import { browser } from '$app/environment';
 	import { Toaster, provideLocale } from '@facile/muse';
 	import { bindLocale, localeSource } from '$lib/i18n/index.svelte';
-	import { restoreTheme } from '$lib/theme.svelte';
+	import { theme } from '$lib/theme.svelte';
 	import mdi from '$lib/icons/mdi.json';
 	import solar from '$lib/icons/solar.json';
 
@@ -13,7 +13,7 @@
 	bindLocale(() => i18n.locale);
 
 	if (browser) {
-		restoreTheme();
+		theme.restore();
 
 		/*
 		 * Registering the custom element is what makes muse's chrome visible at all — its

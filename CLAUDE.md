@@ -183,8 +183,9 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 - **Document every route.** `apps/api/apiref_test.go` walks the live router and fails if a
   mounted route is missing from `registry()` in `main.go`, so the reference at `/docs` cannot
   drift from the code.
-- **Client API calls**: always relative to `/api` (`apps/client/src/lib/backend.ts`). Never an
-  absolute host, never a build-time `VITE_API_BASE_URL`, which is what forced the old
+- **Client API calls**: always relative to `/api` (`apps/client/src/lib/backend.ts`, built on
+  `createApi` and `redirectToLogin` from `@facile/client`, which also supplies the theme store).
+  Never an absolute host, never a build-time `VITE_API_BASE_URL`, which is what forced the old
   two-container split.
 - **Client UI is muse.** `@facile/muse` is pinned in `apps/client/package.json` as a GitHub
   tag. Reach for a muse component before writing one; `src/lib/components/` is for what muse

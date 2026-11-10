@@ -1,5 +1,4 @@
-import { browser } from '$app/environment';
-import { goto } from '$app/navigation';
+import { createApi, redirectToLogin } from '@facile/client';
 import type {
 	Bucket,
 	Check,
@@ -43,63 +42,7 @@ const backendBaseUrl = '/api';
 
 export const ssoLoginUrl = `${backendBaseUrl}/auth/oidc`;
 
-type ApiErrorPayload = {
-	error?: {
-		message?: string;
-	};
-};
-
-/*
- * 401 is the only code that means "sign in again". porte answers 401 for an absent, invalid
- * or expired session and reserves 403 for two states that are not about being signed out: a
- * cookie mutation missing X-Facile-CSRF, and this app's admin gate on the status-page and
- * export routes. Bouncing a signed-in non-admin to /login would land them on a page that
- * immediately sends them back, so 403 stays with the caller.
- */
-function sessionRefused() {
-	if (!browser) return;
-	const here = window.location.pathname;
-	/* The login page itself probes /auth/me, and a 401 there is the expected answer. */
-	if (here === '/login') return;
-	const next = here + window.location.search;
-	void goto(`/login?next=${encodeURIComponent(next)}`, { replaceState: true });
-}
-
-async function apiFetch<T>(
-	path: string,
-	options: RequestInit = {},
-	silent = false
-): Promise<T> {
-	const headers = new Headers(options.headers);
-	if (!headers.has('Content-Type') && options.body) {
-		headers.set('Content-Type', 'application/json');
-	}
-	const mutating = options.method && options.method !== 'GET';
-	if (mutating) {
-		headers.set('X-Facile-CSRF', '1');
-	}
-
-	const response = await fetch(`${backendBaseUrl}${path}`, {
-		...options,
-		headers,
-		credentials: 'same-origin'
-	});
-	if (!response.ok) {
-		if (response.status === 401 && !silent) sessionRefused();
-		let payload: ApiErrorPayload | undefined;
-		try {
-			payload = (await response.json()) as ApiErrorPayload;
-		} catch {
-			payload = undefined;
-		}
-		const message = payload?.error?.message || `Request failed with status ${response.status}`;
-		throw Object.assign(new Error(message), { status: response.status });
-	}
-	if (response.status === 204) {
-		return undefined as T;
-	}
-	return (await response.json()) as T;
-}
+const apiFetch = createApi({ base: backendBaseUrl, onUnauthorized: redirectToLogin });
 
 function download(path: string, filename: string) {
 	return fetch(`${backendBaseUrl}${path}`, { credentials: 'same-origin' }).then(async (response) => {
@@ -114,23 +57,13 @@ function download(path: string, filename: string) {
 	});
 }
 
-async function toError(response: Response, fallback: string): Promise<Error> {
-	let payload: ApiErrorPayload | undefined;
-	try {
-		payload = (await response.json()) as ApiErrorPayload;
-	} catch {
-		payload = undefined;
-	}
-	return new Error(payload?.error?.message || fallback);
-}
-
 export const backend = {
 	baseUrl: backendBaseUrl,
 	me() {
 		return apiFetch<MeResponse>('/auth/me');
 	},
 	probeSession() {
-		return apiFetch<MeResponse>('/auth/me', {}, true);
+		return apiFetch<MeResponse>('/auth/me', {}, { quiet: true });
 	},
 	logout() {
 		return apiFetch<void>('/auth/logout', { method: 'POST' });
@@ -173,7 +106,7 @@ export const backend = {
 		return apiFetch<MonitorHistory>(`/monitors/${id}/history?window=${window}`);
 	},
 	maintenanceRuns(silent = false) {
-		return apiFetch<MaintenanceRun[]>('/fleet/runs', {}, silent);
+		return apiFetch<MaintenanceRun[]>('/fleet/runs', {}, { quiet: silent });
 	},
 	maintenanceActions() {
 		return apiFetch<MaintenanceActions>('/fleet/actions');
@@ -257,9 +190,6 @@ export const backend = {
 		});
 	},
 	publicStatusPage(slug: string) {
-		return fetch(`${backendBaseUrl}/public/status/${slug}`).then(async (response) => {
-			if (!response.ok) throw await toError(response, 'Status page not found');
-			return (await response.json()) as PublicStatusPage;
-		});
+		return apiFetch<PublicStatusPage>(`/public/status/${slug}`, {}, { quiet: true });
 	}
 };

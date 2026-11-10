@@ -11,7 +11,7 @@
 	} from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
 	import { rememberLocale, t } from '$lib/i18n/index.svelte';
-	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
+	import { theme, type ThemeMode } from '$lib/theme.svelte';
 	import WebhookList from '$lib/components/WebhookList.svelte';
 	import BusSection from '$lib/components/BusSection.svelte';
 	import AdvancedSection from '$lib/components/AdvancedSection.svelte';
@@ -66,7 +66,7 @@
 		{:else if id === 'preferences'}
 			<PreferencesSection
 				theme={theme.mode}
-				onThemeChange={(next) => setTheme(next as ThemeMode)}
+				onThemeChange={(next) => theme.set(next as ThemeMode)}
 				onLocaleChange={rememberLocale}
 			/>
 		{:else if id === 'notifications'}

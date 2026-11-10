@@ -5,7 +5,7 @@
 	import { Button, EmptyState, MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
 	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
-	import { setTheme, theme, type ThemeMode } from '$lib/theme.svelte';
+	import { theme, type ThemeMode } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
@@ -81,7 +81,7 @@
 		onSignOut: signOut,
 		onLocaleChange: rememberLocale,
 		theme: theme.mode,
-		onThemeChange: (next: string) => setTheme(next as ThemeMode)
+		onThemeChange: (next: string) => theme.set(next as ThemeMode)
 	});
 	const settingsActive = $derived(isActive('/settings'));
 
