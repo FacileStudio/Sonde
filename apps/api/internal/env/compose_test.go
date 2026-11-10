@@ -34,22 +34,24 @@ func stringConsts(files []*ast.File) map[string]string {
 	consts := map[string]string{}
 	for _, file := range files {
 		ast.Inspect(file, func(node ast.Node) bool {
-			spec, ok := node.(*ast.ValueSpec)
-			if !ok {
-				return true
-			}
-			for i, name := range spec.Names {
-				if i >= len(spec.Values) {
-					break
-				}
-				if lit, ok := spec.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					consts[name.Name], _ = strconv.Unquote(lit.Value)
-				}
+			if spec, ok := node.(*ast.ValueSpec); ok {
+				addStringConsts(spec, consts)
 			}
 			return true
 		})
 	}
 	return consts
+}
+
+func addStringConsts(spec *ast.ValueSpec, consts map[string]string) {
+	for i, name := range spec.Names {
+		if i >= len(spec.Values) {
+			return
+		}
+		if lit, ok := spec.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			consts[name.Name], _ = strconv.Unquote(lit.Value)
+		}
+	}
 }
 
 // argumentName resolves the first argument of an environment read to a
@@ -97,6 +99,19 @@ func packageFiles(t *testing.T) map[string][]*ast.File {
 	return packages
 }
 
+func collectReads(file *ast.File, consts map[string]string, names map[string]bool) {
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok || !readsEnv(call) {
+			return true
+		}
+		if name := argumentName(call, consts); variableName.MatchString(name) {
+			names[name] = true
+		}
+		return true
+	})
+}
+
 // serverVariables lists every environment variable the server reads by name.
 func serverVariables(t *testing.T) map[string]bool {
 	t.Helper()
@@ -104,16 +119,7 @@ func serverVariables(t *testing.T) map[string]bool {
 	for _, files := range packageFiles(t) {
 		consts := stringConsts(files)
 		for _, file := range files {
-			ast.Inspect(file, func(node ast.Node) bool {
-				call, ok := node.(*ast.CallExpr)
-				if !ok || !readsEnv(call) {
-					return true
-				}
-				if name := argumentName(call, consts); variableName.MatchString(name) {
-					names[name] = true
-				}
-				return true
-			})
+			collectReads(file, consts, names)
 		}
 	}
 	return names
