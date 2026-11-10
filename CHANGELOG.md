@@ -1,11 +1,27 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2026-11-10
 
 ### Added
 
 - Sonde is licensed `AGPL-3.0-only`. `LICENSE` carries the canonical text and `apps/client/package.json` the SPDX id. Earlier versions were published without a licence.
 - `fleetscan` reports a `license.present` check for every repository: a `LICENSE`, `LICENCE` or `COPYING` file at the root.
+- Monitor events go through antenne-client v1's durable outbox. An outage or recovery is queued in `antenne_outbox` inside the incident transaction and drained to Antenne in order, so an event raised while the bus is down waits instead of being dropped. Migration `00008_antenne_outbox` adds the table.
+- `ANTENNE_URL` configures the Antenne instance. `ANTENNE_INSTANCE` still works; `ANTENNE_URL` wins when both are set. Compose forwards both.
+- `lefthook.yml` tracks the commit-msg check and the pre-push gate. `mise run hooks` installs it.
+- `docs/ADOPTION.md`: the recipe the other suite apps follow to adopt the same pieces.
+
+### Changed
+
+- Sign-in glue comes from `porte/kit`: the user store, identity, `RequireAuth`, erase and picture backfill. Routes, status codes, the first-account-admin rule and the erase hand-over of the admin role are unchanged.
+- The client's fetch kernel, 401 redirect and theme store come from `@facile/client` v0.1.0. The theme keeps its `sonde-theme` key.
+- The event envelope and channel names come from antenne-client's `envelope` and `catalog`, which replace `enveloppe`.
+- The settings page shows events waiting in the outbox (`pending`) in place of a dropped count.
+- tronc v0.21.0, porte v0.17.0, muse v0.17.1. The nightly fleet scan uses douane 0.7.0.
+
+### Removed
+
+- `.githooks/pre-push`, replaced by `lefthook.yml`.
 
 ## [0.4.1] - 2026-11-10
 
