@@ -1,17 +1,12 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
@@ -106,68 +101,6 @@ func projectValid(project fleet.ProjectReport, now time.Time) bool {
 
 func demote(project *fleet.ProjectReport) {
 	project.Covered, project.NotCovered, project.Findings, project.Pins = false, invalidScan, nil, nil
-}
-
-func encodeReport(report fleet.Report) ([]byte, error) {
-	var buffer bytes.Buffer
-	writer := gzip.NewWriter(&buffer)
-	if err := json.NewEncoder(writer).Encode(report); err != nil {
-		return nil, err
-	}
-	if err := writer.Close(); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
-}
-
-// deliveryError carries the status only: the reply can name a project, and the
-// workflow log is public.
-type deliveryError struct{ status int }
-
-func (e deliveryError) Error() string { return fmt.Sprintf("sonde answered %d", e.status) }
-
-func deliver(ctx context.Context, cfg config, report fleet.Report) (fleet.IngestResult, error) {
-	body, err := encodeReport(report)
-	if err != nil {
-		return fleet.IngestResult{}, err
-	}
-	var result fleet.IngestResult
-	for try := range deliveryAttempts {
-		result, err = post(ctx, cfg, body)
-		var refused deliveryError
-		if try > 0 && errors.As(err, &refused) && refused.status == http.StatusConflict {
-			return result, errAlreadyStored
-		}
-		if err == nil || (errors.As(err, &refused) && refused.status < 500) || try == deliveryAttempts-1 {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return result, ctx.Err()
-		case <-time.After(time.Duration(try+1) * cfg.retryWait):
-		}
-	}
-	return result, err
-}
-
-func post(ctx context.Context, cfg config, body []byte) (fleet.IngestResult, error) {
-	var result fleet.IngestResult
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(cfg.sondeURL, "/")+"/api/fleet/reports", bytes.NewReader(body))
-	if err != nil {
-		return result, err
-	}
-	request.Header.Set("Authorization", "Bearer "+cfg.fleetToken)
-	request.Header.Set("Content-Type", "application/json")
-	response, err := (&http.Client{Timeout: 2 * time.Minute}).Do(request)
-	if err != nil {
-		return result, fmt.Errorf("deliver: %w", err)
-	}
-	defer func() { _ = response.Body.Close() }()
-	reply, _ := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if response.StatusCode != http.StatusOK {
-		return result, deliveryError{status: response.StatusCode}
-	}
-	return result, json.Unmarshal(reply, &result)
 }
 
 // finish writes the report with -out, or delivers it. A retry refused as a

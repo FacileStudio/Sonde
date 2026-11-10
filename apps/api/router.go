@@ -88,80 +88,79 @@ type routerDeps struct {
 // One session manager owns the sessions table; the OIDC kit issues through it.
 // Sign-in goes through Registre only, so no password kit is built.
 func buildRouter(deps routerDeps) (chi.Router, error) {
-	db, sqlDB, appEnv, appLogger := deps.DB, deps.SQL, deps.Env, deps.Logger
-	identityStore, err := newPorteStore(sqlDB)
+	identity, err := buildIdentity(deps)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open the porte store: %w", err)
+		return nil, err
 	}
-	resealInBackground(context.Background(), identityStore, appLogger)
-	userStore := auth.NewUserStore(db)
-
-	sessions, err := session.New(appEnv.Porte, session.Deps{
-		Sessions: identityStore.Sessions(),
-		Logger:   appLogger,
+	clientDir := spa.DirFromEnv()
+	router := httpx.NewRouter(httpx.Config{
+		Logger:   deps.Logger,
+		Security: securityConfig(clientDir, deps.Logger),
+		CORS:     troncmiddleware.CORSConfig{AllowedOrigins: deps.Env.CORSAllowedOrigins},
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to configure sessions: %w", err)
+	health.Mount(router, health.DB(deps.SQL))
+	router.Get("/version", versionHandler)
+	apiref.Mount(router, refConfig())
+	router.Route("/api", func(r chi.Router) { mountAPI(r, deps, identity) })
+	if spa.Available(clientDir) {
+		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
+		deps.Logger.Info("serving client", slog.String("dir", clientDir))
 	}
+	return router, nil
+}
 
-	kit, err := oidc.New(context.Background(), appEnv.Porte, oidc.Deps{
-		Users:      userStore,
+// identity is the sign-in machinery the API routes are mounted behind.
+type identity struct {
+	sessions    *session.Manager
+	kit         *oidc.Kit
+	authService *auth.Service
+}
+
+func buildIdentity(deps routerDeps) (identity, error) {
+	identityStore, err := newPorteStore(deps.SQL)
+	if err != nil {
+		return identity{}, fmt.Errorf("failed to open the porte store: %w", err)
+	}
+	resealInBackground(context.Background(), identityStore, deps.Logger)
+	sessions, err := session.New(deps.Env.Porte, session.Deps{Sessions: identityStore.Sessions(), Logger: deps.Logger})
+	if err != nil {
+		return identity{}, fmt.Errorf("failed to configure sessions: %w", err)
+	}
+	kit, err := oidc.New(context.Background(), deps.Env.Porte, oidc.Deps{
+		Users:      auth.NewUserStore(deps.DB),
 		Identities: identityStore.Identities(),
 		Codes:      identityStore.LoginCodes(),
 		Sessions:   sessions,
-		Logger:     appLogger,
+		Logger:     deps.Logger,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure authentication: %w", err)
+		return identity{}, fmt.Errorf("failed to configure authentication: %w", err)
 	}
 	if kit.Enabled() {
-		appLogger.Info("single sign-on enabled", slog.String("issuer", appEnv.Porte.Issuer))
+		deps.Logger.Info("single sign-on enabled", slog.String("issuer", deps.Env.Porte.Issuer))
 	}
+	return identity{sessions: sessions, kit: kit, authService: auth.NewService(deps.DB)}, nil
+}
 
-	authService := auth.NewService(db)
-	userService := users.NewService(db)
-	httpService := httpapi.New(db, httpapi.Deps{
+// mountAPI registers every /api route. The SPA catch-all is mounted after it,
+// so nothing here can be shadowed.
+func mountAPI(r chi.Router, deps routerDeps, id identity) {
+	db, appEnv := deps.DB, deps.Env
+	requireAuth := middleware.RequireAuth(id.sessions, id.authService)
+	webhookStore := webhooks.NewStore(db)
+	id.sessions.Mount(r)
+	id.kit.Mount(r)
+	auth.RegisterRoutes(r, id.authService, requireAuth)
+	checker.RegisterHeartbeat(r, deps.Engine)
+	users.RegisterRoutes(r, users.NewService(db), requireAuth)
+	httpapi.RegisterRoutes(r, httpapi.New(db, httpapi.Deps{
 		Monitors:         monitors.NewStore(db),
 		Uptime:           uptime.NewService(db),
 		Stats:            stats.NewService(db),
 		Bus:              deps.Publisher,
 		JournalURL:       appEnv.JournalURL,
 		RawRetentionDays: appEnv.RawRetentionDays,
-	})
-
-	clientDir := spa.DirFromEnv()
-	router := httpx.NewRouter(httpx.Config{
-		Logger:   appLogger,
-		Security: securityConfig(clientDir, appLogger),
-		CORS: troncmiddleware.CORSConfig{
-			AllowedOrigins: appEnv.CORSAllowedOrigins,
-		},
-	})
-
-	health.Mount(router, health.DB(sqlDB))
-	router.Get("/version", versionHandler)
-	apiref.Mount(router, refConfig())
-
-	requireAuth := middleware.RequireAuth(sessions, authService)
-
-	router.Route("/api", func(r chi.Router) {
-		webhookStore := webhooks.NewStore(db)
-		webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
-
-		sessions.Mount(r)
-		kit.Mount(r)
-		auth.RegisterRoutes(r, authService, requireAuth)
-		checker.RegisterHeartbeat(r, deps.Engine)
-		users.RegisterRoutes(r, userService, requireAuth)
-		httpapi.RegisterRoutes(r, httpService, requireAuth)
-		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
-		fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: appLogger})
-	})
-
-	if spa.Available(clientDir) {
-		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
-		appLogger.Info("serving client", slog.String("dir", clientDir))
-	}
-
-	return router, nil
+	}), requireAuth)
+	webhooks.RegisterRoutes(r, webhookStore, webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), deps.Logger), requireAuth)
+	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger})
 }

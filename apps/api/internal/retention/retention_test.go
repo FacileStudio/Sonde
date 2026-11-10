@@ -74,30 +74,44 @@ func count(t *testing.T, query string, args ...any) int64 {
 }
 
 func TestRunPrunesRawAndRollsUp(t *testing.T) {
-	testdb.Truncate(testDB, testdb.Config{Prefix: "sonde_test"})
-	now := time.Now()
-	mustExec(t, `INSERT INTO monitors (id, owner_id, slug, name, type) VALUES (1, 1, 'web', 'Web', 'http')`)
-
-	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at)
-	             SELECT 1, true, 100, ? FROM generate_series(1, 5)`, now.AddDate(0, 0, -40))
-	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at) VALUES (1, false, 900, ?)`, now.Add(-2*time.Hour))
-	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at) VALUES (1, true, 50, ?)`, now)
-
-	mustExec(t, `INSERT INTO checks_hourly (monitor_id, bucket_start, total, failed, avg_latency_ms)
-	             VALUES (1, ?, 10, 4, 200)`, now.AddDate(-1, -2, 0))
+	now := seedChecks(t)
 
 	job := New(testDB, DefaultRawRetentionDays, slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	if err := job.Run(context.Background()); err != nil {
 		t.Fatalf("Run() = %v", err)
 	}
 
+	checkRawPruned(t)
+	checkHourlyRollup(t, now)
+	checkDailyRollup(t, now)
+}
+
+func seedChecks(t *testing.T) time.Time {
+	t.Helper()
+	testdb.Truncate(testDB, testdb.Config{Prefix: "sonde_test"})
+	now := time.Now()
+	mustExec(t, `INSERT INTO monitors (id, owner_id, slug, name, type) VALUES (1, 1, 'web', 'Web', 'http')`)
+	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at)
+	             SELECT 1, true, 100, ? FROM generate_series(1, 5)`, now.AddDate(0, 0, -40))
+	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at) VALUES (1, false, 900, ?)`, now.Add(-2*time.Hour))
+	mustExec(t, `INSERT INTO checks_raw (monitor_id, ok, latency_ms, created_at) VALUES (1, true, 50, ?)`, now)
+	mustExec(t, `INSERT INTO checks_hourly (monitor_id, bucket_start, total, failed, avg_latency_ms)
+	             VALUES (1, ?, 10, 4, 200)`, now.AddDate(-1, -2, 0))
+	return now
+}
+
+func checkRawPruned(t *testing.T) {
+	t.Helper()
 	if got := count(t, `SELECT COUNT(*) FROM checks_raw WHERE created_at < date_trunc('hour', now()) - make_interval(days => 30)`); got != 0 {
 		t.Fatalf("old raw rows survived: %d", got)
 	}
 	if got := count(t, `SELECT COUNT(*) FROM checks_raw`); got != 2 {
 		t.Fatalf("raw rows = %d, want only the two within retention", got)
 	}
+}
 
+func checkHourlyRollup(t *testing.T, now time.Time) {
+	t.Helper()
 	hourlyBucket := now.AddDate(0, 0, -40).Truncate(time.Hour)
 	if got := count(t, `SELECT total FROM checks_hourly WHERE monitor_id = 1 AND bucket_start = ?`, hourlyBucket); got != 5 {
 		t.Fatalf("hourly rollup from raw = %d, want 5", got)
@@ -106,7 +120,10 @@ func TestRunPrunesRawAndRollsUp(t *testing.T) {
 	if failed == 0 {
 		t.Fatal("the failing check was not aggregated into its hourly bucket")
 	}
+}
 
+func checkDailyRollup(t *testing.T, now time.Time) {
+	t.Helper()
 	dailyBucket := now.AddDate(-1, -2, 0)
 	if got := count(t, `SELECT total FROM checks_daily WHERE monitor_id = 1
 	                    AND bucket_start >= date_trunc('day', ?::timestamptz)

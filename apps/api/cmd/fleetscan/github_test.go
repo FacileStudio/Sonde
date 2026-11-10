@@ -36,16 +36,7 @@ func TestAThrottledRequestIsRetriedAndAPlainRefusalIsNot(t *testing.T) {
 		{"404", nil, http.StatusNotFound, 1},
 	}
 	for _, c := range cases {
-		server, calls := countingServer(t, func(call int32, w http.ResponseWriter, _ *http.Request) {
-			if call == 1 {
-				for key, value := range c.headers {
-					w.Header().Set(key, value)
-				}
-				w.WriteHeader(c.status)
-				return
-			}
-			_, _ = w.Write([]byte("{}"))
-		})
+		server, calls := countingServer(t, refuseOnce(c.headers, c.status))
 		_, _ = newGithubClient(server.URL, "t", time.Millisecond).get(context.Background(), "/x", "application/json")
 		if calls.Load() != c.calls {
 			t.Errorf("%s: calls = %d, want %d", c.name, calls.Load(), c.calls)
@@ -149,5 +140,18 @@ func TestTheOrganisationListingIsReadFromEveryPage(t *testing.T) {
 
 	if err != nil || len(repos) != pageSize+1 || repos[pageSize].Name != "last" || calls.Load() != 2 {
 		t.Fatalf("repos = %d, calls = %d, err = %v: a full page must be followed by the next", len(repos), calls.Load(), err)
+	}
+}
+
+func refuseOnce(headers map[string]string, status int) func(int32, http.ResponseWriter, *http.Request) {
+	return func(call int32, w http.ResponseWriter, _ *http.Request) {
+		if call != 1 {
+			_, _ = w.Write([]byte("{}"))
+			return
+		}
+		for key, value := range headers {
+			w.Header().Set(key, value)
+		}
+		w.WriteHeader(status)
 	}
 }

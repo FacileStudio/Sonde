@@ -107,14 +107,8 @@ func (r Report) Validate(now time.Time) error {
 	if r.SchemaVersion != SchemaVersion {
 		return errors.Invalid("unsupported schema_version")
 	}
-	if r.Run.StartedAt.IsZero() || r.Run.FinishedAt.IsZero() || r.Run.FinishedAt.Before(r.Run.StartedAt) {
-		return errors.Invalid("run needs started_at and a finished_at that is not earlier")
-	}
-	if r.Run.FinishedAt.After(now.Add(maxReportSkewIntoFuture)) {
-		return errors.Invalid("run finished_at is in the future")
-	}
-	if r.Run.ReposExpected < 0 || r.Run.ReposScanned < 0 || r.Run.ReposScanned > r.Run.ReposExpected {
-		return errors.Invalid("repos_scanned must be between 0 and repos_expected")
+	if err := r.Run.validate(now); err != nil {
+		return err
 	}
 	if len(r.Projects) > maxProjects {
 		return errors.TooLarge("too many projects")
@@ -129,6 +123,18 @@ func (r Report) Validate(now time.Time) error {
 		}
 	}
 	return r.validateLatest()
+}
+
+func (r RunInfo) validate(now time.Time) error {
+	switch {
+	case r.StartedAt.IsZero() || r.FinishedAt.IsZero() || r.FinishedAt.Before(r.StartedAt):
+		return errors.Invalid("run needs started_at and a finished_at that is not earlier")
+	case r.FinishedAt.After(now.Add(maxReportSkewIntoFuture)):
+		return errors.Invalid("run finished_at is in the future")
+	case r.ReposExpected < 0 || r.ReposScanned < 0 || r.ReposScanned > r.ReposExpected:
+		return errors.Invalid("repos_scanned must be between 0 and repos_expected")
+	}
+	return nil
 }
 
 func (r Report) validateLatest() error {
