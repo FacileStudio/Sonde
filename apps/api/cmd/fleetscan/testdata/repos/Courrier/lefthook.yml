@@ -1,0 +1,4 @@
+pre-push:
+  commands:
+    gate:
+      run: sh scripts/check.sh

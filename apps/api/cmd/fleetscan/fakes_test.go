@@ -39,6 +39,7 @@ func fleetRepos() []fakeRepo {
 			".github/workflows/ci.yml":    "jobs:\n  lint:\n    steps:\n      - uses: FacileStudio/filet@v0.3.0\n",
 			"node_modules/x/package.json": "{}",
 			"README.md":                   "# api",
+			"docker-compose.yml":          "services:\n  api:\n    environment:\n      JOURNAL_URL: http://journal\n",
 		}},
 		{id: 12, name: "docs", branch: "main", files: map[string]string{"README.md": "# docs"}},
 		{id: 13, name: "old", branch: "main", archived: true, files: map[string]string{"go.mod": goModFile}},

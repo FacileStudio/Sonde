@@ -22,7 +22,7 @@ func tracked(pkg string) bool {
 	return ok
 }
 
-// packageJSONPins reads tracked dependencies from a package.json. Resolved is
+// packageJSONPins reads suite dependencies from a package.json. Resolved is
 // the git ref after the '#' with any `semver:` prefix removed: a tag, a commit,
 // a branch name or a range, compared literally against the latest tag, so
 // anything but the exact tag reads as drift. An empty Resolved means unpinned.
@@ -40,7 +40,7 @@ func packageJSONPins(path string, data []byte) []fleet.PinReport {
 	var pins []fleet.PinReport
 	for _, group := range []map[string]string{manifest.Dependencies, manifest.DevDependencies, manifest.PeerDependencies, manifest.OptionalDependencies} {
 		for name, spec := range group {
-			if tracked(name) && !seen[name] {
+			if suitePackage(name) && !seen[name] {
 				seen[name] = true
 				pins = append(pins, fleet.PinReport{Path: path, Package: name, Spec: spec, Resolved: refOf(spec)})
 			}
@@ -65,14 +65,14 @@ var (
 	goLine       = regexp.MustCompile(`(?m)^go\s+(\S+)`)
 )
 
-// goModPins reads tracked modules from a go.mod. A /vN suffix belongs to the
-// same tracked repository; replace directives are ignored, since their right
+// goModPins reads suite modules from a go.mod. A /vN suffix belongs to the
+// same repository; replace directives are ignored, since their right
 // side names a local path or a fork rather than a release.
 func goModPins(path string, data []byte) ([]fleet.PinReport, string) {
 	text := replaceLine.ReplaceAllString(replaceBlock.ReplaceAllString(string(data), ""), "")
 	var pins []fleet.PinReport
 	for _, match := range requireLine.FindAllStringSubmatch(text, -1) {
-		if tracked(match[1]) {
+		if suitePackage(match[1]) {
 			pins = append(pins, fleet.PinReport{Path: path, Package: match[1], Spec: match[2], Resolved: match[2]})
 		}
 	}

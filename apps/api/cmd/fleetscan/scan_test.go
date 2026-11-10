@@ -23,6 +23,7 @@ const goodSweep = `{"repos":[
 
 const treeChecks = `[ -d "$2/11/.git" ] && [ -f "$2/11/go.mod" ] && [ -f "$2/11/apps/client/bun.lock" ] || exit 2
 [ -e "$2/11/node_modules" ] && exit 2
+[ -e "$2/11/docker-compose.yml" ] && exit 2
 [ -f "$2/15/yarn.lock" ] && [ -f "$2/16/go.mod" ] && [ -f "$2/17/go.mod" ] || exit 2
 `
 

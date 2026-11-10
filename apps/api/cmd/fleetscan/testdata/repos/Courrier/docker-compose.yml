@@ -1,0 +1,20 @@
+# Courrier ships as one container. OPUS_URL is not wired yet:
+#   OPUS_URL: ${OPUS_URL:-}
+services:
+  api:
+    environment:
+      DATABASE_URL: postgres://db/courrier
+      COURRIER_URL: ${COURRIER_URL:-}
+      JOURNAL_URL: ${JOURNAL_URL:-}
+      JOURNAL_TOKEN: ${JOURNAL_TOKEN:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      ANTENNE_INSTANCE: ${ANTENNE_INSTANCE:-}
+      SABLIER_API_URL: ${SABLIER_API_URL:-}
+      NUAGE_SERVICE_KEY: ${NUAGE_SERVICE_KEY:-}
+      MAIL_RELAY: ${AGENDA_WEBHOOK_SECRET:-}
+    labels:
+      traefik.enable: "true"
+  worker:
+    environment:
+      - ANTENNE_CLIENT_URL=http://unused
+      - GLOUTON_AUDIENCE=glouton

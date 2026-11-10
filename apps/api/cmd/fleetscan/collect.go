@@ -67,17 +67,25 @@ func classify(name string) fileKind {
 const archivedReason = "archived"
 
 type fetchedRepo struct {
-	repo        repoInfo
-	dir         string
-	covered     bool
-	nothing     bool
-	archived    bool
-	reason      string
-	ci          string
+	repo     repoInfo
+	dir      string
+	covered  bool
+	nothing  bool
+	archived bool
+	reason   string
+	ci       string
+	repoState
+}
+
+// repoState is what the runner read from a repository's files: the state it
+// reports as is, and the tree that edges and conformance checks derive from.
+type repoState struct {
 	filetWired  bool
 	filetPin    string
 	goDirective string
 	pins        []fleet.PinReport
+	libs        []fleet.PinReport
+	tree        repoTree
 }
 
 func uncovered(repo repoInfo, reason string) fetchedRepo {
@@ -97,6 +105,7 @@ func nothingToScan(repo repoInfo) fetchedRepo {
 type selection struct {
 	lockfiles int
 	paths     []string
+	config    []string
 }
 
 func selectFiles(paths []string) selection {
@@ -106,6 +115,10 @@ func selectFiles(paths []string) selection {
 	}
 	var out selection
 	for _, p := range paths {
+		if isConfig(p) {
+			out.config = append(out.config, p)
+			continue
+		}
 		kind := classify(p)
 		if kind == kindNone || (path.Base(p) == "go.sum" && present[path.Join(path.Dir(p), "go.mod")]) {
 			continue
@@ -116,6 +129,7 @@ func selectFiles(paths []string) selection {
 		out.paths = append(out.paths, p)
 	}
 	slices.Sort(out.paths)
+	slices.Sort(out.config)
 	return out
 }
 
@@ -137,7 +151,7 @@ func (r *runner) collect(ctx context.Context, repo repoInfo) fetchedRepo {
 	case len(chosen.paths) > maxManifestFiles:
 		return uncovered(repo, fmt.Sprintf("too many manifests (%d)", len(chosen.paths)))
 	}
-	files, err := r.fetchAll(ctx, repo, chosen.paths)
+	files, err := r.fetchAll(ctx, repo, slices.Concat(chosen.paths, chosen.config))
 	if err != nil {
 		return uncovered(repo, "fetch failed: "+err.Error())
 	}
@@ -145,7 +159,7 @@ func (r *runner) collect(ctx context.Context, repo repoInfo) fetchedRepo {
 	if err := writeTree(r.root, dir, files); err != nil {
 		return uncovered(repo, "write failed: "+err.Error())
 	}
-	out := readState(repo, files)
+	out := readState(repo, files, paths)
 	out.dir = dir
 	out.ci = r.github.conclusion(ctx, repo)
 	return out

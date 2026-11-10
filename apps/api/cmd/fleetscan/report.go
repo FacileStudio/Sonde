@@ -38,8 +38,17 @@ func buildReport(info runInfo, repos []fetchedRepo, verdicts map[string]verdict,
 		Latest:   latest,
 		Projects: make([]fleet.ProjectReport, 0, len(repos)),
 	}
+	known := make([]string, 0, len(repos))
 	for _, repo := range repos {
-		report.Projects = append(report.Projects, projectOf(repo, verdicts))
+		known = append(known, repo.repo.Name)
+	}
+	for _, repo := range repos {
+		project := projectOf(repo, verdicts)
+		if project.Covered && !repo.nothing {
+			project.Edges = deriveEdges(repo.repo.Name, repo.tree, repo.libs, known)
+			project.Conformance = conformance(repo.tree, repo.pins, latest)
+		}
+		report.Projects = append(report.Projects, project)
 	}
 	sanitize(&report, info.finished)
 	return report
@@ -101,6 +110,7 @@ func projectValid(project fleet.ProjectReport, now time.Time) bool {
 
 func demote(project *fleet.ProjectReport) {
 	project.Covered, project.NotCovered, project.Findings, project.Pins = false, invalidScan, nil, nil
+	project.Edges, project.Conformance = nil, nil
 }
 
 // finish writes the report with -out, or delivers it. A retry refused as a

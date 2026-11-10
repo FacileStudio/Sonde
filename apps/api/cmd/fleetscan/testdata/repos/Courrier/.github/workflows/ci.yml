@@ -1,0 +1,5 @@
+jobs:
+  api:
+    steps:
+      - run: go test -race -count=1 ./...
+      - uses: FacileStudio/filet@c0d3270a19a8a99af347e8104f718711ef6e9def # v0.3.0
