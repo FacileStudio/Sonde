@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1] - 2026-11-10
+
+### Fixed
+
+- The `fleetscan` fixtures under `testdata/repos/*/apps/api/` are committed. `apps/api/.gitignore` ignored every path named `api`, not only the built binary, so CI ran the edge and conformance tests without them and failed. The pattern is now `/api`.
+
 ## [0.4.0] - 2026-11-10
 
 ### Added
