@@ -31,14 +31,31 @@ Coverage decides whether Sonde may resolve a project's findings:
 |---|---|---|
 | No lockfile at all, or an empty repository | yes, with no findings | expected and scanned |
 | Scanned with no blocking gap | yes | expected and scanned |
-| douane `failed`, or an `unreadable`, `unsupported`, `upstream` or `unresolved` gap | no, `not_covered` names the gap kinds | expected |
+| douane `failed`, or a blocking gap (below) | no, `not_covered` names the gap kinds | expected |
 | Tree or files could not be fetched, more than 80 manifests, or douane returned nothing | no | expected |
 | Its data fails the server's `Validate` | no, `not_covered` is `invalid scan data` | expected |
 
-A `severity` or `range` gap only qualifies a finding douane did report, so it does not block
-coverage, and neither does an `upstream` gap on the `kev` or `epss` feed. A blocking gap at the
-sweep level comes from the shared OSV resolution and cannot be pinned on one repository, so it
-withholds every repository that has packages.
+A gap blocks coverage only when it can hide a finding. Resolving a project's findings after such
+a scan would close flaws that were never checked again. Blocking gaps:
+
+- an `unreadable` lockfile, one douane supports but could not read;
+- an `unresolved` advisory, one whose OSV record could not be fetched;
+- an `upstream` failure of OSV itself;
+- an `unsupported` lockfile, but only when douane read no packages at all from the repository,
+  so a yarn-only repository never passes as clean.
+
+These gaps do not block:
+
+- a `severity` or `range` gap, which only qualifies a finding douane did report;
+- an `upstream` gap on the `kev` or `epss` feed, which only costs the ranking;
+- an `unresolved` Dockerfile, whose Go module douane could not name while the module's own
+  `go.mod` was read;
+- an `unsupported` lockfile beside packages douane did read. It was never readable, so no finding
+  from it exists to be wrongly resolved. For example, Opus's `pnpm-lock.yaml` sits beside its
+  readable `go.mod`. The npm side of such a repository is not scanned at all.
+
+A blocking gap at the sweep level comes from the shared OSV resolution and cannot be pinned on
+one repository, so it withholds every repository that has packages.
 
 - The report is checked with the server's own `Validate` before delivery. One invalid project
   is demoted to not covered rather than failing the whole night.
