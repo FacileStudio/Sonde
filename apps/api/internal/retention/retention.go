@@ -5,6 +5,7 @@ package retention
 
 import (
 	"context"
+	stderrors "errors"
 	"log/slog"
 	"time"
 
@@ -49,10 +50,7 @@ func (j *Job) Run(ctx context.Context) error {
 	if err := j.rollupDays(ctx); err != nil {
 		return err
 	}
-	if err := j.prune(ctx); err != nil {
-		return err
-	}
-	return j.pruneFleet(ctx)
+	return stderrors.Join(j.prune(ctx), j.pruneFleet(ctx))
 }
 
 func (j *Job) pruneFleet(ctx context.Context) error {
