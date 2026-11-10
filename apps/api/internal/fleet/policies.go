@@ -7,6 +7,7 @@ import (
 
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/tronc/errors"
+	"gorm.io/gorm"
 )
 
 // Policies lists every hold, expired ones included, so the page can show a hold
@@ -41,24 +42,13 @@ const maxHold = 366 * 24 * time.Hour
 // CreatePolicy records a hold. It must carry a reason and an end date within a
 // year, because a hold with neither is a decision nobody can revisit.
 func (s *Store) CreatePolicy(ctx context.Context, in PolicyInput, by string, now time.Time) (*Policy, error) {
-	in.Package, in.HeldVersion, in.Reason = strings.TrimSpace(in.Package), strings.TrimSpace(in.HeldVersion), strings.TrimSpace(in.Reason)
-	switch {
-	case in.Package == "" || in.HeldVersion == "" || in.Reason == "":
-		return nil, errors.Invalid("package, held_version and reason are required")
-	case !in.ExpiresAt.After(now):
-		return nil, errors.Invalid("expires_at must be in the future")
-	case in.ExpiresAt.After(now.Add(maxHold)):
-		return nil, errors.Invalid("expires_at must be within a year")
+	in, err := in.checked(now)
+	if err != nil {
+		return nil, err
 	}
 	db := s.db.WithContext(ctx)
-	if in.ProjectID != nil {
-		var count int64
-		if err := db.Model(&schemas.FleetProject{}).Where("id = ?", *in.ProjectID).Count(&count).Error; err != nil {
-			return nil, errors.Internal("failed to check the policy's project", err)
-		}
-		if count == 0 {
-			return nil, errors.Invalid("project_id does not name a project")
-		}
+	if err := projectExists(db, in.ProjectID); err != nil {
+		return nil, err
 	}
 	row := schemas.FleetPolicy{
 		Package: in.Package, ProjectID: in.ProjectID, HeldVersion: in.HeldVersion,
@@ -82,6 +72,35 @@ func (s *Store) DeletePolicy(ctx context.Context, id int64) error {
 	}
 	if done.RowsAffected == 0 {
 		return errors.NotFound("policy not found")
+	}
+	return nil
+}
+
+// checked trims the hold and refuses one with no reason or an end date outside
+// the next year.
+func (in PolicyInput) checked(now time.Time) (PolicyInput, error) {
+	in.Package, in.HeldVersion, in.Reason = strings.TrimSpace(in.Package), strings.TrimSpace(in.HeldVersion), strings.TrimSpace(in.Reason)
+	switch {
+	case in.Package == "" || in.HeldVersion == "" || in.Reason == "":
+		return in, errors.Invalid("package, held_version and reason are required")
+	case !in.ExpiresAt.After(now):
+		return in, errors.Invalid("expires_at must be in the future")
+	case in.ExpiresAt.After(now.Add(maxHold)):
+		return in, errors.Invalid("expires_at must be within a year")
+	}
+	return in, nil
+}
+
+func projectExists(db *gorm.DB, id *int64) error {
+	if id == nil {
+		return nil
+	}
+	var count int64
+	if err := db.Model(&schemas.FleetProject{}).Where("id = ?", *id).Count(&count).Error; err != nil {
+		return errors.Internal("failed to check the policy's project", err)
+	}
+	if count == 0 {
+		return errors.Invalid("project_id does not name a project")
 	}
 	return nil
 }

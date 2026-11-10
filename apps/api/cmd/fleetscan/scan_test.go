@@ -49,6 +49,15 @@ func TestAScanDeliversAReportTheServerAccepts(t *testing.T) {
 	}
 	report := onlyReport(t, sonde)
 
+	checkRunAndAPI(t, report)
+	checkEveryOtherRepo(t, report)
+	if strings.Contains(logs.String(), "CVE-") || strings.Contains(logs.String(), "next") {
+		t.Fatalf("the log carries finding detail:\n%s", logs.String())
+	}
+}
+
+func checkRunAndAPI(t *testing.T, report fleet.Report) {
+	t.Helper()
 	if report.Run.DouaneVersion != "9.9.9" || report.Run.ReposExpected != 6 || report.Run.ReposScanned != 4 {
 		t.Fatalf("run = %+v: six live repos, four covered", report.Run)
 	}
@@ -56,6 +65,13 @@ func TestAScanDeliversAReportTheServerAccepts(t *testing.T) {
 	if !api.Covered || len(api.Findings) != 1 || api.CIConclusion != "success" || !api.FiletWired || api.FiletPin != "v0.3.0" || api.GoDirective != "1.26" || len(api.Pins) != 3 {
 		t.Fatalf("api = %+v", api)
 	}
+	if report.Latest["@facile/muse"] != "v0.16.1" {
+		t.Fatalf("latest = %v", report.Latest)
+	}
+}
+
+func checkEveryOtherRepo(t *testing.T, report fleet.Report) {
+	t.Helper()
 	if got := projectNamed(t, report, "docs"); !got.Covered || got.NotCovered != "" || len(got.Findings) != 0 {
 		t.Fatalf("docs = %+v: nothing to scan is a clean scan", got)
 	}
@@ -72,12 +88,6 @@ func TestAScanDeliversAReportTheServerAccepts(t *testing.T) {
 	}
 	if got := projectNamed(t, report, "old"); got.Covered || got.NotCovered != archivedReason || len(got.Findings) != 0 {
 		t.Fatalf("old = %+v: an archived repository is reported, not covered and counted nowhere", got)
-	}
-	if report.Latest["@facile/muse"] != "v0.16.1" {
-		t.Fatalf("latest = %v", report.Latest)
-	}
-	if strings.Contains(logs.String(), "CVE-") || strings.Contains(logs.String(), "next") {
-		t.Fatalf("the log carries finding detail:\n%s", logs.String())
 	}
 }
 

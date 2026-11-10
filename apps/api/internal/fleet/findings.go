@@ -70,21 +70,9 @@ func upsertFindings(tx *gorm.DB, projectID int64, findings []FindingReport, now 
 	if err != nil {
 		return 0, err
 	}
-	rows := make(map[string]schemas.FleetFinding, len(findings))
-	for _, f := range findings {
-		key := keyFor(f, known)
-		row := findingRow(projectID, key, f, now)
-		if kept, seen := rows[key]; seen && severityRank(kept.Severity) >= severityRank(row.Severity) {
-			continue
-		}
-		rows[key] = row
-	}
-	if len(rows) == 0 {
+	batch := dedupedRows(projectID, findings, known, now)
+	if len(batch) == 0 {
 		return 0, nil
-	}
-	batch := make([]schemas.FleetFinding, 0, len(rows))
-	for _, row := range rows {
-		batch = append(batch, row)
 	}
 	assignments := append(
 		clause.AssignmentColumns([]string{"advisory", "aliases", "summary", "severity", "fixed_in", "kev", "epss", "scope", "target", "last_seen"}),
@@ -101,4 +89,23 @@ func upsertFindings(tx *gorm.DB, projectID int64, findings []FindingReport, now 
 	err = tx.Model(&schemas.FleetFinding{}).
 		Where("project_id = ? AND first_seen = ?", projectID, now).Count(&fresh).Error
 	return int(fresh), err
+}
+
+// dedupedRows builds one row per key. The same flaw reported from two lockfiles
+// keeps its most severe report, since an upsert cannot touch a row twice.
+func dedupedRows(projectID int64, findings []FindingReport, known map[string]string, now time.Time) []schemas.FleetFinding {
+	rows := make(map[string]schemas.FleetFinding, len(findings))
+	for _, f := range findings {
+		key := keyFor(f, known)
+		row := findingRow(projectID, key, f, now)
+		if kept, seen := rows[key]; seen && severityRank(kept.Severity) >= severityRank(row.Severity) {
+			continue
+		}
+		rows[key] = row
+	}
+	batch := make([]schemas.FleetFinding, 0, len(rows))
+	for _, row := range rows {
+		batch = append(batch, row)
+	}
+	return batch
 }

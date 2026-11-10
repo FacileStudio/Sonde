@@ -17,20 +17,26 @@ type Store struct{ db *gorm.DB }
 // NewStore opens the fleet tables on db.
 func NewStore(db *gorm.DB) *Store { return &Store{db: db} }
 
+// ProjectColumns are the project columns an open finding is read with. The type
+// is exported because GORM only fills the fields of an exported embedded struct.
+type ProjectColumns struct {
+	ProjectID   int64  `gorm:"column:project_id"`
+	ProjectName string `gorm:"column:project_name"`
+	Tier        string `gorm:"column:tier"`
+}
+
 type openRow struct {
-	ProjectID   int64     `gorm:"column:project_id"`
-	ProjectName string    `gorm:"column:project_name"`
-	Tier        string    `gorm:"column:tier"`
-	Advisory    string    `gorm:"column:advisory"`
-	Aliases     string    `gorm:"column:aliases"`
-	Severity    string    `gorm:"column:severity"`
-	Package     string    `gorm:"column:package"`
-	Ecosystem   string    `gorm:"column:ecosystem"`
-	Installed   string    `gorm:"column:installed"`
-	FixedIn     string    `gorm:"column:fixed_in"`
-	KEV         bool      `gorm:"column:kev"`
-	EPSS        float64   `gorm:"column:epss"`
-	FirstSeen   time.Time `gorm:"column:first_seen"`
+	ProjectColumns
+	Advisory  string    `gorm:"column:advisory"`
+	Aliases   string    `gorm:"column:aliases"`
+	Severity  string    `gorm:"column:severity"`
+	Package   string    `gorm:"column:package"`
+	Ecosystem string    `gorm:"column:ecosystem"`
+	Installed string    `gorm:"column:installed"`
+	FixedIn   string    `gorm:"column:fixed_in"`
+	KEV       bool      `gorm:"column:kev"`
+	EPSS      float64   `gorm:"column:epss"`
+	FirstSeen time.Time `gorm:"column:first_seen"`
 }
 
 // Actions ranks every open finding.
@@ -121,21 +127,9 @@ type ProjectUpdate struct {
 
 // UpdateProject changes the fields a person owns and leaves scan data alone.
 func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectUpdate) (*schemas.FleetProject, error) {
-	changes := map[string]any{}
-	if in.Tier != nil {
-		if !ValidTier(*in.Tier) {
-			return nil, errors.Invalid("tier is not one of the known tiers")
-		}
-		changes["tier"] = *in.Tier
-	}
-	if in.VersionURL != nil {
-		if *in.VersionURL != "" && !strings.HasPrefix(*in.VersionURL, "https://") {
-			return nil, errors.Invalid("version_url must be empty or start with https://")
-		}
-		changes["version_url"] = *in.VersionURL
-	}
-	if in.JournalApp != nil {
-		changes["journal_app"] = strings.TrimSpace(*in.JournalApp)
+	changes, err := in.changes()
+	if err != nil {
+		return nil, err
 	}
 	var project schemas.FleetProject
 	db := s.db.WithContext(ctx)
@@ -157,4 +151,26 @@ func (s *Store) Runs(ctx context.Context, limit int) ([]schemas.FleetRun, error)
 		return nil, errors.Internal("failed to list the fleet runs", err)
 	}
 	return runs, nil
+}
+
+// changes turns the fields a person set into column updates, refusing an
+// unknown tier or a version URL that is not https.
+func (in ProjectUpdate) changes() (map[string]any, error) {
+	changes := map[string]any{}
+	if in.Tier != nil && !ValidTier(*in.Tier) {
+		return nil, errors.Invalid("tier is not one of the known tiers")
+	}
+	if in.VersionURL != nil && *in.VersionURL != "" && !strings.HasPrefix(*in.VersionURL, "https://") {
+		return nil, errors.Invalid("version_url must be empty or start with https://")
+	}
+	if in.Tier != nil {
+		changes["tier"] = *in.Tier
+	}
+	if in.VersionURL != nil {
+		changes["version_url"] = *in.VersionURL
+	}
+	if in.JournalApp != nil {
+		changes["journal_app"] = strings.TrimSpace(*in.JournalApp)
+	}
+	return changes, nil
 }

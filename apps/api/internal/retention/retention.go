@@ -53,20 +53,6 @@ func (j *Job) Run(ctx context.Context) error {
 	return stderrors.Join(j.prune(ctx), j.pruneFleet(ctx))
 }
 
-func (j *Job) pruneFleet(ctx context.Context) error {
-	findings := j.db.WithContext(ctx).Exec(
-		`DELETE FROM fleet_findings WHERE resolved_at IS NOT NULL AND resolved_at < now() - make_interval(days => ?)`,
-		FleetRetentionDays)
-	j.log("pruned resolved fleet findings", findings)
-
-	runs := j.db.WithContext(ctx).Exec(
-		`DELETE FROM fleet_runs WHERE created_at < now() - make_interval(days => ?)`,
-		FleetRetentionDays)
-	j.log("pruned fleet runs", runs)
-
-	return firstError(findings.Error, runs.Error)
-}
-
 func (j *Job) rollupHours(ctx context.Context) error {
 	result := j.db.WithContext(ctx).Exec(`
 INSERT INTO checks_hourly (monitor_id, bucket_start, total, failed, avg_latency_ms)
@@ -143,13 +129,4 @@ func (j *Job) Loop(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func firstError(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
