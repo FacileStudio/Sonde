@@ -97,12 +97,14 @@ type ProjectRow struct {
 	OpenFindings int `gorm:"column:open_findings"`
 }
 
-// Projects lists every project, the least covered first.
+// Projects lists every project, the ones carrying the most open findings first.
+// Those the runner could not scan come last; an incomplete run is announced on
+// its own, so a failed fetch is not lost at the bottom.
 func (s *Store) Projects(ctx context.Context) ([]ProjectRow, error) {
 	var rows []ProjectRow
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT p.*, (SELECT count(*) FROM fleet_findings f WHERE f.project_id = p.id AND f.resolved_at IS NULL) AS open_findings
-		FROM fleet_projects p ORDER BY p.covered, lower(p.name)`).Scan(&rows).Error
+		FROM fleet_projects p ORDER BY p.covered DESC, open_findings DESC, lower(p.name)`).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to list the fleet projects", err)
 	}

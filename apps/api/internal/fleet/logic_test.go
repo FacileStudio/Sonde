@@ -235,3 +235,19 @@ func TestValidateRefusesWhatTheStoreMustNotTouch(t *testing.T) {
 		}
 	}
 }
+
+func TestAProjectPinningOneVersionFromSeveralManifestsCountsOnce(t *testing.T) {
+	now := time.Date(2026, 11, 8, 0, 0, 0, 0, time.UTC)
+	pins := []Pin{
+		{ProjectID: 1, ProjectName: "fusible", Package: "muse", Resolved: "v0.16.1"},
+		{ProjectID: 1, ProjectName: "fusible", Package: "muse", Resolved: "v0.16.1"},
+		{ProjectID: 2, ProjectName: "sonde", Package: "muse", Resolved: "v0.17.0"},
+		{ProjectID: 2, ProjectName: "sonde", Package: "muse", Resolved: "v0.17.0"},
+	}
+
+	rows := BuildDrift(pins, map[string]string{"muse": "v0.17.0"}, nil, now)
+
+	if rows[0].Current != 1 || len(rows[0].Behind) != 1 || len(rows[0].Behind[0].Projects) != 1 {
+		t.Fatalf("drift = %+v: each project must appear once per version", rows[0])
+	}
+}

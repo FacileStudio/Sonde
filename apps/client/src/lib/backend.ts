@@ -7,6 +7,11 @@ import type {
 	Incident,
 	IncidentStats,
 	Integrations,
+	MaintenanceActions,
+	MaintenanceDrift,
+	MaintenanceProject,
+	MaintenanceRun,
+	MaintenanceTier,
 	MeResponse,
 	Monitor,
 	MonitorHistory,
@@ -26,7 +31,7 @@ import type {
 /* Re-exported so every call site keeps importing its types from the client it
    calls. Splitting the file was a size fix, not an API change. */
 export type * from '$lib/types';
-export { UPTIME_WINDOWS } from '$lib/types';
+export { MAINTENANCE_TIERS, UPTIME_WINDOWS } from '$lib/types';
 
 const backendBaseUrl = '/api';
 
@@ -160,6 +165,24 @@ export const backend = {
 	},
 	monitorHistory(id: number, window: UptimeWindow) {
 		return apiFetch<MonitorHistory>(`/monitors/${id}/history?window=${window}`);
+	},
+	maintenanceRuns(silent = false) {
+		return apiFetch<MaintenanceRun[]>('/fleet/runs', {}, silent);
+	},
+	maintenanceActions() {
+		return apiFetch<MaintenanceActions>('/fleet/actions');
+	},
+	maintenanceDrift() {
+		return apiFetch<MaintenanceDrift>('/fleet/drift');
+	},
+	maintenanceProjects() {
+		return apiFetch<MaintenanceProject[]>('/fleet/projects');
+	},
+	setProjectTier(id: number, tier: MaintenanceTier) {
+		return apiFetch<{ id: number; tier: MaintenanceTier }>(`/fleet/projects/${id}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ tier })
+		});
 	},
 	listIncidents() {
 		return apiFetch<Incident[]>('/incidents');

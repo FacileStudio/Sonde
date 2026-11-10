@@ -3,6 +3,7 @@ package fleet
 import (
 	"cmp"
 	"slices"
+	"strconv"
 	"time"
 )
 
@@ -66,7 +67,8 @@ func holdFor(policies []Policy, pin Pin, now time.Time) *Policy {
 
 // BuildDrift compares every pin with the latest version of its package. A pin
 // that matches an unexpired policy is shown as held rather than hidden, so a
-// hold stays visible until it lapses and the project reappears as behind.
+// hold stays visible until it lapses and the project reappears as behind. A
+// project that pins the same version from several manifests counts once.
 func BuildDrift(pins []Pin, latest map[string]string, policies []Policy, now time.Time) []DriftRow {
 	rows := map[string]*DriftRow{}
 	versions := map[string]map[string][]DriftProject{}
@@ -74,10 +76,15 @@ func BuildDrift(pins []Pin, latest map[string]string, policies []Policy, now tim
 		rows[name] = &DriftRow{Package: name, Latest: version}
 		versions[name] = map[string][]DriftProject{}
 	}
+	seen := map[string]bool{}
 	for _, pin := range pins {
-		if row, tracked := rows[pin.Package]; tracked {
-			place(row, versions[pin.Package], pin, policies, now)
+		row, tracked := rows[pin.Package]
+		once := pin.Package + "|" + pin.Resolved + "|" + strconv.FormatInt(pin.ProjectID, 10)
+		if !tracked || seen[once] {
+			continue
 		}
+		seen[once] = true
+		place(row, versions[pin.Package], pin, policies, now)
 	}
 	out := make([]DriftRow, 0, len(rows))
 	for name, row := range rows {

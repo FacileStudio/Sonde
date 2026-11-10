@@ -14,6 +14,7 @@
 	let collapsed = $state(false);
 	let unreachable = $state(false);
 	let scroller = $state<HTMLElement | null>(null);
+	let maintenance = $state(false);
 
 	function setUser(next: AuthUser) {
 		user = next;
@@ -45,8 +46,21 @@
 						active: isActive('/status-pages')
 					}
 				]
+			: []),
+		...(maintenance
+			? [{ href: '/maintenance', label: t('nav.maintenance'), icon: icons.shield, active: isActive('/maintenance') }]
 			: [])
 	]);
+
+	/* Fleet data needs is_admin and the server's allow-list, and only the server knows the
+	   list, so an admin's shell asks once and shows the row only on a yes. */
+	async function probeMaintenance() {
+		if (!user?.is_admin) return;
+		maintenance = await backend
+			.maintenanceRuns(true)
+			.then(() => true)
+			.catch(() => false);
+	}
 
 	/* The email is the fallback for a missing name, not the name itself. The avatar is
 	   Registre's stable URL; muse's Avatar draws the initial when it 404s. */
@@ -76,6 +90,7 @@
 			user = (await backend.me()).user;
 			setSessionLocale(user.locale);
 			checked = true;
+			void probeMaintenance();
 		} catch (err) {
 			/* Only a refused credential logs someone out. A 500 or a dropped connection means
 			   the server is having a bad day, and bouncing to /login loses whatever they were
