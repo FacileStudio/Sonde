@@ -8,6 +8,7 @@
 | [Configuration](configuration.md) | Every environment variable and default |
 | [Development](development.md) | The dev database, the quality gate, the rename script |
 | [Deployment](deployment.md) | The one-container shape, Traefik routing, verifying a deploy |
+| [Adoption](ADOPTION.md) | How a suite app moves onto porte/kit, antenne-client v1, @facile/client and the shared gates |
 | [API](api.md) | HTTP endpoints and payloads |
 | [Plan](PLAN.md) | The v1 build plan and what is still open |
 
