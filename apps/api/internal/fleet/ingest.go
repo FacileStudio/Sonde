@@ -2,17 +2,25 @@ package fleet
 
 import (
 	"context"
-	"strings"
+	"database/sql"
+	stderrors "errors"
 	"time"
 
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/tronc/errors"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-const insertBatch = 500
+const (
+	insertBatch = 500
+
+	// ingestLock serialises deliveries. Two reports landing together would lock
+	// project rows in different orders and could interleave their resolves.
+	ingestLock int64 = 7301942118
+
+	notInLatestScan = "not in the latest scan"
+)
 
 // IngestResult is what one delivery changed.
 type IngestResult struct {
@@ -25,27 +33,59 @@ type IngestResult struct {
 	Complete     bool  `json:"complete"`
 }
 
+// Complete reports whether a run scanned everything it set out to. A run that
+// expected nothing proves nothing, so it is never complete.
+func (r RunInfo) Complete() bool {
+	return r.ReposExpected > 0 && r.ReposScanned == r.ReposExpected
+}
+
 // Ingest stores one report in a single transaction. A project the runner could
 // not cover keeps its findings: absence from a scan that did not happen is not
-// evidence the flaw is gone.
+// evidence the flaw is gone. A complete run is evidence, so a project it no
+// longer lists has its findings resolved. A report that is not newer than the
+// last one stored is refused, so a retried or late delivery cannot roll the
+// picture back.
 func (s *Store) Ingest(ctx context.Context, report Report, now time.Time) (IngestResult, error) {
-	var result IngestResult
+	result := IngestResult{Projects: len(report.Projects), Complete: report.Run.Complete()}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result.Projects = len(report.Projects)
+		if err := claim(tx, report.Run); err != nil {
+			return err
+		}
 		for _, project := range report.Projects {
 			if err := ingestProject(tx, project, now, &result); err != nil {
 				return err
 			}
+		}
+		if err := resolveVanished(tx, report, now, &result); err != nil {
+			return err
 		}
 		if err := upsertLatest(tx, report.Latest, now); err != nil {
 			return err
 		}
 		return recordRun(tx, report.Run, &result)
 	})
+	var known *errors.Error
+	if stderrors.As(err, &known) {
+		return IngestResult{}, err
+	}
 	if err != nil {
 		return IngestResult{}, errors.Internal("failed to store the fleet report", err)
 	}
 	return result, nil
+}
+
+func claim(tx *gorm.DB, run RunInfo) error {
+	if err := tx.Exec(`SELECT pg_advisory_xact_lock(?)`, ingestLock).Error; err != nil {
+		return err
+	}
+	var newest sql.NullTime
+	if err := tx.Raw(`SELECT max(finished_at) FROM fleet_runs`).Row().Scan(&newest); err != nil {
+		return err
+	}
+	if newest.Valid && !run.FinishedAt.Truncate(time.Microsecond).After(newest.Time) {
+		return errors.Conflict("a fleet report at least as recent is already stored")
+	}
+	return nil
 }
 
 func ingestProject(tx *gorm.DB, project ProjectReport, now time.Time, result *IngestResult) error {
@@ -97,48 +137,6 @@ func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, er
 	return id, err
 }
 
-func upsertFindings(tx *gorm.DB, projectID int64, findings []FindingReport, now time.Time) (int, error) {
-	rows := make(map[string]schemas.FleetFinding, len(findings))
-	for _, f := range findings {
-		key := f.Key()
-		row := schemas.FleetFinding{
-			ProjectID: projectID, Key: key,
-			FleetAdvisory: schemas.FleetAdvisory{
-				Advisory: f.ID, Aliases: strings.Join(f.Aliases, ","), Summary: f.Summary,
-				Severity: normalizeSeverity(f.Severity), KEV: f.KEV, EPSS: f.EPSS,
-			},
-			FleetPackage: schemas.FleetPackage{Package: f.Package, Ecosystem: f.Ecosystem, Installed: f.Installed, FixedIn: f.FixedIn},
-			Scope:        f.Scope, Target: f.Target, FirstSeen: now, LastSeen: now,
-		}
-		if kept, seen := rows[key]; seen && severityRank(kept.Severity) >= severityRank(row.Severity) {
-			continue
-		}
-		rows[key] = row
-	}
-	if len(rows) == 0 {
-		return 0, nil
-	}
-	batch := make([]schemas.FleetFinding, 0, len(rows))
-	for _, row := range rows {
-		batch = append(batch, row)
-	}
-	assignments := append(
-		clause.AssignmentColumns([]string{"advisory", "aliases", "summary", "severity", "fixed_in", "kev", "epss", "scope", "target", "last_seen"}),
-		clause.Assignment{Column: clause.Column{Name: "resolved_at"}, Value: gorm.Expr("NULL")},
-	)
-	err := tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "project_id"}, {Name: "key"}},
-		DoUpdates: assignments,
-	}).CreateInBatches(batch, insertBatch).Error
-	if err != nil {
-		return 0, err
-	}
-	var fresh int64
-	err = tx.Model(&schemas.FleetFinding{}).
-		Where("project_id = ? AND first_seen = ?", projectID, now).Count(&fresh).Error
-	return int(fresh), err
-}
-
 func resolveMissing(tx *gorm.DB, projectID int64, now time.Time) (int, error) {
 	done := tx.Model(&schemas.FleetFinding{}).
 		Where("project_id = ? AND resolved_at IS NULL AND last_seen < ?", projectID, now).
@@ -146,55 +144,23 @@ func resolveMissing(tx *gorm.DB, projectID int64, now time.Time) (int, error) {
 	return int(done.RowsAffected), done.Error
 }
 
-func replacePins(tx *gorm.DB, projectID int64, pins []PinReport) error {
-	if err := tx.Where("project_id = ?", projectID).Delete(&schemas.FleetPin{}).Error; err != nil {
-		return err
-	}
-	unique := map[string]schemas.FleetPin{}
-	for _, pin := range pins {
-		unique[pin.Path+"|"+pin.Package] = schemas.FleetPin{
-			ProjectID: projectID, Path: pin.Path, Package: pin.Package, Spec: pin.Spec, Resolved: pin.Resolved,
-		}
-	}
-	if len(unique) == 0 {
+func resolveVanished(tx *gorm.DB, report Report, now time.Time, result *IngestResult) error {
+	if !report.Run.Complete() {
 		return nil
 	}
-	rows := make([]schemas.FleetPin, 0, len(unique))
-	for _, row := range unique {
-		rows = append(rows, row)
+	listed := make([]int64, 0, len(report.Projects))
+	for _, project := range report.Projects {
+		listed = append(listed, project.GithubRepoID)
 	}
-	return tx.CreateInBatches(rows, insertBatch).Error
-}
-
-func upsertLatest(tx *gorm.DB, latest map[string]string, now time.Time) error {
-	if len(latest) == 0 {
-		return nil
+	gone := tx.Model(&schemas.FleetProject{}).Select("id").Where("github_repo_id NOT IN ?", listed)
+	done := tx.Model(&schemas.FleetFinding{}).
+		Where("resolved_at IS NULL AND project_id IN (?)", gone).
+		Update("resolved_at", now)
+	if done.Error != nil {
+		return done.Error
 	}
-	rows := make([]schemas.FleetLatest, 0, len(latest))
-	for name, version := range latest {
-		rows = append(rows, schemas.FleetLatest{Package: name, Version: version, UpdatedAt: now})
-	}
-	return tx.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "package"}},
-		DoUpdates: clause.AssignmentColumns([]string{"version", "updated_at"}),
-	}).Create(&rows).Error
-}
-
-func recordRun(tx *gorm.DB, info RunInfo, result *IngestResult) error {
-	var open int64
-	if err := tx.Model(&schemas.FleetFinding{}).Where("resolved_at IS NULL").Count(&open).Error; err != nil {
-		return err
-	}
-	result.FindingsOpen = int(open)
-	result.Complete = info.ReposScanned == info.ReposExpected
-	run := schemas.FleetRun{
-		StartedAt: info.StartedAt, FinishedAt: info.FinishedAt, DouaneVersion: info.DouaneVersion,
-		ReposExpected: info.ReposExpected, ReposScanned: info.ReposScanned,
-		Complete: result.Complete, FindingsOpen: result.FindingsOpen,
-	}
-	if err := tx.Create(&run).Error; err != nil {
-		return err
-	}
-	result.RunID = run.ID
-	return nil
+	result.Resolved += int(done.RowsAffected)
+	return tx.Model(&schemas.FleetProject{}).
+		Where("github_repo_id NOT IN ?", listed).
+		Updates(map[string]any{"covered": false, "not_covered": notInLatestScan}).Error
 }

@@ -140,44 +140,65 @@ func levelRank(level Level) int {
 // the groups. Findings with no fix are grouped apart, because "no fix exists" is
 // a different decision from "a fix is waiting".
 func BuildActions(findings []OpenFinding) []Action {
-	groups := map[string]*Action{}
-	advisories := map[string]map[string]bool{}
-	members := map[string]map[int64]bool{}
-
+	groups := map[string]*group{}
 	for _, f := range findings {
 		id := f.Ecosystem + "|" + f.Package + "|" + f.FixedIn
-		action, ok := groups[id]
-		if !ok {
-			action = &Action{Ecosystem: f.Ecosystem, Package: f.Package, FixedIn: f.FixedIn, FirstSeen: f.FirstSeen}
-			groups[id] = action
-			advisories[id] = map[string]bool{}
-			members[id] = map[int64]bool{}
+		if groups[id] == nil {
+			groups[id] = newGroup(f)
 		}
-		action.Findings++
-		advisories[id][f.Advisory] = true
-		if severityRank(f.Severity) > severityRank(action.WorstSeverity) {
-			action.WorstSeverity = f.Severity
-		}
-		action.KEV = action.KEV || f.KEV
-		action.MaxEPSS = max(action.MaxEPSS, f.EPSS)
-		if f.FirstSeen.Before(action.FirstSeen) {
-			action.FirstSeen = f.FirstSeen
-		}
-		if !members[id][f.ProjectID] {
-			members[id][f.ProjectID] = true
-			action.Projects = append(action.Projects, ActionProject{ID: f.ProjectID, Name: f.ProjectName, Tier: f.Tier, Installed: f.Installed})
-		}
+		groups[id].add(f)
 	}
-
 	out := make([]Action, 0, len(groups))
-	for id, action := range groups {
-		action.Advisories = sortedKeys(advisories[id])
-		slices.SortFunc(action.Projects, func(a, b ActionProject) int { return cmp.Compare(a.Name, b.Name) })
-		action.Level = classify(*action)
-		out = append(out, *action)
+	for _, g := range groups {
+		out = append(out, g.finish())
 	}
 	slices.SortFunc(out, compareActions)
 	return out
+}
+
+type group struct {
+	action     Action
+	advisories map[string]bool
+	projects   map[int64]int
+	versions   map[int64]map[string]bool
+}
+
+func newGroup(f OpenFinding) *group {
+	return &group{
+		action:     Action{Ecosystem: f.Ecosystem, Package: f.Package, FixedIn: f.FixedIn, FirstSeen: f.FirstSeen},
+		advisories: map[string]bool{},
+		projects:   map[int64]int{},
+		versions:   map[int64]map[string]bool{},
+	}
+}
+
+func (g *group) add(f OpenFinding) {
+	g.action.Findings++
+	g.advisories[f.Advisory] = true
+	if severityRank(f.Severity) > severityRank(g.action.WorstSeverity) {
+		g.action.WorstSeverity = f.Severity
+	}
+	g.action.KEV = g.action.KEV || f.KEV
+	g.action.MaxEPSS = max(g.action.MaxEPSS, f.EPSS)
+	if f.FirstSeen.Before(g.action.FirstSeen) {
+		g.action.FirstSeen = f.FirstSeen
+	}
+	if _, seen := g.projects[f.ProjectID]; !seen {
+		g.projects[f.ProjectID] = len(g.action.Projects)
+		g.versions[f.ProjectID] = map[string]bool{}
+		g.action.Projects = append(g.action.Projects, ActionProject{ID: f.ProjectID, Name: f.ProjectName, Tier: f.Tier})
+	}
+	g.versions[f.ProjectID][f.Installed] = true
+}
+
+func (g *group) finish() Action {
+	for id, index := range g.projects {
+		g.action.Projects[index].Installed = strings.Join(sortedKeys(g.versions[id]), ", ")
+	}
+	g.action.Advisories = sortedKeys(g.advisories)
+	slices.SortFunc(g.action.Projects, func(a, b ActionProject) int { return cmp.Compare(a.Name, b.Name) })
+	g.action.Level = classify(g.action)
+	return g.action
 }
 
 func compareActions(a, b Action) int {

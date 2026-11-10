@@ -97,11 +97,32 @@ func normalizeSeverity(raw string) string {
 	return "UNKNOWN"
 }
 
-// Names lists every identifier the flaw goes by, sorted and without repeats.
+// Names lists every identifier the flaw goes by, trimmed, sorted and without
+// repeats. Blank aliases are dropped: an empty string would sort first and turn
+// into the key of every advisory that carried one.
 func (f FindingReport) Names() []string {
-	names := append([]string{f.ID}, f.Aliases...)
+	return cleanNames(append([]string{f.ID}, f.Aliases...))
+}
+
+func cleanNames(raw []string) []string {
+	names := make([]string, 0, len(raw))
+	for _, name := range raw {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			names = append(names, trimmed)
+		}
+	}
 	slices.Sort(names)
 	return slices.Compact(names)
+}
+
+// canonicalName is the name a stored finding is shown under: the smallest of
+// its advisory and its comma-separated aliases, the same rule Key uses.
+func canonicalName(advisory, aliases string) string {
+	names := cleanNames(append(strings.Split(aliases, ","), advisory))
+	if len(names) == 0 {
+		return advisory
+	}
+	return names[0]
 }
 
 // Key identifies a finding across nights. It is built from the smallest name the
@@ -140,12 +161,28 @@ func (r Report) Validate(now time.Time) error {
 			return err
 		}
 	}
+	return r.validateLatest()
+}
+
+func (r Report) validateLatest() error {
 	for name, version := range r.Latest {
-		if name == "" || version == "" || len(name) > maxFieldLength || len(version) > maxFieldLength {
+		if name == "" || version == "" || len(name) > maxFieldLength || len(version) > maxFieldLength || hasNUL(name, version) {
 			return errors.Invalid("latest needs a package name and a version")
 		}
 	}
+	if hasNUL(r.Run.DouaneVersion) {
+		return errors.Invalid("run carries a NUL byte")
+	}
 	return nil
+}
+
+func hasNUL(values ...string) bool {
+	for _, value := range values {
+		if strings.ContainsRune(value, 0) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p ProjectReport) validate(seen map[int64]bool) error {
@@ -162,6 +199,9 @@ func (p ProjectReport) validate(seen map[int64]bool) error {
 	if !p.Covered && (len(p.Findings) > 0 || len(p.Pins) > 0) {
 		return errors.Invalid("project " + p.Name + " is not covered but carries findings or pins")
 	}
+	if hasNUL(p.Name, p.DefaultBranch, p.NotCovered, p.GoDirective, p.CIConclusion, p.FiletPin, p.DeployedVersion) {
+		return errors.Invalid("a project field carries a NUL byte")
+	}
 	return p.validateEntries()
 }
 
@@ -175,6 +215,9 @@ func (p ProjectReport) validateEntries() error {
 		if pin.Package == "" || pin.Path == "" {
 			return errors.Invalid("project " + p.Name + " has a pin without a path or package")
 		}
+		if hasNUL(pin.Path, pin.Package, pin.Spec, pin.Resolved) {
+			return errors.Invalid("project " + p.Name + " has a pin carrying a NUL byte")
+		}
 	}
 	return nil
 }
@@ -185,6 +228,9 @@ func (f FindingReport) validate(project string) error {
 	}
 	if f.EPSS < 0 || f.EPSS > 1 {
 		return errors.Invalid("project " + project + " has an epss outside 0 to 1")
+	}
+	if hasNUL(f.ID, f.Summary, f.Severity, f.Package, f.Ecosystem, f.Installed, f.FixedIn, f.Scope, f.Target) || hasNUL(f.Aliases...) {
+		return errors.Invalid("project " + project + " has a finding carrying a NUL byte")
 	}
 	return nil
 }
