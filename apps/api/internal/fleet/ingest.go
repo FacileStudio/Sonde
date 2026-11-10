@@ -186,7 +186,7 @@ func recordRun(tx *gorm.DB, info RunInfo, result *IngestResult) error {
 		return err
 	}
 	result.FindingsOpen = int(open)
-	result.Complete = info.ReposScanned == info.ReposExpected && result.Covered == result.Projects
+	result.Complete = info.ReposScanned == info.ReposExpected
 	run := schemas.FleetRun{
 		StartedAt: info.StartedAt, FinishedAt: info.FinishedAt, DouaneVersion: info.DouaneVersion,
 		ReposExpected: info.ReposExpected, ReposScanned: info.ReposScanned,

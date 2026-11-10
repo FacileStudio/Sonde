@@ -1,0 +1,75 @@
+name: fleet-scan
+
+# The nightly fleet maintenance scan. It reads every FacileStudio repository
+# through a read-only GitHub App, runs douane over the lockfiles, and delivers
+# one report to Sonde. It never checks out or runs another repository's code.
+#
+# Off until the repository variable FLEET_SCAN_ENABLED is "true". Setup is in
+# docs/FLEET.md. It has no pull_request trigger on purpose: the job holds the
+# App key and the Sonde token, and a fork must never reach either.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleet-scan
+  cancel-in-progress: false
+
+env:
+  DOUANE_VERSION: "0.6.1"
+
+jobs:
+  scan:
+    if: ${{ vars.FLEET_SCAN_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Mint a read-only token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          owner: FacileStudio
+
+      - name: Install douane
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -eu
+          archive="douane_${DOUANE_VERSION}_linux_amd64.tar.gz"
+          base="https://github.com/FacileStudio/douane/releases/download/v${DOUANE_VERSION}"
+          curl -fsSLO "$base/checksums.txt"
+          curl -fsSLO "$base/$archive"
+          sha256sum --check --ignore-missing checksums.txt
+          tar xzf "$archive" douane
+          ./douane --version
+
+      - name: Build fleetscan
+        working-directory: apps/api
+        run: go build -o "$RUNNER_TEMP/fleetscan" ./cmd/fleetscan
+
+      - name: Scan and deliver
+        env:
+          GITHUB_TOKEN: ${{ steps.app.outputs.token }}
+          SONDE_URL: ${{ vars.SONDE_URL }}
+          SONDE_FLEET_TOKEN: ${{ secrets.SONDE_FLEET_TOKEN }}
+          DOUANE_BIN: ${{ runner.temp }}/douane
+        run: '"$RUNNER_TEMP/fleetscan"'
+
+      - name: Heartbeat
+        env:
+          SONDE_URL: ${{ vars.SONDE_URL }}
+          FLEET_HEARTBEAT_TOKEN: ${{ secrets.FLEET_HEARTBEAT_TOKEN }}
+        run: curl -fsS -X POST "$SONDE_URL/api/push/$FLEET_HEARTBEAT_TOKEN"
