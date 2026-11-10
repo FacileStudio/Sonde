@@ -7,11 +7,6 @@ import type {
 	Incident,
 	IncidentStats,
 	Integrations,
-	MaintenanceActions,
-	MaintenanceDrift,
-	MaintenanceProject,
-	MaintenanceRun,
-	MaintenanceTier,
 	MeResponse,
 	Monitor,
 	MonitorHistory,
@@ -27,11 +22,20 @@ import type {
 	WebhookInput,
 	WebhookTestResult
 } from '$lib/types';
+import type {
+	MaintenanceActions,
+	MaintenanceDrift,
+	MaintenanceProject,
+	MaintenanceRun,
+	MaintenanceTier
+} from '$lib/maintenance-types';
 
 /* Re-exported so every call site keeps importing its types from the client it
    calls. Splitting the file was a size fix, not an API change. */
 export type * from '$lib/types';
-export { MAINTENANCE_TIERS, UPTIME_WINDOWS } from '$lib/types';
+export type * from '$lib/maintenance-types';
+export { UPTIME_WINDOWS } from '$lib/types';
+export { MAINTENANCE_TIERS } from '$lib/maintenance-types';
 
 const backendBaseUrl = '/api';
 
