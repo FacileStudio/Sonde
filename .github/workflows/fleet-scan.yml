@@ -40,13 +40,13 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/api/go.mod
-          cache-dependency-path: apps/api/go.sum
+          cache: false
 
       - name: Mint a read-only token
         id: app
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ secrets.FLEET_APP_ID }}
+          client-id: ${{ secrets.FLEET_APP_CLIENT_ID }}
           private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
           owner: FacileStudio
           permission-contents: read
@@ -79,4 +79,4 @@ jobs:
         env:
           SONDE_URL: ${{ vars.SONDE_URL }}
           FLEET_HEARTBEAT_TOKEN: ${{ secrets.FLEET_HEARTBEAT_TOKEN }}
-        run: curl -fsS -X POST "$SONDE_URL/api/push/$FLEET_HEARTBEAT_TOKEN"
+        run: curl -fsS --max-time 30 --retry 2 --retry-all-errors -X POST "$SONDE_URL/api/push/$FLEET_HEARTBEAT_TOKEN"
