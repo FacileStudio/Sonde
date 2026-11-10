@@ -154,11 +154,17 @@ Empty turns ingest off.
 - **A complete run** (`repos_scanned == repos_expected > 0`) also resolves the findings of
   projects it no longer lists, and marks them not covered. A complete run that lists far fewer
   repositories than are currently covered (below 90%, or more than 5 fewer) is stored as
-  incomplete and resolves nothing, so a narrowed App installation cannot empty the inbox.
+  incomplete with `coverage_dropped` and resolves nothing, and the server logs a warning, so a
+  narrowed App installation cannot empty the inbox. When repositories really were deleted or
+  transferred, run the workflow once by hand with `accept_shrink` checked (`fleetscan
+  -accept-shrink`, or `FLEET_ACCEPT_SHRINK=true`).
 - **Deliveries are serialised.** A report that is not newer than the last stored one is refused
   with 409, so a retried delivery is safe to repeat.
 - **Logs.** The server logs every delivery at info (run id and counts), refused deliveries at
-  warn, and failed token attempts at warn with the remote address.
+  warn with their code, internal failures at error with their cause, and failed token attempts
+  at warn with the remote address, never the token.
+- **Rate limit.** Accepted deliveries are limited to a burst of ten, refilled at one a minute.
+  The limit sits after the token check, so a stranger cannot spend the runner's budget.
 
 ## Ranking
 
