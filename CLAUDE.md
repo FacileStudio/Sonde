@@ -18,7 +18,7 @@ check history instead of growing an unbounded table.
 - **Chassis**: [`tronc`](https://github.com/FacileStudio/tronc) v0.17.1 supplies `errors`,
   `httpjson`, `logger`, `middleware`, `httpx`, `health`, `healthcheck`, `spa`, `apiref`,
   `migrate` and `testdb`. Do not reimplement any of them locally
-- **Tooling**: mise (monorepo mode, experimental) + bun for the client; dev Postgres via
+- **Tooling**: mise (monorepo mode) + bun for the client; dev Postgres via
   Docker, falling back to `PATH` binaries
 - **Container**: one multi-stage Dockerfile at the repo root
 
@@ -157,7 +157,6 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `SONDE_FLEET_TOKEN` | empty | Token for the fleet runner's report delivery. Empty turns ingest off. At least 32 characters |
 | `SONDE_FLEET_ADMINS` | empty | Emails allowed to read fleet data, on top of `is_admin`. Empty closes the read routes |
 | `APP_ENV` | `production` in compose | `production` refuses to boot without `OIDC_ISSUER` |
-| `APP_VERSION` | `dev` | Build arg, served at `GET /version`. Set it in the Dokploy env at release |
 | `OIDC_ISSUER` | empty | `https://sso.facile.studio`. Empty disables SSO |
 | `OIDC_CLIENT_ID` | empty | `sonde` |
 | `OIDC_CLIENT_SECRET` | empty | Set on the Dokploy service, never committed |
