@@ -15,7 +15,6 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
 	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
-	"github.com/FacileStudio/Sonde/apps/api/internal/middleware"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
@@ -23,6 +22,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/oidc"
 	"github.com/FacileStudio/porte/session"
 	"github.com/FacileStudio/tronc/apiref"
@@ -101,7 +101,11 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 	health.Mount(router, health.DB(deps.SQL))
 	router.Get("/version", versionHandler)
 	apiref.Mount(router, refConfig())
-	router.Route("/api", func(r chi.Router) { mountAPI(r, deps, identity) })
+	var mountErr error
+	router.Route("/api", func(r chi.Router) { mountErr = mountAPI(r, deps, identity) })
+	if mountErr != nil {
+		return nil, mountErr
+	}
 	if spa.Available(clientDir) {
 		router.Handle("/*", spa.Handler(spa.Config{Dir: clientDir}))
 		deps.Logger.Info("serving client", slog.String("dir", clientDir))
@@ -113,6 +117,7 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 type identity struct {
 	sessions    *session.Manager
 	kit         *oidc.Kit
+	users       *kit.Store
 	authService *auth.Service
 }
 
@@ -126,8 +131,9 @@ func buildIdentity(deps routerDeps) (identity, error) {
 	if err != nil {
 		return identity{}, fmt.Errorf("failed to configure sessions: %w", err)
 	}
-	kit, err := oidc.New(context.Background(), deps.Env.Porte, oidc.Deps{
-		Users:      auth.NewUserStore(deps.DB),
+	users := auth.NewUserStore(deps.SQL)
+	oidcKit, err := oidc.New(context.Background(), deps.Env.Porte, oidc.Deps{
+		Users:      users,
 		Identities: identityStore.Identities(),
 		Codes:      identityStore.LoginCodes(),
 		Sessions:   sessions,
@@ -136,20 +142,21 @@ func buildIdentity(deps routerDeps) (identity, error) {
 	if err != nil {
 		return identity{}, fmt.Errorf("failed to configure authentication: %w", err)
 	}
-	if kit.Enabled() {
+	if oidcKit.Enabled() {
 		deps.Logger.Info("single sign-on enabled", slog.String("issuer", deps.Env.Porte.Issuer))
 	}
-	return identity{sessions: sessions, kit: kit, authService: auth.NewService(deps.DB)}, nil
+	return identity{sessions: sessions, kit: oidcKit, users: users, authService: auth.NewService(deps.DB)}, nil
 }
 
 // mountAPI registers every /api route. The SPA catch-all is mounted after it,
 // so nothing here can be shadowed.
-func mountAPI(r chi.Router, deps routerDeps, id identity) {
+func mountAPI(r chi.Router, deps routerDeps, id identity) error {
 	db, appEnv := deps.DB, deps.Env
-	requireAuth := middleware.RequireAuth(id.sessions, id.authService)
+	requireAuth := kit.RequireAuth(id.sessions, id.users)
 	webhookStore := webhooks.NewStore(db)
-	id.sessions.Mount(r)
-	id.kit.Mount(r)
+	if err := kit.Mount(r, kit.Config{Sessions: id.sessions, OIDC: id.kit}); err != nil {
+		return err
+	}
 	auth.RegisterRoutes(r, id.authService, requireAuth)
 	checker.RegisterHeartbeat(r, deps.Engine)
 	users.RegisterRoutes(r, users.NewService(db), requireAuth)
@@ -163,4 +170,5 @@ func mountAPI(r chi.Router, deps routerDeps, id identity) {
 	}), requireAuth)
 	webhooks.RegisterRoutes(r, webhookStore, webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), deps.Logger), requireAuth)
 	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger})
+	return nil
 }

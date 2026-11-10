@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/FacileStudio/Sonde/apps/api/migrations"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
-	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/testdb"
 
@@ -42,8 +42,13 @@ func openTestDatabase(t *testing.T) *gorm.DB {
 	return db
 }
 
-func claims(subject, email string, verified bool) porte.Claims {
-	return porte.Claims{Provider: testIssuer, Subject: subject, Email: email, EmailVerified: verified, Locale: "de"}
+func sqlOf(t *testing.T, db *gorm.DB) *sql.DB {
+	t.Helper()
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql handle: %v", err)
+	}
+	return sqlDB
 }
 
 func link(t *testing.T, db *gorm.DB, userID int64, subject string) {
@@ -61,79 +66,6 @@ func seed(t *testing.T, db *gorm.DB, email, name string) schemas.User {
 		t.Fatalf("seed: %v", err)
 	}
 	return user
-}
-
-// An account created before Registre owned sign-in has no federated identity.
-// Its owner's first Facile sign-in must land on that same row, keep its data,
-// and then resolve by subject.
-func TestFirstFacileSignInLinksAnExistingAccountByVerifiedEmail(t *testing.T) {
-	db := openTestDatabase(t)
-	store := NewUserStore(db)
-	ctx := context.Background()
-	existing := seed(t, db, "camille@facile.studio", "Camille")
-
-	id, err := store.UpsertFromOIDC(ctx, claims("sub-1", "Camille@Facile.Studio", true))
-	if err != nil {
-		t.Fatalf("first sign-in: %v", err)
-	}
-	if id != existing.ID {
-		t.Fatalf("first sign-in created account %d, want the existing %d", id, existing.ID)
-	}
-	link(t, db, id, "sub-1")
-
-	again, err := store.UpsertFromOIDC(ctx, claims("sub-1", "camille@facile.studio", true))
-	if err != nil || again != existing.ID {
-		t.Fatalf("second sign-in = %d, %v; want %d", again, err, existing.ID)
-	}
-
-	var user schemas.User
-	if err := db.First(&user, id).Error; err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-	if user.Locale != "de" {
-		t.Errorf("locale = %q, want the sign-in's de", user.Locale)
-	}
-	if user.PasswordHash != "legacy-hash" {
-		t.Error("linking rewrote the account's stored data")
-	}
-}
-
-func TestAnUnverifiedAddressNeverLinksNorRewritesAnAddress(t *testing.T) {
-	db := openTestDatabase(t)
-	store := NewUserStore(db)
-	ctx := context.Background()
-	noah := seed(t, db, "noah@facile.studio", "Noah")
-
-	if _, err := store.UpsertFromOIDC(ctx, claims("sub-2", "noah@facile.studio", false)); err == nil {
-		t.Fatal("an unverified address linked to an existing account")
-	}
-
-	owner, err := store.UpsertFromOIDC(ctx, claims("sub-owner", "mia@facile.studio", true))
-	if err != nil {
-		t.Fatalf("owner sign-in: %v", err)
-	}
-	link(t, db, owner, "sub-owner")
-	if _, err := store.UpsertFromOIDC(ctx, claims("sub-owner", noah.Email, false)); err != nil {
-		t.Fatalf("unverified refresh: %v", err)
-	}
-	var stored schemas.User
-	if err := db.First(&stored, owner).Error; err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-	if stored.Email != "mia@facile.studio" {
-		t.Errorf("an unverified claim moved the stored address to %q", stored.Email)
-	}
-}
-
-func TestARecycledAddressIsNotHandedToANewSubject(t *testing.T) {
-	db := openTestDatabase(t)
-	store := NewUserStore(db)
-	owner := seed(t, db, "lea@facile.studio", "Lea")
-	link(t, db, owner.ID, "sub-owner")
-
-	if _, err := store.UpsertFromOIDC(context.Background(), claims("sub-newcomer", "lea@facile.studio", true)); err == nil {
-		t.Fatal("a second subject of the same issuer took over a linked account")
-	}
 }
 
 func countRows(t *testing.T, db *gorm.DB, query string, args ...any) int64 {
@@ -162,7 +94,7 @@ func seedOwnedRows(t *testing.T, db *gorm.DB, owner int64, slug string) {
 // the same notice is a no-op.
 func TestEraseAccountDeletesThePersonsDataOnceAndIsIdempotent(t *testing.T) {
 	db := openTestDatabase(t)
-	store := NewUserStore(db)
+	store := NewUserStore(sqlOf(t, db))
 	ctx := context.Background()
 
 	gone := seed(t, db, "gone@facile.studio", "Gone")
@@ -209,7 +141,7 @@ func TestEraseAccountDeletesThePersonsDataOnceAndIsIdempotent(t *testing.T) {
 
 func TestErasingTheOnlyAdministratorHandsTheRoleToTheOldestAccount(t *testing.T) {
 	db := openTestDatabase(t)
-	store := NewUserStore(db)
+	store := NewUserStore(sqlOf(t, db))
 	ctx := context.Background()
 
 	admin := seed(t, db, "admin@facile.studio", "Admin")

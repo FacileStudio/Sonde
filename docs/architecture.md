@@ -72,8 +72,6 @@ HTTP wiring.
 | `httpapi` | Monitor CRUD, incidents, config export, status pages, and the public status feed |
 | `database` | The GORM connection |
 | `env` | Config load and validation |
-| `middleware` | `RequireAuth`, which resolves a porte session into an identity |
-| `authcontext` | The request-scoped identity |
 | `documentation` | The type the API reference registry is assembled from |
 
 `RegisterRoutes` is called from `buildRouter` inside `router.Route("/api", …)`, so a package
@@ -136,8 +134,8 @@ Sonde authenticates through [porte](https://github.com/FacileStudio/porte). One
 login via `porte/local` (argon2id) and a federated one via `porte/oidc` (PKCE) produce the
 same row, the same `session` cookie and the same logout.
 
-`middleware.RequireAuth` resolves the session, then puts an
-`authcontext.Identity{UserID, Email, IsAdmin}` on the request context. Handlers read the
+`kit.RequireAuth` (`porte/kit`) resolves the session, then puts a
+`kit.Identity{UserID, Email, Name, PictureURL, IsAdmin}` on the request context. Handlers read the
 identity from the context rather than re-parsing the header. `httpapi`'s `adminGate` wraps
 that middleware to gate the status-page and export routes on `IsAdmin`.
 

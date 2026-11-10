@@ -1,13 +1,15 @@
 # Authentication
 
 Sonde authenticates through [porte](https://github.com/FacileStudio/porte) v0.17.x, and only
-through Registre. One session manager owns the sessions table (cookie `session`). There is no
+through Registre. The glue is `porte/kit`: identity, user store, `RequireAuth`, erase and
+mount. One session manager owns the sessions table (cookie `session`). There is no
 local password, register or login route.
 
 - **Account linking**: an account that predates the cutover links by verified email at its first
   Facile sign-in, and only when it holds no other subject of the same issuer.
-- **Deletion**: `porte/directory` polls Registre for erased people; `UserStore.EraseAccount`
-  deletes their monitors, webhooks, sessions and account. Status pages stay.
+- **Deletion**: `porte/directory` polls Registre for erased people; `kit.Store.EraseAccount`
+  (`porte/kit`, wired in `modules/auth/store.go`) deletes their monitors, webhooks, sessions
+  and account. Status pages stay.
 - **SSO**: `GET /api/auth/oidc` starts a PKCE flow against Registre (`OIDC_ISSUER`);
   `GET /api/auth/oidc/callback` lands the user in the same session shape.
 - **Config**: `GET /api/auth/config` returns `{sso_only, oidc_enabled,

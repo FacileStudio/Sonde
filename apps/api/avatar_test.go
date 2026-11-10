@@ -16,7 +16,7 @@ import (
 // never pointed at a data: URL and the client draws the initial instead.
 func TestThePictureClaimIsStoredOnlyWhenHTTPS(t *testing.T) {
 	db := avatarDB(t)
-	users := auth.NewUserStore(db)
+	users := auth.NewUserStore(rawSQL(t, db))
 	ctx := context.Background()
 
 	signedIn := claims("pic", "pic@facile.studio", "Pic", true)
@@ -45,7 +45,7 @@ func TestThePictureClaimIsStoredOnlyWhenHTTPS(t *testing.T) {
 // run changes nothing.
 func TestBackfillFillsOnlyEmptyAvatars(t *testing.T) {
 	db := avatarDB(t)
-	users := auth.NewUserStore(db)
+	users := auth.NewUserStore(rawSQL(t, db))
 	ctx := context.Background()
 
 	legacy := schemas.User{Email: "legacy@facile.studio", Name: "Legacy"}
@@ -63,7 +63,7 @@ func TestBackfillFillsOnlyEmptyAvatars(t *testing.T) {
 		t.Fatalf("mark: %v", err)
 	}
 
-	filled, err := users.BackfillAvatars(ctx, "https://sso.facile.studio")
+	filled, err := users.BackfillPictures(ctx, "https://sso.facile.studio")
 	if err != nil {
 		t.Fatalf("backfill: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestBackfillFillsOnlyEmptyAvatars(t *testing.T) {
 	if got := avatarOf(t, db, keptID); got != "https://elsewhere.example/kept" {
 		t.Fatalf("backfill overwrote a stored URL: %q", got)
 	}
-	if again, _ := users.BackfillAvatars(ctx, "https://sso.facile.studio"); again != 0 {
+	if again, _ := users.BackfillPictures(ctx, "https://sso.facile.studio"); again != 0 {
 		t.Fatalf("a second backfill filled %d rows", again)
 	}
 }

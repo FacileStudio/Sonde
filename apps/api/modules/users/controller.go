@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 )
 
@@ -18,7 +18,7 @@ func newController(service *Service) *Controller {
 }
 
 func (controller *Controller) me(context context.Context) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}
@@ -31,7 +31,7 @@ func (controller *Controller) me(context context.Context) (*MeResponse, error) {
 }
 
 func (controller *Controller) updateMe(context context.Context, req *UpdateRequest) (*MeResponse, error) {
-	identity, ok := authcontext.IdentityFromContext(context)
+	identity, ok := kit.FromContext(context)
 	if !ok {
 		return nil, errors.Unauthorized("missing auth")
 	}

@@ -28,7 +28,7 @@ func newDeletions(db *gorm.DB, sqlDB *sql.DB, appEnv env.Config, logger *slog.Lo
 			ClientID:     appEnv.Porte.ClientID,
 			ClientSecret: appEnv.Porte.ClientSecret,
 		},
-		OnPersonDeleted: auth.NewUserStore(db).EraseAccount,
+		OnPersonDeleted: auth.NewUserStore(sqlDB).EraseAccount,
 		Erase:           portepg.New(sqlDB).EraseIdentity,
 		State:           auth.NewDeletionState(db),
 		Logger:          logger,

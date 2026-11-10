@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 )
@@ -58,7 +58,7 @@ func newMonitorResponse(m *schemas.Monitor) MonitorResponse {
 }
 
 func (s *Service) ownerID(r *http.Request) (int64, error) {
-	identity, ok := authcontext.IdentityFromContext(r.Context())
+	identity, ok := kit.FromContext(r.Context())
 	if !ok {
 		return 0, errors.Unauthorized("missing auth")
 	}

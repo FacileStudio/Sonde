@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 
@@ -140,7 +140,7 @@ func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.H
 func adminGate(requireAuth func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			identity, ok := authcontext.IdentityFromContext(r.Context())
+			identity, ok := kit.FromContext(r.Context())
 			if !ok || !identity.IsAdmin {
 				httpjson.WriteError(w, errors.Forbidden("administrator role required"))
 				return

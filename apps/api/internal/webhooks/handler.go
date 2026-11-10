@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 	"github.com/go-chi/chi/v5"
@@ -21,7 +21,7 @@ func NewHandler(store *Store, dispatcher *Dispatcher) *Handler {
 }
 
 func (h *Handler) List(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return
@@ -39,7 +39,7 @@ func (h *Handler) List(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return
@@ -58,7 +58,7 @@ func (h *Handler) Create(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) Get(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return
@@ -77,7 +77,7 @@ func (h *Handler) Get(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) Update(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return
@@ -101,7 +101,7 @@ func (h *Handler) Update(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return
@@ -142,7 +142,7 @@ func (h *Handler) TestDirect(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) TestSaved(w http.ResponseWriter, req *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(req.Context())
+	identity, ok := kit.FromContext(req.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return

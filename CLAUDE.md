@@ -106,14 +106,12 @@ nothing about what the browser gets.
 ├── apps/
 │   ├── api/                  # Go API
 │   │   ├── internal/         # Sonde's own domain, one package per concern
-│   │   │   ├── authcontext/  # Request-scoped identity
 │   │   │   ├── checker/      # Probe engine, HTTP/TCP probes, push heartbeats, recorder
 │   │   │   ├── database/     # GORM connection
 │   │   │   ├── documentation/# The type the API reference registry is built from
 │   │   │   ├── env/          # Environment config loader and validation
 │   │   │   ├── fleet/        # Fleet maintenance: report ingest, ranked actions, version drift, holds
 │   │   │   ├── httpapi/      # Monitors, incidents, export, status pages, public feed
-│   │   │   ├── middleware/   # RequireAuth over a porte session
 │   │   │   ├── monitors/     # Monitor store and validation
 │   │   │   ├── retention/    # Daily rollup + prune job
 │   │   │   └── uptime/       # Uptime windows read from checks_hourly
@@ -217,7 +215,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
   `porte/oidc` (PKCE) issues through it. There is no password route and no sign-up page. An
   account created before the cutover links by verified email at its first Facile sign-in, and
   only when it holds no other subject of the same issuer. `porte/directory` polls Registre for
-  erased people and `UserStore.EraseAccount` deletes their data (GDPR). Cookie-authenticated
+  erased people and `kit.Store.EraseAccount` (`porte/kit`) deletes their data (GDPR). Cookie-authenticated
   mutations require `X-Facile-CSRF`; bearer requests are exempt, which is why a bearer-token
   test passes while every browser write 403s. See `docs/AUTH.md`.
 - **The identity provider is Registre at `https://sso.facile.studio`, one issuer at the

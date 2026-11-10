@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 )
@@ -49,7 +49,7 @@ func allowed(admins []string, email string) bool {
 func Gate(requireAuth func(http.Handler) http.Handler, admins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			identity, ok := authcontext.IdentityFromContext(r.Context())
+			identity, ok := kit.FromContext(r.Context())
 			if !ok || !identity.IsAdmin || !allowed(admins, identity.Email) {
 				httpjson.WriteError(w, errors.Forbidden("fleet access required"))
 				return

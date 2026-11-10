@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 )
@@ -19,7 +19,7 @@ func newHandler(service *Service) *Handler {
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(r.Context())
+	identity, ok := kit.FromContext(r.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("not authenticated"))
 		return

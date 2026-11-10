@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/FacileStudio/Sonde/apps/api/internal/authcontext"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
 	"github.com/FacileStudio/tronc/httpjson"
 	"github.com/go-chi/chi/v5"
@@ -20,7 +20,7 @@ func (h *Handler) ListPolicies(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreatePolicy(w http.ResponseWriter, r *http.Request) {
-	identity, ok := authcontext.IdentityFromContext(r.Context())
+	identity, ok := kit.FromContext(r.Context())
 	if !ok {
 		httpjson.WriteError(w, errors.Unauthorized("unauthorized"))
 		return

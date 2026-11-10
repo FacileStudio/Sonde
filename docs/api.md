@@ -150,7 +150,7 @@ second step fails `apps/api/apiref_test.go`. Paths are relative to `/api`; never
 prefix, or the client ends up calling `/api/api/widgets`, which
 `scripts/verify-deploy.sh` checks for on purpose.
 
-Handlers read the caller's identity from the request context through `authcontext`, not by
+Handlers read the caller's identity from the request context through `kit.FromContext` (`porte/kit`), not by
 re-parsing the `Authorization` header.
 
 Back to the [documentation index](README.md).

@@ -98,7 +98,7 @@ func signIn(t *testing.T, db *gorm.DB, email string) signedSession {
 	t.Helper()
 	ctx := context.Background()
 	subject := "sub-" + email
-	userID, err := auth.NewUserStore(db).UpsertFromOIDC(ctx, claims(subject, email, "Someone", true))
+	userID, err := auth.NewUserStore(rawSQL(t, db)).UpsertFromOIDC(ctx, claims(subject, email, "Someone", true))
 	if err != nil {
 		t.Fatalf("sign-in of %s: %v", email, err)
 	}
