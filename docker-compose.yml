@@ -117,6 +117,11 @@ services:
       # Raw check rows are pruned past this many days. Hourly and daily
       # rollups outlive them; see docs/RETENTION.md.
       SONDE_RAW_RETENTION_DAYS: ${SONDE_RAW_RETENTION_DAYS:-30}
+      # Fleet maintenance. An empty SONDE_FLEET_TOKEN turns report ingest off,
+      # and an empty SONDE_FLEET_ADMINS closes the maintenance page to everyone;
+      # see docs/FLEET.md.
+      SONDE_FLEET_TOKEN: ${SONDE_FLEET_TOKEN:-}
+      SONDE_FLEET_ADMINS: ${SONDE_FLEET_ADMINS:-}
     healthcheck:
       # The image is distroless: no shell, no wget, no curl. Re-executing the
       # binary is the only probe available. Provided by tronc's healthcheck
