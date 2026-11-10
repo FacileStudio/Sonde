@@ -10,6 +10,7 @@ config_roots = ["apps/api", "apps/client"]
 [tools]
 go = "1.26"
 bun = "1.3.11"
+lefthook = "2.1.12"
 
 [tasks.bootstrap]
 description = "Install monorepo dependencies"
@@ -42,8 +43,8 @@ description = "Format the Go sources in place"
 run = "sh ./scripts/check.sh --format"
 
 [tasks.hooks]
-description = "Enable the tracked git hooks in this clone"
-run = "git config core.hooksPath .githooks"
+description = "Install the tracked lefthook hooks in this clone"
+run = "lefthook install --reset-hooks-path"
 
 [tasks.dev]
 description = "Run the API and client development servers"

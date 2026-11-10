@@ -29,7 +29,7 @@ All commands run from the repo root unless noted.
 ```sh
 mise trust && mise install    # one-time setup: trust config + install toolchains
 mise run bootstrap            # install all app dependencies (Go modules + bun)
-mise run hooks                # enable the tracked pre-push quality gate
+mise run hooks                # install lefthook.yml: commit-msg check + pre-push gate
 mise run db-up                # start local Postgres on 127.0.0.1:5603
 mise run db-down              # stop local Postgres
 mise run dev                  # run API (port 4000) + client (port 5173) concurrently
@@ -40,8 +40,9 @@ mise run format               # rewrite Go sources in place
 
 `scripts/check.sh` is the gate and it is deliberately not invoked through mise: `mise run`
 resolves every tool in the merged config before running any task body, so one broken tool in
-the user's global config would take the gate down with it. The pre-push hook runs the script
-directly for the same reason.
+the user's global config would take the gate down with it. The pre-push hook (`lefthook.yml`,
+installed by `mise run hooks`) runs the script directly for the same reason. Its commit-msg
+hook comes from the shared `FacileStudio/hooks` remote.
 
 The Go half of the gate also fails on a non-Postgres GORM driver in `go.mod`. Postgres is the
 only database in this suite, tests included. `tronc/testdb` gives a test a real one;
