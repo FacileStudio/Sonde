@@ -8,6 +8,44 @@ repository.
 scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/actions, /drift, /projects
 ```
 
+## The runner
+
+`apps/api/cmd/fleetscan` runs nightly from `.github/workflows/fleet-scan.yml`. It lists the
+organisation's repositories, reads each default branch's tree, fetches the lockfiles,
+`package.json` files and workflow files through the contents API, runs `douane sweep` over
+them, and delivers one gzip report. It never clones and never runs a repository's code.
+
+Measured on 2026-11-10 against FacileStudio: 88 repositories listed, 79 scanned, 9 with nothing
+to scan, 75 seconds, 676 API calls, a 3 MB report. Two consecutive runs ingested with 0 new and
+0 resolved findings.
+
+- A repository with no lockfile, or an empty one, has nothing to scan. It is reported, not
+  expected.
+- A repository whose tree or files could not be fetched, that has more than 80 manifests, or
+  that douane returned nothing for, is reported as not covered and counts against the run.
+- The log prints counts only. Findings never reach the workflow log.
+- `-out report.json` writes the report instead of delivering it, for a dry run:
+
+  ```sh
+  cd apps/api && go build -o /tmp/fleetscan ./cmd/fleetscan
+  GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tmp/report.json
+  ```
+
+## Setting it up
+
+1. Register a GitHub App on FacileStudio. Repository permissions: Contents read, Actions read,
+   Metadata read. No webhook, no user authorization, no device flow. Install it on all
+   repositories, so a new repository cannot escape the scan.
+2. On the Sonde deployment, set `SONDE_FLEET_TOKEN` (32 or more random characters) and
+   `SONDE_FLEET_ADMINS`. Use the `dokploy-env-safe` flow: a partial env update drops keys.
+3. In Sonde, create a push monitor named `fleet-scan` with an interval of about 26 hours. Its
+   push token is the heartbeat.
+4. In the Sonde repository settings, add the secrets `FLEET_APP_ID`, `FLEET_APP_PRIVATE_KEY`,
+   `SONDE_FLEET_TOKEN` and `FLEET_HEARTBEAT_TOKEN`, and the variables `SONDE_URL`
+   (`https://sonde.facile.studio`) and `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key
+   in Casier.
+5. Run the workflow once by hand. A missed night then opens a Sonde incident on `fleet-scan`.
+
 ## Who can see it
 
 Fleet data is a ranked list of weaknesses, so access is narrower than the rest of Sonde. A

@@ -117,6 +117,7 @@ nothing about what the browser gets.
 │   │   │   ├── monitors/     # Monitor store and validation
 │   │   │   ├── retention/    # Daily rollup + prune job
 │   │   │   └── uptime/       # Uptime windows read from checks_hourly
+│   │   ├── cmd/fleetscan/    # Nightly fleet runner: GitHub API + douane -> one report to Sonde
 │   │   ├── migrations/       # Ordered goose SQL, embedded into the binary
 │   │   ├── modules/          # Account modules: auth/, users/
 │   │   ├── schemas/          # GORM structs mirroring the SQL. AutoMigrate never runs

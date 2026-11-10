@@ -32,8 +32,11 @@ type Report struct {
 	Latest        map[string]string `json:"latest"`
 }
 
-// RunInfo says how complete the delivery is. A runner that listed 88
-// repositories and scanned 80 must say so; the gap is a signal, not noise.
+// RunInfo says how complete the delivery is. ReposExpected counts the
+// repositories the runner should have been able to scan: one with no lockfile
+// has nothing to scan and is left out, while one whose fetch failed is counted,
+// so a run that listed 88 and scanned 80 says so. The server calls a run
+// complete when the two numbers match.
 type RunInfo struct {
 	StartedAt     time.Time `json:"started_at"`
 	FinishedAt    time.Time `json:"finished_at"`
