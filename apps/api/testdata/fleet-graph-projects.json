@@ -1,0 +1,29 @@
+[
+  {
+    "github_repo_id": 201, "name": "Courrier", "default_branch": "main", "covered": true,
+    "findings": [{"id": "CVE-2026-1", "severity": "HIGH", "package": "next", "ecosystem": "npm", "installed": "16.2.4", "fixed_in": "16.2.5", "epss": 0.355}],
+    "pins": [{"path": "apps/api/go.mod", "package": "github.com/FacileStudio/tronc", "spec": "v0.17.1", "resolved": "v0.17.1"}],
+    "edges": [
+      {"to": "tronc", "kind": "lib", "evidence": "v0.17.1"},
+      {"to": "Nuage", "kind": "call", "auth": "static_key", "evidence": "NUAGE_SERVICE_KEY"},
+      {"to": "Antenne", "kind": "event", "evidence": "ANTENNE_INSTANCE"},
+      {"to": "Antenne", "kind": "event", "evidence": "ANTENNE_INSTANCE"}
+    ],
+    "conformance": [
+      {"id": "gate.filet", "ok": true, "detail": "found in .github/workflows/ci.yml"},
+      {"id": "pins.current", "ok": false, "detail": "behind: github.com/FacileStudio/porte v0.12.0 in apps/api/go.mod, latest v0.13.0"}
+    ]
+  },
+  {
+    "github_repo_id": 202, "name": "Nuage", "default_branch": "main", "covered": true,
+    "edges": [{"to": "tronc", "kind": "lib", "evidence": "v0.16.0"}],
+    "conformance": [{"id": "gate.filet", "ok": true, "detail": "found in lefthook.yml"}]
+  },
+  {
+    "github_repo_id": 203, "name": "tronc", "default_branch": "main", "covered": true,
+    "conformance": [
+      {"id": "gate.filet", "ok": true, "detail": "found in .github/workflows/ci.yml"},
+      {"id": "fuzz.present", "ok": false, "detail": "no testdata/fuzz or fuzz directory"}
+    ]
+  }
+]

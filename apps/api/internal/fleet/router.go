@@ -39,6 +39,8 @@ func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handl
 			r.Use(gate)
 			r.Get("/actions", h.Actions)
 			r.Get("/drift", h.Drift)
+			r.Get("/graph", h.Graph)
+			r.Get("/conformance", h.Conformance)
 			r.Get("/projects", h.Projects)
 			r.Patch("/projects/{id}", h.UpdateProject)
 			r.Get("/runs", h.Runs)

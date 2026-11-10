@@ -160,7 +160,7 @@ func TestPromotingAStrangerToAdminDoesNotOpenFleetData(t *testing.T) {
 		t.Fatalf("promote: %v", err)
 	}
 
-	for _, path := range []string{"/api/fleet/actions", "/api/fleet/drift", "/api/fleet/projects", "/api/fleet/runs", "/api/fleet/policies"} {
+	for _, path := range []string{"/api/fleet/actions", "/api/fleet/drift", "/api/fleet/graph", "/api/fleet/conformance", "/api/fleet/projects", "/api/fleet/runs", "/api/fleet/policies"} {
 		if got := fleetGet(t, router, path, stranger.Token).Code; got != http.StatusForbidden {
 			t.Errorf("promoted stranger on %s = %d, want 403", path, got)
 		}
