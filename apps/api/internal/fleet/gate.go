@@ -3,6 +3,7 @@ package fleet
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -13,9 +14,18 @@ import (
 
 // Config is what the fleet routes read from the environment. An empty Token
 // turns report ingest off, and an empty Admins list closes every read route.
+// Logger receives delivery outcomes and refused tokens; nil discards them.
 type Config struct {
 	Token  string
 	Admins []string
+	Logger *slog.Logger
+}
+
+func (c Config) logger() *slog.Logger {
+	if c.Logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return c.Logger
 }
 
 func allowed(admins []string, email string) bool {
@@ -64,8 +74,9 @@ func sameToken(got, want string) bool {
 }
 
 // IngestAuth accepts the runner's shared token. It hashes both sides before
-// comparing so the check takes the same time whatever the token's length.
-func IngestAuth(token string) func(http.Handler) http.Handler {
+// comparing so the check takes the same time whatever the token's length, and
+// logs a refused token with the caller's address, never the token itself.
+func IngestAuth(token string, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if token == "" {
@@ -73,6 +84,7 @@ func IngestAuth(token string) func(http.Handler) http.Handler {
 				return
 			}
 			if !sameToken(bearer(r), token) {
+				logger.Warn("fleet ingest refused a token", slog.String("remote_addr", r.RemoteAddr))
 				httpjson.WriteError(w, errors.Unauthorized("invalid fleet token"))
 				return
 			}

@@ -155,7 +155,7 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 		users.RegisterRoutes(r, userService, requireAuth)
 		httpapi.RegisterRoutes(r, httpService, requireAuth)
 		webhooks.RegisterRoutes(r, webhookStore, webhookDispatcher, requireAuth)
-		fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins})
+		fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: appLogger})
 	})
 
 	if spa.Available(clientDir) {
