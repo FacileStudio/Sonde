@@ -20,6 +20,7 @@ var (
 	raceGate     = regexp.MustCompile(`(?m)\bgo test\b.*\s-race\b`)
 	sqlMigration = regexp.MustCompile(`(?:^|/)migrations/[^/]+\.sql$`)
 	fuzzDir      = regexp.MustCompile(`(?:^|/)testdata/fuzz/|^fuzz/|/fuzz/`)
+	licenceFile  = regexp.MustCompile(`^(?:LICENSE|LICENCE|COPYING)(?:[.-][^/]*)?$`)
 )
 
 func (t repoTree) has(match func(string) bool) bool { return slices.ContainsFunc(t.paths, match) }
@@ -64,7 +65,8 @@ func present(id string, ok bool, yes, no string) fleet.CheckReport {
 	return fleet.CheckReport{ID: id, Detail: no}
 }
 
-// conformance asks a repository the suite's standards. A check that does not
+// conformance asks a repository the suite's standards. The lefthook and licence
+// checks are asked of every repository. A check that does not
 // apply to it is left out, never failed: migrations only of a repository with
 // apps/api/go.mod, the single Dockerfile only of one with apps/api, the race
 // detector and fuzzing only of one with Go or Rust code, and current pins only
@@ -78,6 +80,8 @@ func conformance(tree repoTree, pins []fleet.PinReport, latest map[string]string
 		tree.gate("gate.tests", testsGate),
 		present("hooks.lefthook", tree.has(func(p string) bool { return p == "lefthook.yml" || p == "lefthook.yaml" }),
 			"lefthook.yml at the root", "no lefthook.yml at the root"),
+		present("license.present", tree.has(licenceFile.MatchString),
+			"a LICENSE, LICENCE or COPYING file at the root", "no LICENSE, LICENCE or COPYING file at the root"),
 	}
 	if hasGo {
 		checks = append(checks, tree.gate("gate.race", raceGate))

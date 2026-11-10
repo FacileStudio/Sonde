@@ -95,13 +95,13 @@ func TestConformanceAsksOnlyTheChecksThatApply(t *testing.T) {
 	}{
 		{"Courrier", map[string]bool{
 			"docker.single": true, "fuzz.present": true, "gate.douane": true, "gate.filet": true, "gate.race": true,
-			"gate.tests": true, "hooks.lefthook": true, "migrations.sql": true, "pins.current": false,
+			"gate.tests": true, "hooks.lefthook": true, "license.present": true, "migrations.sql": true, "pins.current": false,
 		}},
 		{"Ardoise", map[string]bool{
 			"docker.single": false, "fuzz.present": false, "gate.douane": false, "gate.filet": false, "gate.race": false,
-			"gate.tests": true, "hooks.lefthook": false, "migrations.sql": false, "pins.current": false,
+			"gate.tests": true, "hooks.lefthook": false, "license.present": false, "migrations.sql": false, "pins.current": false,
 		}},
-		{"vitrine", map[string]bool{"gate.douane": false, "gate.filet": false, "gate.tests": false, "hooks.lefthook": false}},
+		{"vitrine", map[string]bool{"gate.douane": false, "gate.filet": false, "gate.tests": false, "hooks.lefthook": false, "license.present": true}},
 	}
 	for _, c := range cases {
 		repo := loadFixture(t, c.repo)

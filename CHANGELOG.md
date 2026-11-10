@@ -5,6 +5,7 @@
 ### Added
 
 - Sonde is licensed `AGPL-3.0-only`. `LICENSE` carries the canonical text and `apps/client/package.json` the SPDX id. Earlier versions were published without a licence.
+- `fleetscan` reports a `license.present` check for every repository: a `LICENSE`, `LICENCE` or `COPYING` file at the root.
 
 ## [0.4.1] - 2026-11-10
 

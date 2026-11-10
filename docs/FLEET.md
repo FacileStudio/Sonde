@@ -109,6 +109,7 @@ never failed.
 | `gate.tests` | the same places run `go test`, `bun test`, `cargo test` or `vitest` | every repository |
 | `gate.race` | a `go test` line there carries `-race` | repositories with a `go.mod` |
 | `hooks.lefthook` | `lefthook.yml` sits at the root | every repository |
+| `license.present` | a `LICENSE`, `LICENCE` or `COPYING` file sits at the root | every repository |
 | `migrations.sql` | a `migrations/*.sql` path exists | repositories with `apps/api/go.mod` |
 | `docker.single` | exactly one Dockerfile exists, at the root | repositories with `apps/api` |
 | `pins.current` | every tracked pin equals the newest tag in `latest` | repositories with a tracked pin whose newest tag is known |
