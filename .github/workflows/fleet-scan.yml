@@ -15,6 +15,11 @@ on:
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
+    inputs:
+      accept_shrink:
+        description: "Confirm that repositories were really deleted or transferred, so a much shorter listing may resolve their findings"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,8 +29,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOUANE_VERSION: "0.6.2"
-  DOUANE_SHA256: "4154fe74a9c7ca6e48f07623e705800641b716583149a80974d8ad0e53101bbd"
+  DOUANE_VERSION: "0.6.3"
+  DOUANE_SHA256: "36d693fa58c43c4f87ae3de6cb3c509090238fee02bbb3b7334ecc9e348cf6b0"
 
 jobs:
   scan:
@@ -73,6 +78,7 @@ jobs:
           SONDE_URL: ${{ vars.SONDE_URL }}
           SONDE_FLEET_TOKEN: ${{ secrets.SONDE_FLEET_TOKEN }}
           DOUANE_BIN: ${{ runner.temp }}/douane
+          FLEET_ACCEPT_SHRINK: ${{ inputs.accept_shrink && 'true' || 'false' }}
         run: '"$RUNNER_TEMP/fleetscan"'
 
       - name: Heartbeat
