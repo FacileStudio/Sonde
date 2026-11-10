@@ -117,3 +117,27 @@ type FleetPolicy struct {
 }
 
 func (FleetPolicy) TableName() string { return "fleet_policies" }
+
+// FleetEdge is one dependency the last covering scan read from a project's
+// files: a library pin, a call, an event, identity or log shipping.
+type FleetEdge struct {
+	ID        int64  `gorm:"column:id;primaryKey"`
+	ProjectID int64  `gorm:"column:project_id"`
+	ToName    string `gorm:"column:to_name"`
+	Kind      string `gorm:"column:kind"`
+	Auth      string `gorm:"column:auth"`
+	Evidence  string `gorm:"column:evidence"`
+}
+
+func (FleetEdge) TableName() string { return "fleet_edges" }
+
+// FleetCheck is one conformance check the last covering scan asked of a project.
+type FleetCheck struct {
+	ID        int64  `gorm:"column:id;primaryKey"`
+	ProjectID int64  `gorm:"column:project_id"`
+	CheckID   string `gorm:"column:check_id"`
+	OK        bool   `gorm:"column:ok"`
+	Detail    string `gorm:"column:detail"`
+}
+
+func (FleetCheck) TableName() string { return "fleet_checks" }

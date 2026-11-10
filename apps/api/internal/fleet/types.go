@@ -65,6 +65,8 @@ type ProjectReport struct {
 	DeployedVersion string          `json:"deployed_version"`
 	Findings        []FindingReport `json:"findings"`
 	Pins            []PinReport     `json:"pins"`
+	Edges           []EdgeReport    `json:"edges,omitempty"`
+	Conformance     []CheckReport   `json:"conformance,omitempty"`
 }
 
 // FindingReport is one Douane finding as the runner forwards it.
@@ -192,7 +194,7 @@ func (p ProjectReport) validateEntries() error {
 			return errors.Invalid("project " + p.Name + " has a pin carrying a NUL byte")
 		}
 	}
-	return nil
+	return p.validateGraph()
 }
 
 func (f FindingReport) validate(project string) error {

@@ -142,6 +142,9 @@ func ingestProject(tx *gorm.DB, project ProjectReport, now time.Time, result *In
 	if err := replacePins(tx, id, project.Pins); err != nil {
 		return err
 	}
+	if err := replaceGraph(tx, id, project); err != nil {
+		return err
+	}
 	result.Covered++
 	result.NewFindings += fresh
 	result.Resolved += resolved
