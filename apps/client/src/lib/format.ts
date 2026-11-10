@@ -8,7 +8,7 @@
 import type { Bucket, MonitorStatus } from '$lib/backend';
 import { locale, t } from '$lib/i18n/index.svelte';
 
-const MISSING = '—';
+export const MISSING = '—';
 
 /* A percentage nobody measured is not 100. Every uptime field on the API is
    nullable for that reason, and rendering null as a number throws the fact
