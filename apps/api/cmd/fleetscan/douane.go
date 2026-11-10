@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
@@ -29,11 +30,22 @@ type douaneFinding struct {
 	} `json:"exploit"`
 }
 
+type douaneGap struct {
+	Kind    string `json:"kind"`
+	Subject string `json:"subject"`
+}
+
+type douaneRepo struct {
+	Name     string          `json:"name"`
+	Packages int             `json:"packages"`
+	Failed   bool            `json:"failed"`
+	Findings []douaneFinding `json:"findings"`
+	Gaps     []douaneGap     `json:"gaps"`
+}
+
 type douaneSweep struct {
-	Repos []struct {
-		Name     string          `json:"name"`
-		Findings []douaneFinding `json:"findings"`
-	} `json:"repos"`
+	Repos []douaneRepo `json:"repos"`
+	Gaps  []douaneGap  `json:"gaps"`
 }
 
 const (
@@ -41,17 +53,26 @@ const (
 	exitIncomplete = 3
 )
 
+// blockingKinds are the gaps that can hide a finding. A severity or range gap
+// only qualifies a finding douane did report, so it leaves the scan whole;
+// douane's own `complete` flag counts those too, which is why it is not read.
+var blockingKinds = []string{"unreadable", "unsupported", "upstream", "unresolved"}
+
+// rankingFeeds raise upstream gaps that cost the ranking, never a finding.
+var rankingFeeds = []string{"kev", "epss"}
+
 func runDouane(ctx context.Context, bin, root string) (douaneSweep, error) {
 	command := exec.CommandContext(ctx, bin, "sweep", root, "-format", "json", "-db", "")
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
+	var stdout bytes.Buffer
+	command.Stdout = &stdout
 	err := command.Run()
 	var exit *exec.ExitError
-	if errors.As(err, &exit) && (exit.ExitCode() == exitFindings || exit.ExitCode() == exitIncomplete) {
-		err = nil
-	}
-	if err != nil {
-		return douaneSweep{}, fmt.Errorf("douane sweep: %w: %s", err, strings.TrimSpace(tail(stderr.String())))
+	switch {
+	case errors.As(err, &exit) && (exit.ExitCode() == exitFindings || exit.ExitCode() == exitIncomplete):
+	case errors.As(err, &exit):
+		return douaneSweep{}, fmt.Errorf("douane sweep exited %d", exit.ExitCode())
+	case err != nil:
+		return douaneSweep{}, fmt.Errorf("douane sweep: %w", err)
 	}
 	var sweep douaneSweep
 	if err := json.Unmarshal(stdout.Bytes(), &sweep); err != nil {
@@ -68,26 +89,56 @@ func douaneVersion(ctx context.Context, bin string) string {
 	return strings.TrimPrefix(strings.TrimSpace(string(out)), "douane ")
 }
 
-func tail(text string) string {
-	const keep = 400
-	if len(text) <= keep {
-		return text
+func blocking(gaps []douaneGap) []string {
+	var kinds []string
+	for _, gap := range gaps {
+		if !slices.Contains(blockingKinds, gap.Kind) || (gap.Kind == "upstream" && slices.Contains(rankingFeeds, gap.Subject)) {
+			continue
+		}
+		kinds = append(kinds, gap.Kind)
 	}
-	return text[len(text)-keep:]
+	return kinds
 }
 
-func (sweep douaneSweep) byRepo() map[string][]fleet.FindingReport {
-	out := make(map[string][]fleet.FindingReport, len(sweep.Repos))
+type verdict struct {
+	covered  bool
+	reason   string
+	findings []fleet.FindingReport
+}
+
+// verdicts decides, per repository directory, whether the scan can be trusted.
+// A gap at the sweep level comes from the shared OSV resolution and cannot be
+// pinned on one repository, so it withholds every repository that has packages.
+func (sweep douaneSweep) verdicts() map[string]verdict {
+	shared := blocking(sweep.Gaps)
+	out := make(map[string]verdict, len(sweep.Repos))
 	for _, repo := range sweep.Repos {
-		findings := make([]fleet.FindingReport, 0, len(repo.Findings))
-		for _, f := range repo.Findings {
-			findings = append(findings, fleet.FindingReport{
-				ID: f.ID, Aliases: f.Aliases, Summary: f.Summary, Severity: f.Severity, Package: f.Package,
-				Ecosystem: f.Ecosystem, Installed: f.Installed, FixedIn: f.FixedIn, KEV: f.Exploit.KEV,
-				EPSS: f.Exploit.EPSS, Scope: f.Exploit.Scope, Target: f.Target,
-			})
+		kinds := blocking(repo.Gaps)
+		if repo.Packages > 0 {
+			kinds = append(kinds, shared...)
 		}
-		out[repo.Name] = findings
+		if repo.Failed {
+			kinds = append(kinds, "failed")
+		}
+		slices.Sort(kinds)
+		kinds = slices.Compact(kinds)
+		if len(kinds) > 0 {
+			out[repo.Name] = verdict{reason: "douane could not finish: " + strings.Join(kinds, ", ")}
+			continue
+		}
+		out[repo.Name] = verdict{covered: true, findings: repo.mapped()}
 	}
 	return out
+}
+
+func (repo douaneRepo) mapped() []fleet.FindingReport {
+	findings := make([]fleet.FindingReport, 0, len(repo.Findings))
+	for _, f := range repo.Findings {
+		findings = append(findings, fleet.FindingReport{
+			ID: f.ID, Aliases: f.Aliases, Summary: f.Summary, Severity: f.Severity, Package: f.Package,
+			Ecosystem: f.Ecosystem, Installed: f.Installed, FixedIn: f.FixedIn, KEV: f.Exploit.KEV,
+			EPSS: f.Exploit.EPSS, Scope: f.Exploit.Scope, Target: f.Target,
+		})
+	}
+	return findings
 }

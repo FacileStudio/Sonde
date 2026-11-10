@@ -13,15 +13,15 @@ import (
 	"log"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"time"
-
-	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
 )
 
 const (
-	defaultWorkers = 8
-	runTimeout     = 40 * time.Minute
+	defaultWorkers   = 8
+	defaultRetryWait = time.Second
+	runTimeout       = 40 * time.Minute
 )
 
 type config struct {
@@ -29,6 +29,7 @@ type config struct {
 	sondeURL, fleetToken        string
 	douaneBin, out              string
 	workers                     int
+	retryWait                   time.Duration
 }
 
 func envOr(key, fallback string) string {
@@ -39,7 +40,7 @@ func envOr(key, fallback string) string {
 }
 
 func loadConfig(args []string) (config, error) {
-	var cfg config
+	cfg := config{retryWait: defaultRetryWait}
 	flags := flag.NewFlagSet("fleetscan", flag.ContinueOnError)
 	flags.StringVar(&cfg.org, "org", envOr("FLEET_ORG", "FacileStudio"), "GitHub organisation to scan")
 	flags.StringVar(&cfg.githubAPI, "github-api", envOr("GITHUB_API_URL", "https://api.github.com"), "GitHub API base URL")
@@ -97,20 +98,20 @@ func scan(ctx context.Context, cfg config) error {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(root) }()
-	r := &runner{cfg: cfg, github: newGithubClient(cfg.githubAPI, cfg.githubToken), root: root}
+	r := &runner{cfg: cfg, github: newGithubClient(cfg.githubAPI, cfg.githubToken, cfg.retryWait), root: root}
 
 	repos, err := r.liveRepos(ctx)
 	if err != nil {
 		return fmt.Errorf("list repositories: %w", err)
 	}
 	fetched := r.collectAll(ctx, repos)
-	findings, err := r.sweep(ctx, fetched)
+	verdicts, err := r.sweep(ctx, fetched)
 	if err != nil {
 		return err
 	}
 	report := buildReport(runInfo{
 		started: started, finished: time.Now().UTC(), douaneVersion: douaneVersion(ctx, cfg.douaneBin),
-	}, fetched, findings, r.latest(ctx))
+	}, fetched, verdicts, r.latest(ctx))
 	log.Printf("fleetscan: %d repositories listed, %d expected, %d scanned", len(repos), report.Run.ReposExpected, report.Run.ReposScanned)
 	return r.finish(ctx, report)
 }
@@ -126,18 +127,8 @@ func (r *runner) liveRepos(ctx context.Context) ([]repoInfo, error) {
 			live = append(live, repo)
 		}
 	}
-	slices.SortFunc(live, func(a, b repoInfo) int { return compareNames(a.Name, b.Name) })
+	slices.SortFunc(live, func(a, b repoInfo) int { return strings.Compare(a.Name, b.Name) })
 	return live, nil
-}
-
-func compareNames(a, b string) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	}
-	return 0
 }
 
 func (r *runner) collectAll(ctx context.Context, repos []repoInfo) []fetchedRepo {
@@ -159,15 +150,15 @@ func (r *runner) collectAll(ctx context.Context, repos []repoInfo) []fetchedRepo
 	return out
 }
 
-func (r *runner) sweep(ctx context.Context, fetched []fetchedRepo) (map[string][]fleet.FindingReport, error) {
-	if !slices.ContainsFunc(fetched, func(f fetchedRepo) bool { return f.covered }) {
-		return map[string][]fleet.FindingReport{}, nil
+func (r *runner) sweep(ctx context.Context, fetched []fetchedRepo) (map[string]verdict, error) {
+	if !slices.ContainsFunc(fetched, func(f fetchedRepo) bool { return f.dir != "" }) {
+		return map[string]verdict{}, nil
 	}
 	sweep, err := runDouane(ctx, r.cfg.douaneBin, r.root)
 	if err != nil {
 		return nil, err
 	}
-	return sweep.byRepo(), nil
+	return sweep.verdicts(), nil
 }
 
 func (r *runner) latest(ctx context.Context) map[string]string {

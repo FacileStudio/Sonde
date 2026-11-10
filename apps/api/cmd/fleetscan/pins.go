@@ -18,22 +18,30 @@ var trackedByRepo = map[string]string{
 }
 
 func tracked(pkg string) bool {
-	repo, ok := trackedByRepo[pkg]
-	return ok && repo != ""
+	_, ok := trackedByRepo[pkg]
+	return ok
 }
 
+// packageJSONPins reads tracked dependencies from a package.json. Resolved is
+// the git ref after the '#' with any `semver:` prefix removed: a tag, a commit,
+// a branch name or a range, compared literally against the latest tag, so
+// anything but the exact tag reads as drift. An empty Resolved means unpinned.
 func packageJSONPins(path string, data []byte) []fleet.PinReport {
 	var manifest struct {
-		Dependencies    map[string]string `json:"dependencies"`
-		DevDependencies map[string]string `json:"devDependencies"`
+		Dependencies         map[string]string `json:"dependencies"`
+		DevDependencies      map[string]string `json:"devDependencies"`
+		PeerDependencies     map[string]string `json:"peerDependencies"`
+		OptionalDependencies map[string]string `json:"optionalDependencies"`
 	}
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return nil
 	}
+	seen := map[string]bool{}
 	var pins []fleet.PinReport
-	for _, group := range []map[string]string{manifest.Dependencies, manifest.DevDependencies} {
+	for _, group := range []map[string]string{manifest.Dependencies, manifest.DevDependencies, manifest.PeerDependencies, manifest.OptionalDependencies} {
 		for name, spec := range group {
-			if tracked(name) {
+			if tracked(name) && !seen[name] {
+				seen[name] = true
 				pins = append(pins, fleet.PinReport{Path: path, Package: name, Spec: spec, Resolved: refOf(spec)})
 			}
 		}
@@ -47,37 +55,49 @@ func refOf(spec string) string {
 	if !found {
 		return ""
 	}
-	return ref
+	return strings.TrimPrefix(ref, "semver:")
 }
 
 var (
-	requireLine = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/FacileStudio/[A-Za-z0-9_.-]+)\s+(v[^\s/]+)`)
-	goLine      = regexp.MustCompile(`(?m)^go\s+(\S+)`)
+	replaceBlock = regexp.MustCompile(`(?ms)^replace\s*\(.*?^\)`)
+	replaceLine  = regexp.MustCompile(`(?m)^replace\s.*$`)
+	requireLine  = regexp.MustCompile(`(?m)^\s*(?:require\s+)?(github\.com/FacileStudio/[A-Za-z0-9_.-]+)(?:/v[0-9]+)?\s+(v[^\s/]+)`)
+	goLine       = regexp.MustCompile(`(?m)^go\s+(\S+)`)
 )
 
+// goModPins reads tracked modules from a go.mod. A /vN suffix belongs to the
+// same tracked repository; replace directives are ignored, since their right
+// side names a local path or a fork rather than a release.
 func goModPins(path string, data []byte) ([]fleet.PinReport, string) {
+	text := replaceLine.ReplaceAllString(replaceBlock.ReplaceAllString(string(data), ""), "")
 	var pins []fleet.PinReport
-	for _, match := range requireLine.FindAllStringSubmatch(string(data), -1) {
+	for _, match := range requireLine.FindAllStringSubmatch(text, -1) {
 		if tracked(match[1]) {
 			pins = append(pins, fleet.PinReport{Path: path, Package: match[1], Spec: match[2], Resolved: match[2]})
 		}
 	}
 	directive := ""
-	if match := goLine.FindStringSubmatch(string(data)); match != nil {
+	if match := goLine.FindStringSubmatch(text); match != nil {
 		directive = match[1]
 	}
 	return pins, directive
 }
 
-var filetUse = regexp.MustCompile(`FacileStudio/filet@([^\s'"]+)`)
+var (
+	filetUse = regexp.MustCompile(`FacileStudio/filet@([^\s'"]+)`)
+	filetRun = regexp.MustCompile(`(?m)^\s*(?:-\s*)?run:.*\bfilet\s+(?:check|test)\b`)
+)
 
+// filetState reports whether a workflow runs Filet, through its action or a
+// `filet check` / `filet test` step, and the action version it pins.
 func filetState(workflows [][]byte) (bool, string) {
 	wired, pin := false, ""
 	for _, workflow := range workflows {
-		if strings.Contains(strings.ToLower(string(workflow)), "filet") {
+		match := filetUse.FindSubmatch(workflow)
+		if match != nil || filetRun.Match(workflow) {
 			wired = true
 		}
-		if match := filetUse.FindSubmatch(workflow); match != nil && pin == "" {
+		if match != nil && pin == "" {
 			pin = string(match[1])
 		}
 	}
