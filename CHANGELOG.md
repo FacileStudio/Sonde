@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0] - 2026-11-10
+
+### Added
+
+- Fleet maintenance. A nightly runner (`apps/api/cmd/fleetscan`, `.github/workflows/fleet-scan.yml`) reads every FacileStudio repository's lockfiles through a read-only GitHub App, runs douane, and delivers one gzip report to `POST /api/fleet/reports`. Sonde groups open findings by the upgrade that clears them and ranks them act, schedule or track; tracks version drift for muse, tronc and porte; and records each repository's scan, CI and Filet state. Setup is in `docs/FLEET.md`.
+- A Maintenance page with three views: ranked upgrades, drift, and repositories with an editable role.
+- Holds that keep a package on a version on purpose. Each needs a reason and an end date within a year.
+- `SONDE_FLEET_TOKEN` turns report ingest on. `SONDE_FLEET_ADMINS` lists who may read fleet data.
+- Migration `00006_fleet.sql`: new tables only.
+
+### Security
+
+- Fleet data needs `is_admin` and an email in `SONDE_FLEET_ADMINS`. `is_admin` alone is not enough, because erasing the last administrator promotes the lowest-numbered user. With both variables unset, ingest answers 404 and every read route answers 403.
+
+### Changed
+
+- The daily retention job also prunes resolved fleet findings and fleet runs after 90 days. Open findings are never pruned.
+
 ## [0.2.5] - 2026-11-07
 
 ### Changed
