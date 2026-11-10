@@ -1,4 +1,4 @@
-FROM oven/bun:1 AS client-build
+FROM oven/bun:1.3.11 AS client-build
 WORKDIR /client
 COPY apps/client/package.json apps/client/bun.lock* ./
 RUN bun install --frozen-lockfile

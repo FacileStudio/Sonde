@@ -53,6 +53,9 @@ services:
 
   api:
     restart: unless-stopped
+    # The server drains for up to 10 seconds on SIGTERM. Docker's default grace
+    # is also 10, so a slow drain would be killed mid-request; 15 leaves room.
+    stop_grace_period: 15s
     build:
       context: .
       dockerfile: Dockerfile
