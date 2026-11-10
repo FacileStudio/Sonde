@@ -1,6 +1,7 @@
 package fleet
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -19,35 +20,40 @@ const (
 
 // Handler serves the fleet routes.
 type Handler struct {
-	store *Store
-	now   func() time.Time
+	store  *Store
+	now    func() time.Time
+	logger *slog.Logger
 }
 
-// NewHandler serves the fleet routes over store.
-func NewHandler(store *Store) *Handler {
-	return &Handler{store: store, now: time.Now}
+// NewHandler serves the fleet routes over store and reports deliveries to logger.
+func NewHandler(store *Store, logger *slog.Logger) *Handler {
+	return &Handler{store: store, now: time.Now, logger: logger}
 }
 
 // Ingest accepts a gzip-compressed report. Compression is required rather than
 // optional: a full report is several megabytes of repeated keys, and the server
 // reads and writes under tight timeouts.
 func (h *Handler) Ingest(w http.ResponseWriter, r *http.Request) {
-	var report Report
-	if err := httpjson.DecodeGzipJSONLimit(w, r, &report, maxCompressedReport, maxDecompressedReport); err != nil {
+	result, err := h.ingest(w, r)
+	if err != nil {
+		h.logRefusal(err)
 		httpjson.WriteError(w, err)
 		return
+	}
+	h.logDelivery(result)
+	httpjson.WriteJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) (IngestResult, error) {
+	var report Report
+	if err := httpjson.DecodeGzipJSONLimit(w, r, &report, maxCompressedReport, maxDecompressedReport); err != nil {
+		return IngestResult{}, err
 	}
 	now := h.now().UTC().Truncate(time.Microsecond)
 	if err := report.Validate(now); err != nil {
-		httpjson.WriteError(w, err)
-		return
+		return IngestResult{}, err
 	}
-	result, err := h.store.Ingest(r.Context(), report, now)
-	if err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	httpjson.WriteJSON(w, http.StatusOK, result)
+	return h.store.Ingest(r.Context(), report, now)
 }
 
 // ActionsResponse is the ranked inbox.
