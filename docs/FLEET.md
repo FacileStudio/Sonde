@@ -11,9 +11,10 @@ scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/acti
 ## The runner
 
 `apps/api/cmd/fleetscan` runs nightly from `.github/workflows/fleet-scan.yml`. It lists the
-organisation's non-archived repositories, reads each default branch's tree, fetches the files
-douane needs through the contents API, runs `douane sweep` over them, and delivers one gzip
-report. It never clones and never runs a repository's code.
+organisation's repositories, reads each default branch's tree, fetches the files douane needs
+through the contents API, runs `douane sweep` over them, and delivers one gzip report. It never
+clones and never runs a repository's code. Archived repositories are sent as not covered with
+the reason `archived` and are never treated as vanished.
 
 It fetches every lockfile douane recognises, including the ones it cannot parse (`yarn.lock`,
 `pnpm-lock.yaml`, `requirements.txt`, `.csproj` and the rest of douane's list), so douane can
@@ -60,6 +61,8 @@ one repository, so it withholds every repository that has packages.
 - The report is checked with the server's own `Validate` before delivery. One invalid project
   is demoted to not covered rather than failing the whole night.
 - Delivery is retried twice on a network error or a 5xx, never on a 4xx.
+- The runner exits non-zero after delivering an incomplete run, so the workflow skips the
+  heartbeat and two incomplete nights raise an incident.
 - GitHub requests honour `Retry-After` and `X-RateLimit-Reset` (waiting at most 60 seconds) and
   fail rather than truncate a response over 64 MB.
 - The log prints counts and exit codes only. Findings, douane's stderr and Sonde's error text
@@ -94,17 +97,36 @@ GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tm
    repositories, so a new repository cannot escape the scan.
 2. On the Sonde deployment, set `SONDE_FLEET_TOKEN` (32 or more random characters) and
    `SONDE_FLEET_ADMINS`. Use the `dokploy-env-safe` flow: a partial env update drops keys.
-3. In Sonde, create a push monitor named `fleet-scan` with an interval of about 26 hours. Its
-   push token is the heartbeat.
-4. In the Sonde repository settings, add the secrets `FLEET_APP_ID`, `FLEET_APP_PRIVATE_KEY`,
-   `SONDE_FLEET_TOKEN` and `FLEET_HEARTBEAT_TOKEN`, and the variables `SONDE_URL`
-   (`https://sonde.facile.studio`) and `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key
-   in Casier.
-5. Run the workflow once by hand. A missed night then opens a Sonde incident on `fleet-scan`.
+3. In Sonde, create a push monitor named `fleet-scan` with an interval of 13 hours (46800
+   seconds). Its push token is the heartbeat. Sonde calls a push monitor down after twice its
+   interval without a heartbeat, so 13 hours raises an incident after 26 hours of silence. The
+   interval cannot exceed 24 hours, and 24 would wait 48 hours, letting a missed night pass
+   unnoticed.
+4. In the Sonde repository settings, add the secrets `FLEET_APP_CLIENT_ID` (the App's Client
+   ID, shown on its settings page), `FLEET_APP_PRIVATE_KEY`, `SONDE_FLEET_TOKEN` and
+   `FLEET_HEARTBEAT_TOKEN`, and the variables `SONDE_URL` (`https://sonde.facile.studio`) and
+   `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key in Casier.
+5. Run the workflow once by hand. From then on, a night that fails or delivers an incomplete run
+   sends no heartbeat, and 26 hours without one opens a Sonde incident on `fleet-scan`.
 
 The workflow pins douane by version and by the sha256 of its Linux archive, and every action
 by commit. To move douane, change both `DOUANE_VERSION` and `DOUANE_SHA256`, taking the hash
 from the release you reviewed.
+
+## When fleet-scan opens an incident
+
+The incident means no heartbeat arrived for 26 hours: the workflow did not run, failed, or
+delivered an incomplete run.
+
+1. Check whether the workflow is still enabled: `gh workflow view fleet-scan.yml -R
+   FacileStudio/Sonde`. GitHub disables scheduled workflows in a public repository after 60 days
+   without repository activity
+   (https://docs.github.com/en/actions/managing-workflow-runs/disabling-and-enabling-a-workflow).
+2. Re-enable it if needed: `gh workflow enable fleet-scan.yml -R FacileStudio/Sonde`.
+3. Run it now: `gh workflow run fleet-scan.yml -R FacileStudio/Sonde`, then read the run's exit
+   status with `gh run list --workflow fleet-scan.yml -R FacileStudio/Sonde`. A run that delivered
+   but was incomplete exits non-zero; the Maintenance page shows which repositories were not
+   covered and why.
 
 ## Who can see it
 
@@ -130,9 +152,13 @@ Empty turns ingest off.
   A finding also keeps its key when a new alias appears, for example a CVE assigned after its
   GHSA.
 - **A complete run** (`repos_scanned == repos_expected > 0`) also resolves the findings of
-  projects it no longer lists, and marks them not covered.
+  projects it no longer lists, and marks them not covered. A complete run that lists far fewer
+  repositories than are currently covered (below 90%, or more than 5 fewer) is stored as
+  incomplete and resolves nothing, so a narrowed App installation cannot empty the inbox.
 - **Deliveries are serialised.** A report that is not newer than the last stored one is refused
   with 409, so a retried delivery is safe to repeat.
+- **Logs.** The server logs every delivery at info (run id and counts), refused deliveries at
+  warn, and failed token attempts at warn with the remote address.
 
 ## Ranking
 
