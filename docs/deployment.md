@@ -22,11 +22,11 @@ and keep it when you fork.
 The root `Dockerfile` is the only Dockerfile in the repo. There is no `apps/client/Dockerfile`
 and no `apps/api/Dockerfile`. Three stages:
 
-1. `oven/bun:1` copies `apps/client/package.json` and `bun.lock` first, runs
-   `bun install --frozen-lockfile`, then copies the source and builds. Lockfile first means a
-   source change does not invalidate the install layer; `--frozen-lockfile` means a stale
-   lockfile fails the build instead of drifting.
-2. `golang:1.24-alpine` does the same trick with `go.mod` / `go.sum`, then builds with
+1. `oven/bun:1.3.11`, the bun version `mise.toml` pins, copies `apps/client/package.json` and
+   `bun.lock` first, runs `bun install --frozen-lockfile`, then copies the source and builds.
+   Lockfile first means a source change does not invalidate the install layer;
+   `--frozen-lockfile` means a stale lockfile fails the build instead of drifting.
+2. `golang:1.26-alpine` does the same trick with `go.mod` / `go.sum`, then builds with
    `CGO_ENABLED=0` and `-trimpath -ldflags="-s -w"`.
 3. `gcr.io/distroless/static-debian12:nonroot` receives the binary at `/api` and the built
    client at `/client`, sets `CLIENT_DIR=/client`, exposes `4000`, and runs as
