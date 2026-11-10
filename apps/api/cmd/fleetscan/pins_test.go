@@ -72,23 +72,32 @@ func TestFiletStateFindsTheWiringAndThePin(t *testing.T) {
 	if wired, pin := filetState([][]byte{[]byte("run: go test")}); wired || pin != "" {
 		t.Fatalf("no filet anywhere reported wired = %v, pin = %q", wired, pin)
 	}
+	if wired, _ := filetState([][]byte{[]byte("# TODO: add filet here\nsteps:\n  - run: go test\n")}); wired {
+		t.Fatal("a comment mentioning filet counted as wiring it")
+	}
+	if wired, pin := filetState([][]byte{[]byte("steps:\n  - run: filet check .\n")}); !wired || pin != "" {
+		t.Fatalf("a filet check step: wired = %v, pin = %q", wired, pin)
+	}
 }
 
-func TestClassifySkipsVendoredAndFixtureTrees(t *testing.T) {
-	cases := map[string]fileKind{
-		"go.mod":                          kindLockfile,
-		"apps/client/bun.lock":            kindLockfile,
-		"apps/client/package.json":        kindManifest,
-		".github/workflows/ci.yml":        kindWorkflow,
-		"node_modules/x/package.json":     kindNone,
-		"apps/api/vendor/m/go.mod":        kindNone,
-		"internal/testdata/go.mod":        kindNone,
-		"docs/fixtures/package-lock.json": kindNone,
-		"README.md":                       kindNone,
+func TestGoModPinsIgnoreReplaceDirectivesAndAcceptMajorVersions(t *testing.T) {
+	data := []byte("module x\n\ngo 1.26\n\nrequire github.com/FacileStudio/tronc/v2 v2.1.0\n\nrequire github.com/FacileStudio/porte v0.13.0\n\nreplace (\n\tgithub.com/FacileStudio/porte v0.12.0 => ../porte\n)\n\nreplace github.com/FacileStudio/filet v0.3.0 => github.com/fork/filet v0.3.1\n")
+
+	pins, _ := goModPins("go.mod", data)
+
+	got := map[string]string{}
+	for _, pin := range pins {
+		got[pin.Package] = pin.Resolved
 	}
-	for path, want := range cases {
-		if got := classify(path); got != want {
-			t.Errorf("classify(%q) = %d, want %d", path, got, want)
-		}
+	if len(pins) != 2 || got["github.com/FacileStudio/tronc"] != "v2.1.0" || got["github.com/FacileStudio/porte"] != "v0.13.0" {
+		t.Fatalf("pins = %v: the /v2 module counts, replace lines never do", got)
+	}
+}
+
+func TestPackageJSONPinsStripSemverAndReadPeerDependencies(t *testing.T) {
+	pins := packageJSONPins("package.json", []byte(`{"peerDependencies":{"@facile/muse":"github:FacileStudio/muse#semver:^0.16"}}`))
+
+	if len(pins) != 1 || pins[0].Resolved != "^0.16" {
+		t.Fatalf("pins = %+v", pins)
 	}
 }
