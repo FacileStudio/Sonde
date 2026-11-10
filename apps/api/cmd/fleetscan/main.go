@@ -30,6 +30,7 @@ type config struct {
 	douaneBin, out              string
 	workers                     int
 	retryWait                   time.Duration
+	acceptShrink                bool
 }
 
 func envOr(key, fallback string) string {
@@ -47,6 +48,8 @@ func loadConfig(args []string) (config, error) {
 	flags.StringVar(&cfg.douaneBin, "douane", envOr("DOUANE_BIN", "douane"), "path to the douane binary")
 	flags.StringVar(&cfg.out, "out", "", "write the report as JSON to this file instead of delivering it")
 	flags.IntVar(&cfg.workers, "workers", defaultWorkers, "repositories fetched in parallel")
+	flags.BoolVar(&cfg.acceptShrink, "accept-shrink", os.Getenv("FLEET_ACCEPT_SHRINK") == "true",
+		"confirm that repositories really left the organisation, so a much shorter listing may resolve them")
 	if err := flags.Parse(args); err != nil {
 		return cfg, err
 	}
@@ -100,35 +103,53 @@ func scan(ctx context.Context, cfg config) error {
 	defer func() { _ = os.RemoveAll(root) }()
 	r := &runner{cfg: cfg, github: newGithubClient(cfg.githubAPI, cfg.githubToken, cfg.retryWait), root: root}
 
-	repos, err := r.liveRepos(ctx)
+	repos, archived, err := r.listRepos(ctx)
 	if err != nil {
 		return fmt.Errorf("list repositories: %w", err)
 	}
-	fetched := r.collectAll(ctx, repos)
+	fetched := append(r.collectAll(ctx, repos), archivedRepos(archived)...)
 	verdicts, err := r.sweep(ctx, fetched)
 	if err != nil {
 		return err
 	}
 	report := buildReport(runInfo{
 		started: started, finished: time.Now().UTC(), douaneVersion: douaneVersion(ctx, cfg.douaneBin),
+		acceptShrink: cfg.acceptShrink,
 	}, fetched, verdicts, r.latest(ctx))
 	log.Printf("fleetscan: %d repositories listed, %d expected, %d scanned", len(repos), report.Run.ReposExpected, report.Run.ReposScanned)
 	return r.finish(ctx, report)
 }
 
-func (r *runner) liveRepos(ctx context.Context) ([]repoInfo, error) {
+// listRepos splits the organisation's repositories into the ones to scan and
+// the archived ones. A repository without a default branch has no history yet
+// and is left out of both.
+func (r *runner) listRepos(ctx context.Context) ([]repoInfo, []repoInfo, error) {
 	all, err := r.github.repos(ctx, r.cfg.org)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	live := all[:0]
+	var live, archived []repoInfo
 	for _, repo := range all {
-		if !repo.Archived && repo.DefaultBranch != "" {
+		switch {
+		case repo.DefaultBranch == "":
+		case repo.Archived:
+			archived = append(archived, repo)
+		default:
 			live = append(live, repo)
 		}
 	}
-	slices.SortFunc(live, func(a, b repoInfo) int { return strings.Compare(a.Name, b.Name) })
-	return live, nil
+	byName := func(a, b repoInfo) int { return strings.Compare(a.Name, b.Name) }
+	slices.SortFunc(live, byName)
+	slices.SortFunc(archived, byName)
+	return live, archived, nil
+}
+
+func archivedRepos(repos []repoInfo) []fetchedRepo {
+	out := make([]fetchedRepo, 0, len(repos))
+	for _, repo := range repos {
+		out = append(out, archivedRepo(repo))
+	}
+	return out
 }
 
 func (r *runner) collectAll(ctx context.Context, repos []repoInfo) []fetchedRepo {

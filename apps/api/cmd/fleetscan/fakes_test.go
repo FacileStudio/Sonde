@@ -100,10 +100,11 @@ func writeJSON(w http.ResponseWriter, value any) {
 }
 
 type fakeSonde struct {
-	server   *httptest.Server
-	calls    atomic.Int32
-	failures int32
-	received []fleet.Report
+	server    *httptest.Server
+	calls     atomic.Int32
+	failures  int32
+	conflicts int32
+	received  []fleet.Report
 }
 
 func newFakeSonde(t *testing.T, failures int32) *fakeSonde {
@@ -115,8 +116,13 @@ func newFakeSonde(t *testing.T, failures int32) *fakeSonde {
 }
 
 func (s *fakeSonde) handle(w http.ResponseWriter, r *http.Request) {
-	if s.calls.Add(1) <= s.failures {
+	call := s.calls.Add(1)
+	if call <= s.failures {
 		http.Error(w, "busy", http.StatusServiceUnavailable)
+		return
+	}
+	if call <= s.failures+s.conflicts {
+		http.Error(w, "already stored", http.StatusConflict)
 		return
 	}
 	if r.Header.Get("Authorization") != "Bearer "+testToken {
