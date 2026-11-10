@@ -29,14 +29,14 @@ func (r *fakeRecorder) RecordCheck(_ context.Context, _ int64, _ bool, _ int64, 
 	return nil
 }
 
-func (r *fakeRecorder) OpenIncident(_ context.Context, _ int64, _ string) error {
+func (r *fakeRecorder) OpenIncident(_ context.Context, _ Transition, _ string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.opened++
 	return nil
 }
 
-func (r *fakeRecorder) ResolveIncidents(_ context.Context, _ int64) error {
+func (r *fakeRecorder) ResolveIncidents(_ context.Context, _ int64, _ *Transition) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resolved++

@@ -8,6 +8,8 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/porte"
+
+	antenne "github.com/FacileStudio/antenne-client/go"
 )
 
 const minFleetTokenLength = 32
@@ -23,7 +25,8 @@ type Config struct {
 	FleetToken         string
 	FleetAdmins        []string
 	Porte              porte.Config
-	Events             events.Config
+	Events             *antenne.Config
+	eventsErr          error
 }
 
 func Load() (Config, error) {
@@ -35,6 +38,7 @@ func Load() (Config, error) {
 }
 
 func read() Config {
+	events, eventsErr := events.ConfigFromEnv()
 	return Config{
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		Port:        valueOrDefault("PORT", "4000"),
@@ -50,12 +54,8 @@ func read() Config {
 		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
 		FleetToken:       os.Getenv("SONDE_FLEET_TOKEN"),
 		FleetAdmins:      csvOrDefault("SONDE_FLEET_ADMINS", nil),
-		Events: events.Config{
-			Instance:   os.Getenv("ANTENNE_INSTANCE"),
-			App:        valueOrDefault("ANTENNE_APP", events.DefaultApp),
-			Secret:     os.Getenv("ANTENNE_SECRET"),
-			InstanceID: os.Getenv("ANTENNE_INSTANCE_ID"),
-		},
+		Events:           events,
+		eventsErr:        eventsErr,
 		Porte: porte.Config{
 			Issuer:       os.Getenv("OIDC_ISSUER"),
 			ClientID:     os.Getenv("OIDC_CLIENT_ID"),

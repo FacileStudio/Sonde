@@ -33,7 +33,7 @@ func TestRecordCheckStoresTheRawRowAndTheHourlyBucket(t *testing.T) {
 		t.Fatalf("decode create: %v", err)
 	}
 
-	recorder := checker.NewGormRecorder(db)
+	recorder := checker.NewGormRecorder(db, nil)
 	if err := recorder.RecordCheck(context.Background(), monitor.ID, true, 42, "", nil); err != nil {
 		t.Fatalf("RecordCheck: %v", err)
 	}

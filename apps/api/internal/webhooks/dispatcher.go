@@ -16,7 +16,7 @@ import (
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
-	enveloppe "github.com/FacileStudio/enveloppe/go"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 )
 
 const (
@@ -33,7 +33,7 @@ type MonitorStore interface {
 }
 
 type Payload struct {
-	enveloppe.Monitor
+	envelope.Monitor
 	ActorEmail string `json:"actor_email,omitempty"`
 }
 
@@ -203,7 +203,7 @@ func (d *Dispatcher) buildPayload(transition checker.Transition, actorEmail stri
 	}
 
 	payload := Payload{
-		Monitor: enveloppe.Monitor{
+		Monitor: envelope.Monitor{
 			MonitorID: strconv.FormatInt(transition.MonitorID, 10),
 			FacileID:  transition.Slug,
 			Slug:      transition.Slug,
@@ -215,11 +215,11 @@ func (d *Dispatcher) buildPayload(transition checker.Transition, actorEmail stri
 		ActorEmail: actorEmail,
 	}
 
-	event := enveloppe.Event[Payload]{
-		Version:        enveloppe.EventVersion,
-		App:            enveloppe.AppSonde,
-		Object:         enveloppe.ObjectMonitor,
-		Action:         enveloppe.ActionUpdated,
+	event := envelope.Event[Payload]{
+		Version:        envelope.EventVersion,
+		App:            envelope.AppSonde,
+		Object:         envelope.ObjectMonitor,
+		Action:         envelope.ActionUpdated,
 		FacileID:       payload.FacileID,
 		Payload:        payload,
 		Timestamp:      time.Now().UTC().Format(time.RFC3339),

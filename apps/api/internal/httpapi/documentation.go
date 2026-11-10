@@ -213,7 +213,7 @@ var Documentation = documentation.Module{
 			Method:       "GET",
 			Path:         "/integrations",
 			Summary:      "What this instance is wired to",
-			Description:  "The Antenne bus connection state (disabled, connecting, connected, reconnecting) with its instance, app identity, emitted channels and published/dropped counts; whether Journal is configured; and the retention and failure-threshold constants. Carries no secrets.",
+			Description:  "The Antenne bus connection state (disabled, connecting, connected, reconnecting) with its instance, app identity, emitted channels and published and pending counts; whether Journal is configured; and the retention and failure-threshold constants. Carries no secrets.",
 			Auth:         "session cookie or bearer token",
 			ResponseBody: IntegrationsResponse{},
 			Errors: []documentation.Error{

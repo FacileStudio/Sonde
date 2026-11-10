@@ -177,7 +177,7 @@ export type Bus = {
 	instance_id?: string;
 	channels: string[];
 	published: number;
-	dropped: number;
+	pending: number;
 	last_event_at: string | null;
 	last_error?: string;
 };

@@ -161,7 +161,8 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `OIDC_REDIRECT_URL` | empty | `https://sonde.facile.studio/api/auth/oidc/callback` |
 | `OIDC_SUCCESS_URL` | empty | Where a completed login lands |
 | `OIDC_CLI_AUDIENCE` | empty | Mounts porte's device-exchange route for the CLI. Production: `facile-cli` |
-| `ANTENNE_INSTANCE` | empty | The Antenne instance to publish events to. Empty disables publishing entirely |
+| `ANTENNE_URL` | empty | The Antenne instance to publish events to. Wins over `ANTENNE_INSTANCE` |
+| `ANTENNE_INSTANCE` | empty | Older spelling of `ANTENNE_URL`. Both empty disables publishing entirely |
 | `ANTENNE_APP` | `sonde` | The app name events are attributed to |
 | `ANTENNE_SECRET` | empty | Shared secret presented when registering |
 | `ANTENNE_INSTANCE_ID` | empty | Optional. Distinguishes two deployments of the same app |

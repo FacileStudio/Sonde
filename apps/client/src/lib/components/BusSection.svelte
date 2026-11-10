@@ -103,12 +103,12 @@
 				<span class="font-fc-mono text-fc-sm text-fc-fg">{bus.published}</span>
 			</SettingsRow>
 
-			{#if bus.dropped > 0}
+			{#if bus.pending > 0}
 				<SettingsRow
-					label={t('bus.dropped')}
-					description={t('bus.droppedHint')}
+					label={t('bus.pending')}
+					description={t('bus.pendingHint')}
 				>
-					<span class="font-fc-mono text-fc-sm text-fc-danger">{bus.dropped}</span>
+					<span class="font-fc-mono text-fc-sm text-fc-warning">{bus.pending}</span>
 				</SettingsRow>
 			{/if}
 

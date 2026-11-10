@@ -111,8 +111,10 @@ services:
       # Mounts porte's device-exchange route so the CLI can trade a Registre
       # device-grant token for a Sonde session. Empty leaves it unmounted.
       OIDC_CLI_AUDIENCE: ${OIDC_CLI_AUDIENCE:-}
-      # Event publishing to Antenne. An empty ANTENNE_INSTANCE disables it
-      # entirely: nothing dials, and the checker runs exactly as it does now.
+      # Event publishing to Antenne. ANTENNE_URL is the instance; ANTENNE_INSTANCE
+      # is its older spelling, and ANTENNE_URL wins when both are set. Both empty
+      # disables it entirely: nothing dials and nothing is queued.
+      ANTENNE_URL: ${ANTENNE_URL:-}
       ANTENNE_INSTANCE: ${ANTENNE_INSTANCE:-}
       ANTENNE_APP: ${ANTENNE_APP:-sonde}
       ANTENNE_SECRET: ${ANTENNE_SECRET:-}

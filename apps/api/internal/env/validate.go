@@ -21,8 +21,8 @@ func (env Config) validateIntegrations() error {
 	if err := env.Porte.Validate(); err != nil {
 		return err
 	}
-	if env.Events.Enabled() && env.Events.Secret == "" {
-		return fmt.Errorf("ANTENNE_INSTANCE is set but ANTENNE_SECRET is empty")
+	if env.eventsErr != nil {
+		return env.eventsErr
 	}
 	if env.FleetToken != "" && len(env.FleetToken) < minFleetTokenLength {
 		return fmt.Errorf("SONDE_FLEET_TOKEN must be at least %d characters", minFleetTokenLength)

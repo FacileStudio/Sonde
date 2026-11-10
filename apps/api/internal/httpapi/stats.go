@@ -140,7 +140,7 @@ type BusResponse struct {
 	InstanceID  string   `json:"instance_id,omitempty"`
 	Channels    []string `json:"channels"`
 	Published   int64    `json:"published"`
-	Dropped     int64    `json:"dropped"`
+	Pending     int64    `json:"pending"`
 	LastEventAt *string  `json:"last_event_at"`
 	LastError   string   `json:"last_error,omitempty"`
 }
@@ -160,5 +160,5 @@ type RetentionResponse struct {
 }
 
 func (s *Service) integrations(w http.ResponseWriter, r *http.Request) {
-	httpjson.WriteJSON(w, http.StatusOK, s.integrationsSnapshot())
+	httpjson.WriteJSON(w, http.StatusOK, s.integrationsSnapshot(r.Context()))
 }

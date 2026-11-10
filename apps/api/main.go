@@ -101,14 +101,14 @@ func run() int {
 	// Dialing happens in the background: a bus that is slow or down must not
 	// hold up the server that reports on it, and Sonde and Antenne restart
 	// together on a suite deploy.
-	publisher := events.New(appEnv.Events, monitors.NewStore(db), appLogger)
+	publisher := events.New(appEnv.Events, sqlDB, appLogger)
 	publisher.Start(backgroundCtx)
 	defer publisher.Close()
 
 	webhookStore := webhooks.NewStore(db)
 	webhookDispatcher := webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), appLogger)
 
-	engine := checker.NewGorm(db, checker.WithLogger(appLogger))
+	engine := checker.NewGorm(db, publisher.Queue(), checker.WithLogger(appLogger))
 	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
 
 	go func() {
@@ -127,7 +127,6 @@ func run() int {
 				if !open {
 					return
 				}
-				publisher.Publish(backgroundCtx, transition)
 				webhookDispatcher.Dispatch(backgroundCtx, transition)
 			}
 		}

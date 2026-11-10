@@ -21,6 +21,7 @@ var keys = []string{
 	"OIDC_REDIRECT_URL",
 	"OIDC_SUCCESS_URL",
 	"OIDC_CLI_AUDIENCE",
+	"ANTENNE_URL",
 	"ANTENNE_INSTANCE",
 	"ANTENNE_APP",
 	"ANTENNE_SECRET",
@@ -62,6 +63,14 @@ func TestLoad(t *testing.T) {
 				"ANTENNE_INSTANCE": "https://antenne.facile.studio",
 				"ANTENNE_SECRET":   "shared",
 			},
+		},
+		{
+			name: "an antenne url without a secret",
+			env: map[string]string{
+				"DATABASE_URL": databaseURL,
+				"ANTENNE_URL":  "https://antenne.facile.studio",
+			},
+			wantErr: true,
 		},
 		{
 			name: "a secret without an instance leaves events off",
@@ -152,7 +161,34 @@ func TestEventsAreDisabledWithoutAnInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() = %v, want nil", err)
 	}
-	if config.Events.Enabled() {
-		t.Error("events are enabled with no ANTENNE_INSTANCE")
+	if config.Events != nil {
+		t.Error("events are enabled with neither ANTENNE_URL nor ANTENNE_INSTANCE")
+	}
+}
+
+func TestAntenneURLAndItsOlderSpellingBothEnableEvents(t *testing.T) {
+	cases := map[string]struct{ url, instance, want string }{
+		"ANTENNE_URL alone":      {url: "https://url.example", want: "https://url.example"},
+		"ANTENNE_INSTANCE alone": {instance: "https://instance.example", want: "https://instance.example"},
+		"both, the URL wins":     {url: "https://url.example", instance: "https://instance.example", want: "https://url.example"},
+	}
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			for _, key := range keys {
+				t.Setenv(key, "")
+			}
+			t.Setenv("DATABASE_URL", databaseURL)
+			t.Setenv("ANTENNE_SECRET", "shared")
+			t.Setenv("ANTENNE_URL", testCase.url)
+			t.Setenv("ANTENNE_INSTANCE", testCase.instance)
+
+			config, err := Load()
+			if err != nil {
+				t.Fatalf("Load() = %v, want nil", err)
+			}
+			if config.Events == nil || config.Events.Instance != testCase.want || config.Events.App != "sonde" {
+				t.Fatalf("Events = %+v, want instance %s as app sonde", config.Events, testCase.want)
+			}
+		})
 	}
 }

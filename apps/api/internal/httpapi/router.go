@@ -4,6 +4,7 @@
 package httpapi
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -26,7 +27,7 @@ import (
 // a nil publisher is a valid one: it answers "disabled", which is the
 // unconfigured instance and the production default.
 type Bus interface {
-	State() events.State
+	State(ctx context.Context) events.State
 }
 
 type Service struct {
@@ -66,10 +67,10 @@ func New(db *gorm.DB, deps Deps) *Service {
 // integrationsSnapshot reads the instance's outbound wiring. The bus half
 // tolerates an absent Bus so a router built without one — which is what the
 // route-table test does — reports disabled instead of panicking.
-func (s *Service) integrationsSnapshot() IntegrationsResponse {
-	state := events.State{State: events.StateDisabled, Channels: []string{events.ChannelDown, events.ChannelUp}}
+func (s *Service) integrationsSnapshot(ctx context.Context) IntegrationsResponse {
+	state := events.State{State: events.StateDisabled, Channels: events.Channels()}
 	if s.bus != nil {
-		state = s.bus.State()
+		state = s.bus.State(ctx)
 	}
 
 	var lastEvent *string
@@ -87,7 +88,7 @@ func (s *Service) integrationsSnapshot() IntegrationsResponse {
 			InstanceID:  state.InstanceID,
 			Channels:    state.Channels,
 			Published:   state.Published,
-			Dropped:     state.Dropped,
+			Pending:     state.Pending,
 			LastEventAt: lastEvent,
 			LastError:   state.LastError,
 		},

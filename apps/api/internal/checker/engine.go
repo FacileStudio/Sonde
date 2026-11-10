@@ -45,8 +45,8 @@ type Transition struct {
 
 type Recorder interface {
 	RecordCheck(ctx context.Context, monitorID int64, ok bool, latencyMS int64, cause string, tlsExpiresAt *time.Time) error
-	OpenIncident(ctx context.Context, monitorID int64, cause string) error
-	ResolveIncidents(ctx context.Context, monitorID int64) error
+	OpenIncident(ctx context.Context, down Transition, cause string) error
+	ResolveIncidents(ctx context.Context, monitorID int64, recovery *Transition) error
 }
 
 type Source interface {
@@ -139,9 +139,9 @@ func New(source Source, recorder Recorder, options ...Option) *Engine {
 	return engine
 }
 
-func NewGorm(db *gorm.DB, options ...Option) *Engine {
-	store := monitors.NewStore(db)
-	return New(store, &GormRecorder{db: db}, options...)
+// NewGorm returns an engine over db. A nil events queues no bus event.
+func NewGorm(db *gorm.DB, events Events, options ...Option) *Engine {
+	return New(monitors.NewStore(db), NewGormRecorder(db, events), options...)
 }
 
 func (e *Engine) Transitions() <-chan Transition { return e.transitions }
@@ -362,23 +362,34 @@ func (e *Engine) applyResult(ctx context.Context, state *monitorState, result pr
 	}
 
 	if result.ok {
-		if err := e.recorder.ResolveIncidents(ctx, monitor.ID); err != nil {
-			e.logger.Error("resolving incidents", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
-		}
+		e.resolve(ctx, Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: true, LatencyMS: result.latencyMS, IncidentAt: incidentAt}, resolved)
 	}
 
-	switch {
-	case opened:
+	if opened {
 		cause := result.errText
 		if len(cause) > 500 {
 			cause = cause[:500]
 		}
-		if err := e.recorder.OpenIncident(ctx, monitor.ID, cause); err != nil {
+		down := Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: false, LatencyMS: result.latencyMS, Error: result.errText, IncidentAt: incidentAt}
+		if err := e.recorder.OpenIncident(ctx, down, cause); err != nil {
 			e.logger.Error("opening incident", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
 		}
-		e.emit(Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: false, LatencyMS: result.latencyMS, Error: result.errText, IncidentAt: incidentAt})
-	case resolved:
-		e.emit(Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: true, LatencyMS: result.latencyMS, IncidentAt: incidentAt})
+		e.emit(down)
+	}
+}
+
+// resolve closes the monitor's open incidents. When recovered, the recovery is
+// queued with the write and handed to the transition channel.
+func (e *Engine) resolve(ctx context.Context, recovery Transition, recovered bool) {
+	var event *Transition
+	if recovered {
+		event = &recovery
+	}
+	if err := e.recorder.ResolveIncidents(ctx, recovery.MonitorID, event); err != nil {
+		e.logger.Error("resolving incidents", slog.Any("error", err), slog.Int64("monitor_id", recovery.MonitorID))
+	}
+	if recovered {
+		e.emit(recovery)
 	}
 }
 
@@ -401,10 +412,7 @@ func (e *Engine) Heartbeat(ctx context.Context, token string) error {
 		e.logger.Error("recording heartbeat", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
 	}
 	if !wasUp {
-		if err := e.recorder.ResolveIncidents(ctx, monitor.ID); err != nil {
-			e.logger.Error("resolving incidents", slog.Any("error", err), slog.Int64("monitor_id", monitor.ID))
-		}
-		e.emit(Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: true, IncidentAt: incidentAt})
+		e.resolve(ctx, Transition{MonitorID: monitor.ID, Slug: monitor.Slug, Name: monitor.Name, Up: true, IncidentAt: incidentAt}, true)
 	}
 	return nil
 }
@@ -444,9 +452,10 @@ func (e *Engine) sweepPush(ctx context.Context) {
 	for _, request := range opens {
 		grace := time.Duration(request.monitor.IntervalSeconds*PushGraceFactor) * time.Second
 		cause := "no push heartbeat for " + request.silent.String() + " (grace " + grace.String() + ")"
-		if err := e.recorder.OpenIncident(ctx, request.monitor.ID, cause); err != nil {
+		down := Transition{MonitorID: request.monitor.ID, Slug: request.monitor.Slug, Name: request.monitor.Name, Up: false, Error: cause, IncidentAt: request.incidentAt}
+		if err := e.recorder.OpenIncident(ctx, down, cause); err != nil {
 			e.logger.Error("opening incident", slog.Any("error", err), slog.Int64("monitor_id", request.monitor.ID))
 		}
-		e.emit(Transition{MonitorID: request.monitor.ID, Slug: request.monitor.Slug, Name: request.monitor.Name, Up: false, Error: cause, IncidentAt: request.incidentAt})
+		e.emit(down)
 	}
 }

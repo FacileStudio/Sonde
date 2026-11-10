@@ -90,7 +90,7 @@ dev task; copy `apps/api/.env.example` to `apps/api/.env` for overrides.
 | `LOG_LEVEL` | `debug`, `info`, `warn` or `error` |
 | `SONDE_RAW_RETENTION_DAYS` | Days of raw checks kept, default 30 |
 | `OIDC_ISSUER` and friends | Registre SSO. `https://sso.facile.studio` |
-| `ANTENNE_INSTANCE` and friends | Event publishing. Empty disables it |
+| `ANTENNE_URL` (or `ANTENNE_INSTANCE`) and friends | Event publishing through a durable outbox. Empty disables it |
 | `CLIENT_DIR` | Where the built SPA lives. Set by the image layout, not by hand |
 
 Full reference: [docs/configuration.md](docs/configuration.md).

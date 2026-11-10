@@ -1,6 +1,9 @@
 package events
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // Bus states, as an operator reads them in settings. There is deliberately no
 // "gave up": the publisher retries the first dial forever, so an unreachable
@@ -13,29 +16,9 @@ const (
 	StateReconnecting = "reconnecting"
 )
 
-// Config is the Antenne connection, read from the environment. An empty
-// Instance disables events entirely: no client is built and nothing dials.
-type Config struct {
-	Instance   string
-	App        string
-	Secret     string
-	InstanceID string
-}
-
-// Enabled reports whether events are configured at all.
-func (c Config) Enabled() bool { return c.Instance != "" }
-
-// AppName is the pool identity, defaulted.
-func (c Config) AppName() string {
-	if c.App == "" {
-		return DefaultApp
-	}
-	return c.App
-}
-
 // State is what the bus is doing right now, for the settings page and for
 // anything else that has to answer "are alerts actually leaving this box".
-// The secret is never part of it.
+// Pending counts queued events not yet sent. The secret is never part of it.
 type State struct {
 	Configured  bool       `json:"configured"`
 	State       string     `json:"state"`
@@ -44,39 +27,53 @@ type State struct {
 	InstanceID  string     `json:"instance_id,omitempty"`
 	Channels    []string   `json:"channels"`
 	Published   int64      `json:"published"`
-	Dropped     int64      `json:"dropped"`
+	Pending     int64      `json:"pending"`
 	LastEventAt *time.Time `json:"last_event_at"`
 	LastError   string     `json:"last_error,omitempty"`
 }
 
 // State reports what the bus is doing. Safe on a nil publisher, which is the
-// unconfigured instance and the production default.
-func (p *Publisher) State() State {
+// unconfigured instance.
+func (p *Publisher) State(ctx context.Context) State {
 	if p == nil {
-		return State{State: StateDisabled, Channels: []string{ChannelDown, ChannelUp}}
+		return State{State: StateDisabled, Channels: Channels()}
 	}
+	pending, lastError := p.pending(ctx)
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	state := StateConnecting
-	switch {
-	case p.emitter.IsConnected():
-		state = StateConnected
-	case p.dialed:
-		state = StateReconnecting
+	if lastError == "" {
+		lastError = p.lastError
 	}
-
 	return State{
 		Configured:  true,
-		State:       state,
+		State:       p.connection(),
 		Instance:    p.config.Instance,
-		App:         p.config.AppName(),
+		App:         p.config.App,
 		InstanceID:  p.config.InstanceID,
-		Channels:    []string{ChannelDown, ChannelUp},
+		Channels:    Channels(),
 		Published:   p.published,
-		Dropped:     p.dropped,
+		Pending:     pending,
 		LastEventAt: p.lastEventAt,
-		LastError:   p.lastError,
+		LastError:   lastError,
 	}
+}
+
+func (p *Publisher) connection() string {
+	switch {
+	case p.emitter.IsConnected():
+		return StateConnected
+	case p.dialed:
+		return StateReconnecting
+	}
+	return StateConnecting
+}
+
+func (p *Publisher) pending(ctx context.Context) (int64, string) {
+	var n int64
+	err := p.db.QueryRowContext(ctx, `SELECT count(*) FROM antenne_outbox WHERE sent_at IS NULL`).Scan(&n)
+	if err != nil {
+		return 0, err.Error()
+	}
+	return n, ""
 }

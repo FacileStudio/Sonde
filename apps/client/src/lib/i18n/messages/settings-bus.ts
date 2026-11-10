@@ -33,10 +33,10 @@ export const settingsBus = {
 		'Die Veröffentlichung läuft im Hintergrund und versucht es selbst erneut. Ein Neustart ist nie die Lösung.'
 	],
 	'bus.connection.unconfigured': [
-		'ANTENNE_INSTANCE is empty on this instance, so nothing is published. Set it, with ANTENNE_SECRET, and restart.',
-		'ANTENNE_INSTANCE est vide sur cette instance : rien n’est publié. Renseignez-la avec ANTENNE_SECRET, puis redémarrez.',
-		'ANTENNE_INSTANCE está vacío en esta instancia, así que no se publica nada. Defínelo junto con ANTENNE_SECRET y reinicia.',
-		'ANTENNE_INSTANCE ist auf dieser Instanz leer, daher wird nichts veröffentlicht. Setzen Sie es zusammen mit ANTENNE_SECRET und starten Sie neu.'
+		'ANTENNE_URL is empty on this instance, so nothing is published. Set it, with ANTENNE_SECRET, and restart.',
+		'ANTENNE_URL est vide sur cette instance : rien n’est publié. Renseignez-la avec ANTENNE_SECRET, puis redémarrez.',
+		'ANTENNE_URL está vacío en esta instancia, así que no se publica nada. Defínelo junto con ANTENNE_SECRET y reinicia.',
+		'ANTENNE_URL ist auf dieser Instanz leer, daher wird nichts veröffentlicht. Setzen Sie es zusammen mit ANTENNE_SECRET und starten Sie neu.'
 	],
 	'bus.instance': ['Instance', 'Instance', 'Instancia', 'Instanz'],
 	'bus.appIdentity': ['App identity', 'Identité de l’application', 'Identidad de la aplicación', 'App-Identität'],
@@ -56,12 +56,12 @@ export const settingsBus = {
 		'Desde que arrancó este contenedor. Un reinicio pone a cero la cuenta, no la entrega.',
 		'Seit dem Start dieses Containers. Ein Neustart setzt den Zähler zurück, nicht die Zustellung.'
 	],
-	'bus.dropped': ['Events dropped', 'Événements perdus', 'Eventos descartados', 'Verworfene Ereignisse'],
-	'bus.droppedHint': [
-		'Emitted while the bus was unreachable. Sonde does not buffer: a monitor that keeps probing matters more than a queue that keeps growing.',
-		'Émis alors que le bus était injoignable. Sonde ne met rien en tampon : une sonde qui continue de mesurer compte plus qu’une file qui grossit.',
-		'Emitidos mientras el bus era inalcanzable. Sonde no almacena en búfer: un monitor que sigue midiendo importa más que una cola que crece.',
-		'Gesendet, während der Bus nicht erreichbar war. Sonde puffert nicht: Ein Monitor, der weiter prüft, ist wichtiger als eine wachsende Warteschlange.'
+	'bus.pending': ['Events waiting', 'Événements en attente', 'Eventos en espera', 'Wartende Ereignisse'],
+	'bus.pendingHint': [
+		'Queued in the database while the bus is unreachable. They are sent in order once it answers.',
+		'Mis en file dans la base tant que le bus est injoignable. Ils partent dans l’ordre dès qu’il répond.',
+		'En cola en la base de datos mientras el bus es inalcanzable. Se envían en orden en cuanto responda.',
+		'In der Datenbank eingereiht, solange der Bus nicht erreichbar ist. Sie werden der Reihe nach gesendet, sobald er antwortet.'
 	],
 	'bus.lastEvent': ['Last event', 'Dernier événement', 'Último evento', 'Letztes Ereignis'],
 	'bus.lastEventHint': [

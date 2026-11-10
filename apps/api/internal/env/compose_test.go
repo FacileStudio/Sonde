@@ -125,12 +125,19 @@ func serverVariables(t *testing.T) map[string]bool {
 	return names
 }
 
+// libraryVariables are read inside a dependency, where the source scan cannot
+// see them: antenne.ConfigFromEnv reads the Antenne connection.
+var libraryVariables = []string{"ANTENNE_URL", "ANTENNE_INSTANCE", "ANTENNE_APP", "ANTENNE_SECRET", "ANTENNE_INSTANCE_ID"}
+
 func TestComposeForwardsEveryVariableTheServerReads(t *testing.T) {
 	compose, err := os.ReadFile("../../../../docker-compose.yml")
 	if err != nil {
 		t.Fatalf("read docker-compose.yml: %v", err)
 	}
 	names := serverVariables(t)
+	for _, name := range libraryVariables {
+		names[name] = true
+	}
 	if len(names) < 10 || !names["PORTE_TOKEN_KEY"] {
 		t.Fatalf("found %d variables, PORTE_TOKEN_KEY among them: %v; the scan no longer sees how the server reads them", len(names), names["PORTE_TOKEN_KEY"])
 	}

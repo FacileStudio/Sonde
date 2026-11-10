@@ -71,15 +71,20 @@ failure-redirect contract.
 
 ## Event publishing
 
-Sonde publishes events to Antenne. Publishing is off unless `ANTENNE_INSTANCE` is set, and
-unset is the current production default: nothing dials, and the checker runs exactly as it
-does without it.
+Sonde publishes events to Antenne through antenne-client's outbox. The checker queues each
+outage and recovery in `antenne_outbox`, in the same transaction as the incident write, and a
+drainer sends the queue in order once the bus answers. An event raised while Antenne is down
+waits in the table instead of being dropped; sent rows are pruned after 7 days.
+
+Publishing is off unless `ANTENNE_URL` or its older spelling `ANTENNE_INSTANCE` is set. With
+neither, nothing dials, nothing is queued, and the checker runs exactly as it does without it.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `ANTENNE_INSTANCE` | no | — | The Antenne instance to publish to. Unset disables publishing entirely |
+| `ANTENNE_URL` | no | — | The Antenne instance to publish to. Wins over `ANTENNE_INSTANCE` |
+| `ANTENNE_INSTANCE` | no | — | Older spelling of `ANTENNE_URL`, still read. Both unset disables publishing entirely |
 | `ANTENNE_APP` | no | `sonde` | The app name events are attributed to |
-| `ANTENNE_SECRET` | with instance | — | Shared secret presented when registering |
+| `ANTENNE_SECRET` | with a URL | — | Shared secret presented when registering |
 | `ANTENNE_INSTANCE_ID` | no | — | Optional. Distinguishes two deployments of the same app |
 
 ## Local defaults
@@ -147,7 +152,7 @@ put a database back in `[tools]`.
 | `APP_VERSION` | `dev` | Build arg served at `GET /version`; set it in the Dokploy env at release |
 | `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URL` / `OIDC_SUCCESS_URL` | empty | All or nothing; see Authentication above |
 | `OIDC_CLI_AUDIENCE` | empty | `facile-cli` in production |
-| `ANTENNE_INSTANCE` / `ANTENNE_SECRET` / `ANTENNE_INSTANCE_ID` | empty | Empty instance disables publishing |
+| `ANTENNE_URL` / `ANTENNE_INSTANCE` / `ANTENNE_SECRET` / `ANTENNE_INSTANCE_ID` | empty | Both URL spellings empty disables publishing |
 | `ANTENNE_APP` | `sonde` | |
 | `SONDE_RAW_RETENTION_DAYS` | `30` | |
 

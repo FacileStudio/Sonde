@@ -16,7 +16,7 @@ import (
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
-	enveloppe "github.com/FacileStudio/enveloppe/go"
+	"github.com/FacileStudio/antenne-client/go/envelope"
 )
 
 type mockWebhookStore struct {
@@ -43,7 +43,7 @@ func (m *mockMonitorStore) OwnerEmail(ctx context.Context, monitorID int64) (str
 func TestDispatcherDeliversSignedTransition(t *testing.T) {
 	var (
 		mu         sync.Mutex
-		received   enveloppe.Event[Payload]
+		received   envelope.Event[Payload]
 		authHeader string
 	)
 
