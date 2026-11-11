@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0] - 2026-11-11
+
+### Added
+
+- feat(fleet): a Rescan button on the Maintenance page. `POST /api/fleet/scans` queues `fleet-scan.yml` through GitHub's workflow dispatch API, behind the fleet gate, at most once every five minutes. It needs `SONDE_FLEET_DISPATCH_TOKEN` (fine-grained, Actions write on this repository only) and answers 412 without it.
+
+### Fixed
+
+- fix(fleet): a repository the runner reports as archived moves to the `archive` tier at ingest, so its frozen findings rank as track instead of act.
+
+### Security
+
+- build(deps): vite 7.3.8, svelte 5.57.3, @sveltejs/kit 2.70.4, overrides for devalue, postcss, nanoid, source-map-js and cookie; go-jose v4.1.9 and chi v5.5.0. douane is clear.
+
 ## [0.5.1] - 2026-11-11
 
 ### Security
