@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0] - 2026-11-11
+
+### Changed
+
+- feat(brand): the sidebar, landing header and footer, sign-in screen and `/logo.svg` show the catalog `solar:radar-bold-duotone` mark instead of `radar-2`.
+
+### Fixed
+
+- fix(brand): the favicon, touch and manifest icons, link preview image and web manifest come from the muse v0.19.0 brand generator, and the head carries the suite's canonical title, description, theme colours and Open Graph and Twitter tags. The root layout no longer adds a second favicon link, and the landing title and description match the suite catalog.
+
 ## [0.6.0] - 2026-11-11
 
 ### Added
