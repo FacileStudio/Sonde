@@ -3,16 +3,16 @@ import type { Row } from '../row';
 /** The public landing page. */
 export const landing = {
 	'landing.title': [
-		'Sonde: uptime monitoring',
-		'Sonde : surveillance de disponibilité',
-		'Sonde: monitorización de disponibilidad',
-		'Sonde: Verfügbarkeitsüberwachung'
+		'Sonde · Uptime monitoring and status pages',
+		'Sonde · Surveillance de disponibilité et pages de statut',
+		'Sonde · Monitorización de disponibilidad y páginas de estado',
+		'Sonde · Verfügbarkeitsüberwachung und Statusseiten'
 	],
 	'landing.description': [
-		'Watch your services, alert your team, publish your status. Uptime monitoring for the Facile Suite.',
-		'Surveillez vos services, alertez votre équipe, publiez votre statut. La surveillance de disponibilité de la suite Facile.',
-		'Vigila tus servicios, avisa a tu equipo y publica tu estado. Monitorización de disponibilidad para la suite Facile.',
-		'Überwachen Sie Ihre Dienste, alarmieren Sie Ihr Team, veröffentlichen Sie Ihren Status. Verfügbarkeitsüberwachung für die Facile Suite.'
+		'Heartbeats, multi-region probes and a public status page, with an alert as soon as a service goes down.',
+		'Heartbeats, sondes multi-régions et page de statut publique, avec une alerte dès qu’un service tombe.',
+		'Heartbeats, sondas multirregión y una página de estado pública, con una alerta en cuanto un servicio cae.',
+		'Heartbeats, Prüfungen aus mehreren Regionen und eine öffentliche Statusseite, mit einer Warnung, sobald ein Dienst ausfällt.'
 	],
 	'landing.nav.features': ['Features', 'Fonctions', 'Funciones', 'Funktionen'],
 	'landing.nav.pricing': ['Pricing', 'Tarifs', 'Precios', 'Preise'],

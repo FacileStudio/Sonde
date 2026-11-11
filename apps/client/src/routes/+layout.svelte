@@ -32,10 +32,6 @@
 	}
 </script>
 
-<svelte:head>
-	<link rel="icon" href="/favicon.ico" type="image/x-icon" />
-</svelte:head>
-
 <!-- One Toaster for the whole app, outside the router: mounted inside a page, a navigation
      unmounts a toast mid-flight. The bottom padding clears MobileNav on phones. -->
 <Toaster class="pb-28 md:pb-6" />
