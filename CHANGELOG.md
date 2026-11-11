@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.1] - 2026-11-11
+
+### Security
+
+- build(api): Go 1.26.11 (`go` directive, `golang:1.26.11-alpine` builder, mise pins and lock). It fixes GO-2026-6848 to GO-2026-6859 in the standard library and toolchain, which douane reported as unscored gaps and which failed the gate.
+- build(deps): `golang.org/x/text` v0.40.0 to v0.41.0 (GO-2026-6629).
+
+### Changed
+
+- refactor(fleet): the drift query converts each pin row with `Pin(r)`, clearing the staticcheck S1016 finding that failed `filet gate`.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added
