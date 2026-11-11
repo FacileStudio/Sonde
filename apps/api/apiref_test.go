@@ -39,6 +39,7 @@ func TestRegistryIsComplete(t *testing.T) {
 		"/auth/logout",
 		"/auth/oidc",
 		"/auth/oidc/callback",
+		"/fleet/scans",
 		"/push/{token}",
 		"/webhooks/{id}/test",
 	); len(issues) > 0 {

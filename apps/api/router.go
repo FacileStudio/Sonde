@@ -169,6 +169,6 @@ func mountAPI(r chi.Router, deps routerDeps, id identity) error {
 		RawRetentionDays: appEnv.RawRetentionDays,
 	}), requireAuth)
 	webhooks.RegisterRoutes(r, webhookStore, webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), deps.Logger), requireAuth)
-	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger})
+	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger, Dispatch: fleet.Dispatcher{Token: appEnv.FleetDispatchToken}})
 	return nil
 }

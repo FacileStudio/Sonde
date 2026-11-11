@@ -174,7 +174,16 @@ GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tm
    ID, shown on its settings page), `FLEET_APP_PRIVATE_KEY`, `SONDE_FLEET_TOKEN` and
    `FLEET_HEARTBEAT_TOKEN`, and the variables `SONDE_URL` (`https://sonde.facile.studio`) and
    `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key in Casier.
-5. Run the workflow once by hand. From then on, a night that fails or delivers an incomplete run
+5. For the Rescan button on the Maintenance page, create a fine-grained personal access token
+   (https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token)
+   with resource owner FacileStudio, repository access "Only select repositories: Sonde", and
+   one repository permission: Actions, read and write. Set it as `SONDE_FLEET_DISPATCH_TOKEN` on
+   the Sonde deployment with the `dokploy-env-safe` flow, and keep a copy in Casier. The button
+   calls `POST /api/fleet/scans`, which queues the workflow through GitHub's dispatch API
+   (https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event), at most
+   once every five minutes. Without the token the route answers 412 and the page shows why.
+   The queued run still needs step 4: without the App it completes as skipped.
+6. Run the workflow once by hand. From then on, a night that fails or delivers an incomplete run
    sends no heartbeat, and 26 hours without one opens a Sonde incident on `fleet-scan`.
 
 The workflow pins douane by version and by the sha256 of its Linux archive, and every action
@@ -195,6 +204,13 @@ delivered an incomplete run.
    status with `gh run list --workflow fleet-scan.yml -R FacileStudio/Sonde`. A run that delivered
    but was incomplete exits non-zero; the Maintenance page shows which repositories were not
    covered and why.
+
+## Archived repositories
+
+The runner reports an archived repository as not covered with reason `archived`. Ingest moves
+such a project to the `archive` tier, so its frozen findings rank as track and leave the
+inbox and the drift view. Unarchiving it does not restore the old tier: set it again on the
+Projects tab.
 
 ## Who can see it
 

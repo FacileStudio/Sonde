@@ -99,6 +99,21 @@ var Documentation = documentation.Module{
 			Errors:       fleetErrors,
 		},
 		{
+			Method:       "POST",
+			Path:         "/fleet/scans",
+			Summary:      "Queue a rescan",
+			Description:  "Queues the fleet-scan workflow on GitHub Actions, which scans every repository and delivers a new report a few minutes later. One dispatch every five minutes. Disabled until SONDE_FLEET_DISPATCH_TOKEN is set.",
+			Auth:         "session cookie (with X-Facile-CSRF) or bearer token, allow-listed administrator",
+			ResponseBody: ScanResult{},
+			Errors: []documentation.Error{
+				{Status: 401, Code: "unauthenticated", Description: "Authentication is required."},
+				{Status: 403, Code: "permission_denied", Description: "The account is not an allow-listed fleet administrator."},
+				{Status: 412, Code: "failed_precondition", Description: "Rescan is not configured, or GitHub refused the dispatch token."},
+				{Status: 429, Code: "rate_limited", Description: "A rescan was queued less than five minutes ago."},
+				{Status: 503, Code: "unavailable", Description: "GitHub did not accept the dispatch."},
+			},
+		},
+		{
 			Method:       "GET",
 			Path:         "/fleet/policies",
 			Summary:      "List the holds",

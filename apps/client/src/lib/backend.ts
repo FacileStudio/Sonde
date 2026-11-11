@@ -108,6 +108,9 @@ export const backend = {
 	maintenanceRuns(silent = false) {
 		return apiFetch<MaintenanceRun[]>('/fleet/runs', {}, { quiet: silent });
 	},
+	rescanFleet() {
+		return apiFetch<{ queued: boolean; run_url?: string }>('/fleet/scans', { method: 'POST' });
+	},
 	maintenanceActions() {
 		return apiFetch<MaintenanceActions>('/fleet/actions');
 	},

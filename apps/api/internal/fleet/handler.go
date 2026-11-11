@@ -16,9 +16,10 @@ const (
 
 // Handler serves the fleet routes.
 type Handler struct {
-	store  *Store
-	now    func() time.Time
-	logger *slog.Logger
+	store      *Store
+	now        func() time.Time
+	logger     *slog.Logger
+	dispatcher Dispatcher
 }
 
 // NewHandler serves the fleet routes over store and reports deliveries to logger.

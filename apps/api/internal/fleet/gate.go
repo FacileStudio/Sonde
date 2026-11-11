@@ -15,10 +15,12 @@ import (
 // Config is what the fleet routes read from the environment. An empty Token
 // turns report ingest off, and an empty Admins list closes every read route.
 // Logger receives delivery outcomes and refused tokens; nil discards them.
+// Dispatch queues a rescan; an empty token answers failed_precondition.
 type Config struct {
-	Token  string
-	Admins []string
-	Logger *slog.Logger
+	Token    string
+	Admins   []string
+	Logger   *slog.Logger
+	Dispatch Dispatcher
 }
 
 func (c Config) logger() *slog.Logger {

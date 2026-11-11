@@ -46,6 +46,25 @@ export const maintenance = {
 	'maintenance.stat.actHint': ['Exploited or critical in production', 'Exploité ou critique en production', 'Explotado o crítico en producción', 'Ausgenutzt oder kritisch in Produktion'],
 	'maintenance.stat.schedule': ['Schedule', 'À planifier', 'Planificar', 'Einplanen'],
 	'maintenance.stat.scheduleHint': ['Serious, not urgent', 'Sérieux, pas urgent', 'Serio, no urgente', 'Ernst, nicht dringend'],
+	'maintenance.rescan': ['Rescan', 'Relancer le scan', 'Volver a analizar', 'Neu scannen'],
+	'maintenance.rescan.queued': [
+		'Scan queued. New results appear here in a few minutes.',
+		'Scan lancé. Les nouveaux résultats arrivent ici dans quelques minutes.',
+		'Análisis en cola. Los nuevos resultados aparecerán aquí en unos minutos.',
+		'Scan eingereiht. Neue Ergebnisse erscheinen hier in wenigen Minuten.'
+	],
+	'maintenance.rescan.done': [
+		'The new scan has arrived.',
+		'Le nouveau scan est arrivé.',
+		'El nuevo análisis ha llegado.',
+		'Der neue Scan ist da.'
+	],
+	'maintenance.rescan.failed': [
+		'Could not queue a scan',
+		'Impossible de lancer le scan',
+		'No se pudo poner en cola el análisis',
+		'Scan konnte nicht eingereiht werden'
+	],
 	'maintenance.stat.lastRun': ['Last scan', 'Dernier scan', 'Último análisis', 'Letzter Scan'],
 	'maintenance.stat.coverage': [
 		'{scanned} of {expected} scanned',

@@ -155,6 +155,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `SONDE_RAW_RETENTION_DAYS` | `30` | Days of raw checks kept. Fails soft: a bad value silently becomes 30 |
 | `SONDE_FLEET_TOKEN` | empty | Token for the fleet runner's report delivery. Empty turns ingest off. At least 32 characters |
 | `SONDE_FLEET_ADMINS` | empty | Emails allowed to read fleet data, on top of `is_admin`. Empty closes the read routes |
+| `SONDE_FLEET_DISPATCH_TOKEN` | empty | Fine-grained GitHub token, Actions write on FacileStudio/Sonde only. Lets the Maintenance Rescan button queue `fleet-scan.yml`. Empty answers 412 |
 | `APP_ENV` | `production` in compose | `production` refuses to boot without `OIDC_ISSUER` |
 | `OIDC_ISSUER` | empty | `https://sso.facile.studio`. Empty disables SSO |
 | `OIDC_CLIENT_ID` | empty | `sonde` |

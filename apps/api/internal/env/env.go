@@ -24,6 +24,7 @@ type Config struct {
 	RawRetentionDays   int
 	FleetToken         string
 	FleetAdmins        []string
+	FleetDispatchToken string
 	Porte              porte.Config
 	Events             *antenne.Config
 	eventsErr          error
@@ -49,13 +50,14 @@ func read() Config {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		}),
-		JournalURL:       os.Getenv("JOURNAL_URL"),
-		JournalToken:     os.Getenv("JOURNAL_TOKEN"),
-		RawRetentionDays: intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
-		FleetToken:       os.Getenv("SONDE_FLEET_TOKEN"),
-		FleetAdmins:      csvOrDefault("SONDE_FLEET_ADMINS", nil),
-		Events:           events,
-		eventsErr:        eventsErr,
+		JournalURL:         os.Getenv("JOURNAL_URL"),
+		JournalToken:       os.Getenv("JOURNAL_TOKEN"),
+		RawRetentionDays:   intOrDefault("SONDE_RAW_RETENTION_DAYS", retention.DefaultRawRetentionDays),
+		FleetToken:         os.Getenv("SONDE_FLEET_TOKEN"),
+		FleetAdmins:        csvOrDefault("SONDE_FLEET_ADMINS", nil),
+		FleetDispatchToken: os.Getenv("SONDE_FLEET_DISPATCH_TOKEN"),
+		Events:             events,
+		eventsErr:          eventsErr,
 		Porte: porte.Config{
 			Issuer:       os.Getenv("OIDC_ISSUER"),
 			ClientID:     os.Getenv("OIDC_CLIENT_ID"),

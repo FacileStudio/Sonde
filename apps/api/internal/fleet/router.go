@@ -30,6 +30,7 @@ func ingestLimit() func(http.Handler) http.Handler {
 // every other route goes through Gate.
 func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handler) http.Handler, cfg Config) {
 	h := NewHandler(store, cfg.logger())
+	h.dispatcher = cfg.Dispatch
 	gate := Gate(requireAuth, cfg.Admins)
 
 	router.Route("/fleet", func(r chi.Router) {
@@ -44,6 +45,7 @@ func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handl
 			r.Get("/projects", h.Projects)
 			r.Patch("/projects/{id}", h.UpdateProject)
 			r.Get("/runs", h.Runs)
+			r.With(rescanLimit()).Post("/scans", h.Rescan)
 			r.Get("/policies", h.ListPolicies)
 			r.Post("/policies", h.CreatePolicy)
 			r.Delete("/policies/{id}", h.DeletePolicy)

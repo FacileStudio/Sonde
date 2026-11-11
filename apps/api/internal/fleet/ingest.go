@@ -151,15 +151,22 @@ func ingestProject(tx *gorm.DB, project ProjectReport, now time.Time, result *In
 	return nil
 }
 
+// archivedReason is the not_covered value the runner gives an archived
+// repository. Ingest files such a project under the archive tier, so its
+// frozen findings leave the ranked inbox and the drift view.
+const archivedReason = "archived"
+
 func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, error) {
 	var id int64
 	err := tx.Raw(`
 		INSERT INTO fleet_projects
 			(github_repo_id, name, default_branch, covered, not_covered, last_scanned_at,
-			 ci_conclusion, filet_wired, filet_pin, deployed_version, go_directive)
-		VALUES (?, ?, ?, ?, ?, CASE WHEN ? THEN ?::timestamptz END, ?, ?, ?, ?, ?)
+			 ci_conclusion, filet_wired, filet_pin, deployed_version, go_directive, tier)
+		VALUES (?, ?, ?, ?, ?, CASE WHEN ? THEN ?::timestamptz END, ?, ?, ?, ?, ?,
+			CASE WHEN ? THEN 'archive' ELSE 'unclassified' END)
 		ON CONFLICT (github_repo_id) DO UPDATE SET
 			name = EXCLUDED.name,
+			tier = CASE WHEN EXCLUDED.tier = 'archive' THEN 'archive' ELSE fleet_projects.tier END,
 			default_branch = EXCLUDED.default_branch,
 			covered = EXCLUDED.covered,
 			not_covered = EXCLUDED.not_covered,
@@ -174,6 +181,7 @@ func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, er
 		project.GithubRepoID, project.Name, project.DefaultBranch, project.Covered, project.NotCovered,
 		project.Covered, now,
 		project.CIConclusion, project.FiletWired, project.FiletPin, project.DeployedVersion, project.GoDirective,
+		project.NotCovered == archivedReason,
 	).Scan(&id).Error
 	return id, err
 }

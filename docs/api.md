@@ -119,6 +119,7 @@ administrator whose email is in `SONDE_FLEET_ADMINS`; anyone else gets 403. See
 | GET | `/api/fleet/projects` | fleet admin | Every repository: covered ones first, the most open findings first |
 | PATCH | `/api/fleet/projects/{id}` | fleet admin | Sets `tier`, `version_url`, `journal_app` |
 | GET | `/api/fleet/runs` | fleet admin | The newest deliveries and how complete each was |
+| POST | `/api/fleet/scans` | fleet admin | Queues the fleet-scan workflow on GitHub. Once every five minutes; 412 without `SONDE_FLEET_DISPATCH_TOKEN` |
 | GET | `/api/fleet/policies` | fleet admin | Holds, expired ones included |
 | POST | `/api/fleet/policies` | fleet admin | Holds a package on a version. Needs a reason and an end within a year |
 | DELETE | `/api/fleet/policies/{id}` | fleet admin | Removes a hold |
