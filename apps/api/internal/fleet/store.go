@@ -89,7 +89,7 @@ func (s *Store) Drift(ctx context.Context, now time.Time) ([]DriftRow, error) {
 	}
 	pins := make([]Pin, 0, len(rows))
 	for _, r := range rows {
-		pins = append(pins, Pin{ProjectID: r.ProjectID, ProjectName: r.ProjectName, Package: r.Package, Resolved: r.Resolved})
+		pins = append(pins, Pin(r))
 	}
 	policies, err := s.Policies(ctx)
 	if err != nil {
