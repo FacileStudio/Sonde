@@ -118,7 +118,7 @@
 	<div class="hidden h-full shrink-0 p-3 md:block">
 		<SideBar
 			class="h-full"
-			icon="solar:radar-2-bold-duotone"
+			icon="solar:radar-bold-duotone"
 			title="Sonde"
 			bind:collapsed
 			pages={navPages}

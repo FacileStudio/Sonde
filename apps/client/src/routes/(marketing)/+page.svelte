@@ -6,7 +6,7 @@
 	import { backend, ssoLoginUrl } from '$lib/backend';
 	import { rememberLocale, t } from '$lib/i18n/index.svelte';
 
-	const ICON = 'solar:radar-2-bold-duotone';
+	const ICON = 'solar:radar-bold-duotone';
 
 	let checking = $state(true);
 

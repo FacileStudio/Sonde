@@ -40,7 +40,7 @@
 
 <AuthScreen appName="Sonde" href={ssoLoginUrl} onLocaleChange={rememberLocale}>
 	{#snippet logo()}
-		<iconify-icon icon="solar:radar-2-bold-duotone" width="40" height="40" class="block text-fc-fg"></iconify-icon>
+		<iconify-icon icon="solar:radar-bold-duotone" width="40" height="40" class="block text-fc-fg"></iconify-icon>
 	{/snippet}
 	{#snippet tagline()}
 		{t('login.tagline')}
