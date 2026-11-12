@@ -117,7 +117,8 @@ func run() int {
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
-	runDeletions(backgroundCtx, newDeletions(db, sqlDB, appEnv, appLogger))
+	deletions := newDeletions(db, sqlDB, appEnv, appLogger)
+	runDeletions(backgroundCtx, deletions)
 	go func() {
 		for {
 			select {
@@ -137,6 +138,7 @@ func run() int {
 		SQL:       sqlDB,
 		Engine:    engine,
 		Publisher: publisher,
+		Deletions: deletions,
 		Env:       appEnv,
 		Logger:    appLogger,
 	})

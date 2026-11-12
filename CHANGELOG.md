@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Security
+
+- fix(auth): an account Registre erased stays erased. porte v0.19.0 (directory v0.5.0): the deletion receiver sets `Holds: HoldsIdentity`, so a subject it already handled that holds an identity again is erased again on the next poll or push, with no restart; the OIDC kit gets `Erased`, so the login callback and profile sync refuse an erased subject before any account is created. The CLI device exchange creates no accounts (it needs an existing identity row), so it needs no guard of its own.
+
 ## [0.7.0] - 2026-11-11
 
 ### Changed

@@ -27,6 +27,20 @@ const testIssuer = "https://sso.facile.studio"
 
 func liveRouter(t *testing.T, configure func(*env.Config)) (chi.Router, *gorm.DB) {
 	t.Helper()
+	db := openAuthDatabase(t)
+	appEnv := env.Config{}
+	if configure != nil {
+		configure(&appEnv)
+	}
+	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Env: appEnv, Logger: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatalf("buildRouter: %v", err)
+	}
+	return router, db
+}
+
+func openAuthDatabase(t *testing.T) *gorm.DB {
+	t.Helper()
 	url, ok := testdb.URL()
 	if !ok {
 		testdb.Announce("sh scripts/postgres-up.sh && export " + testdb.EnvVar + "=postgres://postgres:postgres@127.0.0.1:5603/sonde_test?sslmode=disable")
@@ -41,16 +55,7 @@ func liveRouter(t *testing.T, configure func(*env.Config)) (chi.Router, *gorm.DB
 			t.Fatalf("truncate: %v", err)
 		}
 	})
-
-	appEnv := env.Config{}
-	if configure != nil {
-		configure(&appEnv)
-	}
-	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Env: appEnv, Logger: slog.New(slog.DiscardHandler)})
-	if err != nil {
-		t.Fatalf("buildRouter: %v", err)
-	}
-	return router, db
+	return db
 }
 
 func rawSQL(t *testing.T, db *gorm.DB) *sql.DB {
