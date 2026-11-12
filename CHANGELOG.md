@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- ci(fleet): the nightly fleet scan pins douane 0.7.4 (sha256 `1ad485c2...b1a678`, from the release's `checksums.txt`). A repository with an unsupported, upstream, unreadable or unresolved gap now still gets its history row written; douane's JSON and exit codes are unchanged. Expect one wave of NEW badges on the next scan for the repositories that had gaps, since their findings get a first history row; it settles on the scan after.
+
 ## [0.7.1] - 2026-11-12
 
 ### Security
