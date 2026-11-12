@@ -22,6 +22,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/modules/users"
 
+	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/porte/oidc"
 	"github.com/FacileStudio/porte/session"
@@ -77,6 +78,7 @@ type routerDeps struct {
 	SQL       *sql.DB
 	Engine    *checker.Engine
 	Publisher *events.Publisher
+	Deletions *directory.Deletions
 	Env       env.Config
 	Logger    *slog.Logger
 }
@@ -137,6 +139,7 @@ func buildIdentity(deps routerDeps) (identity, error) {
 		Identities: identityStore.Identities(),
 		Codes:      identityStore.LoginCodes(),
 		Sessions:   sessions,
+		Erased:     erasedGuard(deps.Deletions),
 		Logger:     deps.Logger,
 	})
 	if err != nil {

@@ -5,8 +5,8 @@ go 1.26.11
 require (
 	github.com/FacileStudio/Journal/sdk/journal v0.0.0-20260708221941-db985ad2b1ba
 	github.com/FacileStudio/antenne-client/go v1.0.0
-	github.com/FacileStudio/porte v0.17.0
-	github.com/FacileStudio/porte/directory v0.3.0
+	github.com/FacileStudio/porte v0.19.0
+	github.com/FacileStudio/porte/directory v0.5.0
 	github.com/FacileStudio/tronc v0.21.0
 	github.com/FacileStudio/tronc/migrate v0.1.0
 	github.com/FacileStudio/tronc/testdb v0.1.1
@@ -30,7 +30,7 @@ require (
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
