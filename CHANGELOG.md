@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-13
+
 ### Added
 
 - feat(api): monitors link to a project. `projects` is the renamed `fleet_projects` table, and `monitors.project_id` points at it (migration 00009 links existing monitors by name once). `PUT /api/monitors/{id}/project` sets or clears the link and `GET /api/projects` lists the projects the caller may link: those their GitHub account can at least read, or all of them for a fleet admin. Monitor JSON gains `project` (`{id, name}` or null), and `GET /api/fleet/projects` rows gain `monitors`.
