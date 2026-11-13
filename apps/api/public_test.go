@@ -60,7 +60,7 @@ func TestPublicRoutesStayReachableWithoutASession(t *testing.T) {
 func assertHeartbeatNeedsNoSession(t *testing.T, db *gorm.DB, token string) {
 	t.Helper()
 	engine := checker.NewGorm(db, nil, checker.WithoutTransitions(), checker.WithLogger(slog.New(slog.DiscardHandler)))
-	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Engine: engine, Logger: slog.New(slog.DiscardHandler)})
+	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Users: userStore(t, db), Engine: engine, Logger: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatalf("buildRouter: %v", err)
 	}

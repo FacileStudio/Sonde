@@ -7,11 +7,13 @@ import (
 	"github.com/FacileStudio/porte/kit"
 )
 
-// NewUserStore returns the porte user store over Sonde's users table. The
-// first account becomes admin, and erasing an account takes its monitors
-// with it; their checks, incidents and status page memberships cascade.
-func NewUserStore(sqlDB *sql.DB) *kit.Store {
-	return &kit.Store{DB: sqlDB, Columns: kit.Columns{Admin: "is_admin"}, EraseData: eraseOwned}
+// NewUserStore returns the porte user store over Sonde's users table, built by
+// kit.NewStore, which reads the table's columns once and fails when the
+// migrations have not run or a column the store names is missing. The first
+// account becomes admin, and erasing an account takes its monitors with it;
+// their checks, incidents and status page memberships cascade.
+func NewUserStore(ctx context.Context, sqlDB *sql.DB) (*kit.Store, error) {
+	return kit.NewStore(ctx, kit.Store{DB: sqlDB, Columns: kit.Columns{Admin: "is_admin"}, EraseData: eraseOwned})
 }
 
 func eraseOwned(ctx context.Context, tx *sql.Tx, userID int64) error {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/tronc/testdb"
 
@@ -16,7 +15,7 @@ import (
 // never pointed at a data: URL and the client draws the initial instead.
 func TestThePictureClaimIsStoredOnlyWhenHTTPS(t *testing.T) {
 	db := avatarDB(t)
-	users := auth.NewUserStore(rawSQL(t, db))
+	users := userStore(t, db)
 	ctx := context.Background()
 
 	signedIn := claims("pic", "pic@facile.studio", "Pic", true)
@@ -45,7 +44,7 @@ func TestThePictureClaimIsStoredOnlyWhenHTTPS(t *testing.T) {
 // run changes nothing.
 func TestBackfillFillsOnlyEmptyAvatars(t *testing.T) {
 	db := avatarDB(t)
-	users := auth.NewUserStore(rawSQL(t, db))
+	users := userStore(t, db)
 	ctx := context.Background()
 
 	legacy := schemas.User{Email: "legacy@facile.studio", Name: "Legacy"}

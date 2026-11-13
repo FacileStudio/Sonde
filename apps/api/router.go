@@ -76,6 +76,7 @@ func refConfig() apiref.Config {
 type routerDeps struct {
 	DB        *gorm.DB
 	SQL       *sql.DB
+	Users     *kit.Store
 	Engine    *checker.Engine
 	Publisher *events.Publisher
 	Deletions *directory.Deletions
@@ -133,7 +134,7 @@ func buildIdentity(deps routerDeps) (identity, error) {
 	if err != nil {
 		return identity{}, fmt.Errorf("failed to configure sessions: %w", err)
 	}
-	users := auth.NewUserStore(deps.SQL)
+	users := deps.Users
 	oidcKit, err := oidc.New(context.Background(), deps.Env.Porte, oidc.Deps{
 		Users:      users,
 		Identities: identityStore.Identities(),

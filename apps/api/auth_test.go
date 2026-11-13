@@ -16,6 +16,7 @@ import (
 	auth "github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/porte"
+	"github.com/FacileStudio/porte/kit"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/testdb"
@@ -32,7 +33,7 @@ func liveRouter(t *testing.T, configure func(*env.Config)) (chi.Router, *gorm.DB
 	if configure != nil {
 		configure(&appEnv)
 	}
-	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Env: appEnv, Logger: slog.New(slog.DiscardHandler)})
+	router, err := buildRouter(routerDeps{DB: db, SQL: rawSQL(t, db), Users: userStore(t, db), Env: appEnv, Logger: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatalf("buildRouter: %v", err)
 	}
@@ -65,6 +66,16 @@ func rawSQL(t *testing.T, db *gorm.DB) *sql.DB {
 		t.Fatalf("sql handle: %v", err)
 	}
 	return sqlDB
+}
+
+// userStore is Sonde's user store over the test database, built as run builds it.
+func userStore(t *testing.T, db *gorm.DB) *kit.Store {
+	t.Helper()
+	store, err := auth.NewUserStore(context.Background(), rawSQL(t, db))
+	if err != nil {
+		t.Fatalf("user store: %v", err)
+	}
+	return store
 }
 
 func call(t *testing.T, router chi.Router, method, path string, headers map[string]string, body any) *httptest.ResponseRecorder {
@@ -103,7 +114,7 @@ func signIn(t *testing.T, db *gorm.DB, email string) signedSession {
 	t.Helper()
 	ctx := context.Background()
 	subject := "sub-" + email
-	userID, err := auth.NewUserStore(rawSQL(t, db)).UpsertFromOIDC(ctx, claims(subject, email, "Someone", true))
+	userID, err := userStore(t, db).UpsertFromOIDC(ctx, claims(subject, email, "Someone", true))
 	if err != nil {
 		t.Fatalf("sign-in of %s: %v", email, err)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -22,6 +21,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/healthcheck"
 	"github.com/FacileStudio/tronc/logger"
 	"github.com/FacileStudio/tronc/migrate"
@@ -88,7 +88,12 @@ func run() int {
 		appLogger.Error("failed to run migrations", slog.Any("error", err))
 		return 1
 	}
-	backfillAvatars(sqlDB, appEnv.Porte.Issuer, appLogger)
+	users, err := auth.NewUserStore(context.Background(), sqlDB)
+	if err != nil {
+		appLogger.Error("failed to build the user store", slog.Any("error", err))
+		return 1
+	}
+	backfillAvatars(users, appEnv.Porte.Issuer, appLogger)
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
 			appLogger.Error("failed to close database", slog.Any("error", err))
@@ -117,7 +122,7 @@ func run() int {
 		}
 	}()
 	go pruner.Loop(backgroundCtx)
-	deletions := newDeletions(db, sqlDB, appEnv, appLogger)
+	deletions := newDeletions(db, sqlDB, users, appEnv, appLogger)
 	runDeletions(backgroundCtx, deletions)
 	go func() {
 		for {
@@ -136,6 +141,7 @@ func run() int {
 	router, err := buildRouter(routerDeps{
 		DB:        db,
 		SQL:       sqlDB,
+		Users:     users,
 		Engine:    engine,
 		Publisher: publisher,
 		Deletions: deletions,
@@ -189,8 +195,8 @@ func run() int {
 // backfillAvatars fills the picture URL of every account that signed in before
 // Sonde stored the claim. A failure is logged and boot goes on: a missing
 // picture draws the initial, which is no reason to refuse to monitor anything.
-func backfillAvatars(sqlDB *sql.DB, issuer string, logger *slog.Logger) {
-	filled, err := auth.NewUserStore(sqlDB).BackfillPictures(context.Background(), issuer)
+func backfillAvatars(users *kit.Store, issuer string, logger *slog.Logger) {
+	filled, err := users.BackfillPictures(context.Background(), issuer)
 	if err != nil {
 		logger.Warn("avatar backfill failed", slog.Any("error", err))
 		return

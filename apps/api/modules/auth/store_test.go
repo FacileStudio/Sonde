@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/FacileStudio/Sonde/apps/api/migrations"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
+	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/testdb"
 
@@ -51,6 +53,15 @@ func sqlOf(t *testing.T, db *gorm.DB) *sql.DB {
 	return sqlDB
 }
 
+func newStore(t *testing.T, db *gorm.DB) *kit.Store {
+	t.Helper()
+	store, err := NewUserStore(context.Background(), sqlOf(t, db))
+	if err != nil {
+		t.Fatalf("user store: %v", err)
+	}
+	return store
+}
+
 func link(t *testing.T, db *gorm.DB, userID int64, subject string) {
 	t.Helper()
 	err := db.Exec(`INSERT INTO porte_identities (user_id, provider, subject) VALUES (?, ?, ?)`, userID, testIssuer, subject).Error
@@ -89,12 +100,44 @@ func seedOwnedRows(t *testing.T, db *gorm.DB, owner int64, slug string) {
 	}
 }
 
+// Every users column has a default or is one the kit writes, so an account the
+// kit creates holds no NULL and NewStore reports no column as unwritten.
+func TestTheUserStoreLeavesNoColumnUnwritten(t *testing.T) {
+	if got := newStore(t, openTestDatabase(t)).Unwritten(); len(got) != 0 {
+		t.Fatalf("Unwritten() = %v, want none", got)
+	}
+}
+
+// NewUserStore reads the users table when it is built, through kit.NewStore. A
+// store built as a literal checks nothing, so it would come up over a table
+// without the admin flag and fail on the first sign-in instead of at boot.
+func TestTheUserStoreReadsTheUsersTableWhenBuilt(t *testing.T) {
+	url, configured := testdb.URL()
+	if !configured {
+		testdb.Announce(testBootstrap)
+		t.Skip(testdb.SkipReason(testBootstrap))
+	}
+	db, err := testdb.Open(url, testdb.Config{Prefix: "sonde_userstore_bare", Migrate: func(db *gorm.DB) error {
+		if err := db.Exec(`DROP TABLE IF EXISTS users`).Error; err != nil {
+			return err
+		}
+		return db.Exec(`CREATE TABLE users (id BIGSERIAL PRIMARY KEY, email TEXT NOT NULL,
+			name TEXT NOT NULL DEFAULT '', avatar_url TEXT NOT NULL DEFAULT '', locale TEXT NOT NULL DEFAULT 'en')`).Error
+	}})
+	if err != nil {
+		t.Fatalf("test database: %v", err)
+	}
+	if _, err := NewUserStore(context.Background(), sqlOf(t, db)); err == nil || !strings.Contains(err.Error(), "is_admin") {
+		t.Fatalf("NewUserStore over a users table without is_admin: err = %v, want one naming the column", err)
+	}
+}
+
 // Registre erases a person and tells every app. The person's account and
 // everything it owns go, other people's data stays, and a second delivery of
 // the same notice is a no-op.
 func TestEraseAccountDeletesThePersonsDataOnceAndIsIdempotent(t *testing.T) {
 	db := openTestDatabase(t)
-	store := NewUserStore(sqlOf(t, db))
+	store := newStore(t, db)
 	ctx := context.Background()
 
 	gone := seed(t, db, "gone@facile.studio", "Gone")
@@ -141,7 +184,7 @@ func TestEraseAccountDeletesThePersonsDataOnceAndIsIdempotent(t *testing.T) {
 
 func TestErasingTheOnlyAdministratorHandsTheRoleToTheOldestAccount(t *testing.T) {
 	db := openTestDatabase(t)
-	store := NewUserStore(sqlOf(t, db))
+	store := newStore(t, db)
 	ctx := context.Background()
 
 	admin := seed(t, db, "admin@facile.studio", "Admin")

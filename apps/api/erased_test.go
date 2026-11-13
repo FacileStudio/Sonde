@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
-	auth "github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
 	"github.com/FacileStudio/porte/oidc"
@@ -50,7 +49,7 @@ func createAccount(t *testing.T, db *gorm.DB, issuer, subject string) {
 	ctx := context.Background()
 	identity := claims(subject, subject+"@facile.studio", "Someone", true)
 	identity.Provider = issuer
-	userID, err := auth.NewUserStore(rawSQL(t, db)).UpsertFromOIDC(ctx, identity)
+	userID, err := userStore(t, db).UpsertFromOIDC(ctx, identity)
 	if err != nil {
 		t.Fatalf("create %s: %v", subject, err)
 	}
@@ -79,8 +78,9 @@ func TestAnErasedSubjectIsRefusedAndErasedAgainWithoutRestart(t *testing.T) {
 	configureIssuer(&appEnv)
 	appEnv.Porte.Issuer = issuer
 	logger := slog.New(slog.DiscardHandler)
-	deletions := newDeletions(db, rawSQL(t, db), appEnv, logger)
-	id, err := buildIdentity(routerDeps{DB: db, SQL: rawSQL(t, db), Deletions: deletions, Env: appEnv, Logger: logger})
+	users := userStore(t, db)
+	deletions := newDeletions(db, rawSQL(t, db), users, appEnv, logger)
+	id, err := buildIdentity(routerDeps{DB: db, SQL: rawSQL(t, db), Users: users, Deletions: deletions, Env: appEnv, Logger: logger})
 	if err != nil {
 		t.Fatalf("buildIdentity: %v", err)
 	}
