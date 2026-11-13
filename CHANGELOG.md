@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.3] - 2026-11-13
+
+### Fixed
+
+- fix(auth): the user store is built once by `kit.NewStore`, right after the migrations, and shared by the boot picture backfill, the router and the Registre deletion receiver. It was a `kit.Store` literal built three times, so porte logged "this Store was built as a literal" at every boot. `NewStore` reads the `users` table once and refuses to boot when a column the store names is missing. Every `users` column is NOT NULL with a default or written by the kit, so a test pins `Unwritten()` to none, and another proves the store reads the table when it is built.
+
 ## [0.7.2] - 2026-11-12
 
 ### Changed
