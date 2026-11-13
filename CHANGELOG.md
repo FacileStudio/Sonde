@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.7] - 2026-11-13
+
+### Changed
+
+- build(client): `@facile/muse` moves from v0.17.1 to v0.21.0. Tooltips open after 300 ms, and at once when moving from one to the next.
+
+### Fixed
+
+- fix(client): every icon-only control shows a muse tooltip: the edit and delete buttons on monitors, status pages and webhooks. The uptime strip and the maintenance conformance cells use muse tooltips instead of the native `title`.
+
 ## [0.7.6] - 2026-11-13
 
 ### Added
