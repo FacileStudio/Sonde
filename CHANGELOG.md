@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.8] - 2026-11-13
+
+### Changed
+
+- build(client): `@facile/muse` moves to v0.21.1. The user menu keeps the keyboard-active entry in view.
+
 ## [0.7.7] - 2026-11-13
 
 ### Changed
