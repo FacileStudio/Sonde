@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
 ### Added
 
 - feat(fleet): live rescan progress. `GET /api/fleet/scans/current` (fleet gate) answers the newest fleet-scan run on GitHub Actions, whatever started it: state (`idle`, `queued`, `in_progress`, `delivering`, `completed`, `failed`), link, start time, job steps, the runner's progress, and what the last report changed. GitHub is asked with an Actions-read installation token at most once every 2.5 s, whoever polls.
