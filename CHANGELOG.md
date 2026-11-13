@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.6] - 2026-11-13
+
+### Added
+
+- feat(client): the client loads Vision's analytics tracker on sonde.facile.studio only, with `data-mask` path masking. `securityConfig` adds `https://vision.facile.studio` to `script-src` next to the hashes of the built client's inline scripts, which now include the loader; the tracker's pixels fit tronc's default https `img-src`.
+
 ## [0.7.5] - 2026-11-13
 
 ### Changed
