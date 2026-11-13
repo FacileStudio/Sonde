@@ -64,16 +64,13 @@ func classify(name string) fileKind {
 	return kindNone
 }
 
-const archivedReason = "archived"
-
 type fetchedRepo struct {
-	repo     repoInfo
-	dir      string
-	covered  bool
-	nothing  bool
-	archived bool
-	reason   string
-	ci       string
+	repo    repoInfo
+	dir     string
+	covered bool
+	nothing bool
+	reason  string
+	ci      string
 	repoState
 }
 
@@ -90,12 +87,6 @@ type repoState struct {
 
 func uncovered(repo repoInfo, reason string) fetchedRepo {
 	return fetchedRepo{repo: repo, reason: reason}
-}
-
-// archivedRepo keeps an archived repository in the report, not covered and
-// counted nowhere, so Sonde neither scans it nor treats it as vanished.
-func archivedRepo(repo repoInfo) fetchedRepo {
-	return fetchedRepo{repo: repo, reason: archivedReason, archived: true}
 }
 
 func nothingToScan(repo repoInfo) fetchedRepo {

@@ -8,36 +8,17 @@ import (
 	"sync"
 )
 
-// listRepos splits the organisation's repositories into the ones to scan and
-// the archived ones. A repository without a default branch has no history yet
-// and is left out of both.
-func (r *runner) listRepos(ctx context.Context) ([]repoInfo, []repoInfo, error) {
+// listRepos lists the organisation's repositories to scan. An archived
+// repository is left out entirely, so a complete run removes it from Sonde, and
+// so is one without a default branch, which has no history yet.
+func (r *runner) listRepos(ctx context.Context) ([]repoInfo, error) {
 	all, err := r.github.repos(ctx, r.cfg.org)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	var live, archived []repoInfo
-	for _, repo := range all {
-		switch {
-		case repo.DefaultBranch == "":
-		case repo.Archived:
-			archived = append(archived, repo)
-		default:
-			live = append(live, repo)
-		}
-	}
-	byName := func(a, b repoInfo) int { return strings.Compare(a.Name, b.Name) }
-	slices.SortFunc(live, byName)
-	slices.SortFunc(archived, byName)
-	return live, archived, nil
-}
-
-func archivedRepos(repos []repoInfo) []fetchedRepo {
-	out := make([]fetchedRepo, 0, len(repos))
-	for _, repo := range repos {
-		out = append(out, archivedRepo(repo))
-	}
-	return out
+	live := slices.DeleteFunc(all, func(repo repoInfo) bool { return repo.Archived || repo.DefaultBranch == "" })
+	slices.SortFunc(live, func(a, b repoInfo) int { return strings.Compare(a.Name, b.Name) })
+	return live, nil
 }
 
 func (r *runner) collectAll(ctx context.Context, repos []repoInfo) []fetchedRepo {
@@ -47,7 +28,9 @@ func (r *runner) collectAll(ctx context.Context, repos []repoInfo) []fetchedRepo
 	for range r.cfg.workers {
 		wg.Go(func() {
 			for i := range jobs {
+				r.progress.started(repos[i].Name)
 				out[i] = r.collect(ctx, repos[i])
+				r.progress.finished()
 			}
 		})
 	}

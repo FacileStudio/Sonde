@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { Alert, Button, EmptyState, PageHeader, Skeleton, StatCard, Tabs, icons, toast } from '@facile/muse';
+	import { Alert, Button, EmptyState, PageHeader, Skeleton, Spinner, StatCard, Tabs, icons, toast } from '@facile/muse';
 	import MaintenanceActions from '$lib/components/MaintenanceActions.svelte';
 	import MaintenanceConformance from '$lib/components/MaintenanceConformance.svelte';
 	import MaintenanceDrift from '$lib/components/MaintenanceDrift.svelte';
 	import MaintenanceGraph from '$lib/components/MaintenanceGraph.svelte';
 	import MaintenanceProjects from '$lib/components/MaintenanceProjects.svelte';
+	import MaintenanceScanPanel from '$lib/components/MaintenanceScanPanel.svelte';
 	import {
 		backend,
 		type MaintenanceActions as Actions,
@@ -13,14 +14,14 @@
 		type MaintenanceDrift as Drift,
 		type MaintenanceGraph as Graph,
 		type MaintenanceProject,
-		type MaintenanceRun
+		type MaintenanceRun,
+		type MaintenanceScan
 	} from '$lib/backend';
 	import { since } from '$lib/format';
 	import { t } from '$lib/i18n/index.svelte';
+	import { ScanWatch, isRunning } from '$lib/scan-watch.svelte';
 
 	const staleAfterHours = 26;
-	const pollEveryMs = 30_000;
-	const pollForMs = 15 * 60_000;
 
 	let runs = $state<MaintenanceRun[]>([]);
 	let actions = $state<Actions | null>(null);
@@ -31,8 +32,10 @@
 	let loading = $state(true);
 	let error = $state('');
 	let tab = $state('actions');
-	let scanning = $state(false);
-	let poll: ReturnType<typeof setInterval> | undefined;
+	let requesting = $state(false);
+	const watch = new ScanWatch(finished);
+	const busy = $derived(requesting || isRunning(watch.scan));
+	const showPanel = $derived(!!watch.scan && (isRunning(watch.scan) || watch.scan.state === 'failed'));
 
 	const panelId = 'maintenance-panel';
 
@@ -68,37 +71,38 @@
 		]);
 	}
 
-	function stopPolling() {
-		clearInterval(poll);
-		poll = undefined;
-		scanning = false;
+	function summary(scan: MaintenanceScan, run: MaintenanceRun): string {
+		const delivery = scan.last_delivery;
+		if (delivery && delivery.run_id === run.id) {
+			return t('maintenance.scan.finished', {
+				repos: delivery.repos_scanned,
+				fresh: delivery.new_findings,
+				resolved: delivery.resolved
+			});
+		}
+		return t('maintenance.scan.finishedShort', { repos: run.repos_scanned });
 	}
 
-	/* The scan runs on GitHub Actions and delivers its report minutes later, so the page watches
-	   the run list and reloads once a newer run lands, giving up after a quarter of an hour. */
-	function watchForRun(since: number | undefined) {
-		const deadline = Date.now() + pollForMs;
-		poll = setInterval(async () => {
-			const latest = await backend.maintenanceRuns(true).catch(() => runs);
-			if (latest[0] && latest[0].id !== since) {
-				stopPolling();
-				await load().catch(() => {});
-				toast.success(t('maintenance.rescan.done'));
-			} else if (Date.now() > deadline) {
-				stopPolling();
-			}
-		}, pollEveryMs);
+	/* A watched scan ended. A failure stays on screen in the panel; a success reloads the page's
+	   data and names what the new report changed, read from the newest run row. */
+	async function finished(scan: MaintenanceScan) {
+		if (scan.state === 'failed') return;
+		const before = runs[0]?.id;
+		await load().catch(() => {});
+		const newest = runs[0];
+		if (newest && newest.id !== before) toast.success(summary(scan, newest));
+		else toast.warning(t('maintenance.scan.noReport'));
 	}
 
 	async function rescan() {
-		scanning = true;
+		requesting = true;
 		try {
 			await backend.rescanFleet();
-			toast.success(t('maintenance.rescan.queued'));
-			watchForRun(runs[0]?.id);
+			watch.queued();
 		} catch (err) {
-			scanning = false;
 			toast.danger(err instanceof Error ? err.message : t('maintenance.rescan.failed'));
+		} finally {
+			requesting = false;
 		}
 	}
 
@@ -111,9 +115,10 @@
 		} finally {
 			loading = false;
 		}
+		watch.start();
 	});
 
-	onDestroy(() => clearInterval(poll));
+	onDestroy(() => watch.stop());
 </script>
 
 <svelte:head>
@@ -124,12 +129,17 @@
 	<PageHeader title={t('nav.maintenance')} description={t('maintenance.description')}>
 		{#snippet actions()}
 			{#if !error && !loading}
-				<Button variant="secondary" icon={icons.refresh} disabled={scanning} onclick={rescan}>
+				<Button variant="secondary" icon={busy ? undefined : icons.refresh} disabled={busy} aria-busy={busy} onclick={rescan}>
+					{#if busy}<Spinner size="sm" />{/if}
 					{t('maintenance.rescan')}
 				</Button>
 			{/if}
 		{/snippet}
 	</PageHeader>
+
+	{#if showPanel && watch.scan}
+		<MaintenanceScanPanel scan={watch.scan} />
+	{/if}
 
 	{#if error}
 		<Alert tone="danger" title={t('maintenance.loadError')}>{error}</Alert>

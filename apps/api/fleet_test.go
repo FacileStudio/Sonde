@@ -217,23 +217,3 @@ func TestAnInvalidReportChangesNothing(t *testing.T) {
 		t.Fatalf("a refused report wrote %d projects", rows)
 	}
 }
-
-func TestAnArchivedRepositoryLeavesTheInbox(t *testing.T) {
-	router, db := fleetRouter(t)
-	admin := signIn(t, db, "admin@facile.studio")
-	ingest(t, router, nightly(covered(7, "Chat", flaw("GHSA-chat"))))
-	if got := openActions(t, router, admin.Token).Counts; got.Act+got.Schedule != 1 {
-		t.Fatalf("before archiving: %+v, want one act or schedule", got)
-	}
-
-	archived := fleet.ProjectReport{GithubRepoID: 7, Name: "Chat", DefaultBranch: "main", NotCovered: "archived"}
-	ingest(t, router, nightly(archived))
-
-	if got := openActions(t, router, admin.Token).Counts; got.Act+got.Schedule != 0 || got.Track != 1 {
-		t.Fatalf("after archiving: %+v, want only one track", got)
-	}
-	var tier string
-	if err := db.Raw(`SELECT tier FROM projects WHERE github_repo_id = 7`).Scan(&tier).Error; err != nil || tier != "archive" {
-		t.Fatalf("tier = %q (%v), want archive", tier, err)
-	}
-}

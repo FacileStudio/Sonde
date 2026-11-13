@@ -64,7 +64,7 @@ func projectOf(repo fetchedRepo, verdicts map[string]verdict) fleet.ProjectRepor
 	case repo.nothing:
 		project.Covered = true
 		return project
-	case repo.archived, !repo.covered:
+	case !repo.covered:
 		return project
 	}
 	result, scanned := verdicts[repo.dir]
@@ -79,17 +79,14 @@ func projectOf(repo fetchedRepo, verdicts map[string]verdict) fleet.ProjectRepor
 	return project
 }
 
-// sanitize demotes any project the server would refuse and counts the run. An
-// archived repository is reported but counted in neither total.
+// sanitize demotes any project the server would refuse and counts the run.
 func sanitize(report *fleet.Report, now time.Time) {
 	report.Run.ReposExpected, report.Run.ReposScanned = 0, 0
 	for i := range report.Projects {
 		if !projectValid(report.Projects[i], now) {
 			demote(&report.Projects[i])
 		}
-		if report.Projects[i].NotCovered != archivedReason {
-			report.Run.ReposExpected++
-		}
+		report.Run.ReposExpected++
 		if report.Projects[i].Covered {
 			report.Run.ReposScanned++
 		}

@@ -1,7 +1,7 @@
 package fleet
 
 import (
-	"time"
+	"strings"
 
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"gorm.io/gorm"
@@ -15,7 +15,7 @@ func coveredCount(tx *gorm.DB) (int, error) {
 
 // shrank reports whether a listing is too short to be trusted as the whole
 // fleet: a narrowed GitHub App installation or a partial listing would
-// otherwise resolve every project it no longer sees.
+// otherwise delete every project it no longer sees.
 func shrank(listed, covered int) bool {
 	if covered == 0 {
 		return false
@@ -23,7 +23,7 @@ func shrank(listed, covered int) bool {
 	return float64(listed) < shrinkRatio*float64(covered) || covered-listed > shrinkLimit
 }
 
-func resolveVanished(tx *gorm.DB, report Report, covered int, now time.Time, result *IngestResult) error {
+func removeVanished(tx *gorm.DB, report Report, covered int, result *IngestResult) error {
 	if !result.Complete {
 		return nil
 	}
@@ -31,23 +31,37 @@ func resolveVanished(tx *gorm.DB, report Report, covered int, now time.Time, res
 		result.Complete, result.CoverageDropped = false, true
 		return nil
 	}
-	return resolveListed(tx, report, now, result)
+	return removeUnlisted(tx, report, result)
 }
 
-func resolveListed(tx *gorm.DB, report Report, now time.Time, result *IngestResult) error {
+// removeUnlisted deletes the projects a complete run no longer lists. The
+// foreign keys cascade to their findings, pins, checks, edges and holds, and
+// unlink their monitors; edges other projects drew to them go by name. Their
+// open findings count as resolved.
+func removeUnlisted(tx *gorm.DB, report Report, result *IngestResult) error {
 	listed := make([]int64, 0, len(report.Projects))
 	for _, project := range report.Projects {
 		listed = append(listed, project.GithubRepoID)
 	}
-	gone := tx.Model(&schemas.Project{}).Select("id").Where("github_repo_id NOT IN ?", listed)
-	done := tx.Model(&schemas.FleetFinding{}).
-		Where("resolved_at IS NULL AND project_id IN (?)", gone).
-		Update("resolved_at", now)
-	if done.Error != nil {
-		return done.Error
+	var gone []schemas.Project
+	if err := tx.Select("id", "name").Where("github_repo_id NOT IN ?", listed).Order("name").Find(&gone).Error; err != nil {
+		return err
 	}
-	result.Resolved += int(done.RowsAffected)
-	return tx.Model(&schemas.Project{}).
-		Where("github_repo_id NOT IN ?", listed).
-		Updates(map[string]any{"covered": false, "not_covered": notInLatestScan}).Error
+	if len(gone) == 0 {
+		return nil
+	}
+	ids, names := make([]int64, 0, len(gone)), make([]string, 0, len(gone))
+	for _, project := range gone {
+		ids, names = append(ids, project.ID), append(names, strings.ToLower(project.Name))
+		result.Removed = append(result.Removed, project.Name)
+	}
+	var open int64
+	if err := tx.Model(&schemas.FleetFinding{}).Where("resolved_at IS NULL AND project_id IN ?", ids).Count(&open).Error; err != nil {
+		return err
+	}
+	result.Resolved += int(open)
+	if err := tx.Where("lower(to_name) IN ?", names).Delete(&schemas.FleetEdge{}).Error; err != nil {
+		return err
+	}
+	return tx.Where("id IN ?", ids).Delete(&schemas.Project{}).Error
 }

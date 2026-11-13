@@ -28,6 +28,7 @@ import type {
 	MaintenanceGraph,
 	MaintenanceProject,
 	MaintenanceRun,
+	MaintenanceScan,
 	MaintenanceTier,
 	ProjectRef
 } from '$lib/maintenance-types';
@@ -120,6 +121,9 @@ export const backend = {
 	},
 	rescanFleet() {
 		return apiFetch<{ queued: boolean; run_url?: string }>('/fleet/scans', { method: 'POST' });
+	},
+	currentScan() {
+		return apiFetch<MaintenanceScan>('/fleet/scans/current', {}, { quiet: true });
 	},
 	maintenanceActions() {
 		return apiFetch<MaintenanceActions>('/fleet/actions');

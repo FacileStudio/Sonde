@@ -20,8 +20,6 @@ const (
 	// project rows in different orders and could interleave their resolves.
 	ingestLock int64 = 7301942118
 
-	notInLatestScan = "not in the latest scan"
-
 	// lockNotAvailable is the SQLSTATE Postgres answers when lock_timeout
 	// expires before the advisory lock is granted.
 	lockNotAvailable = "55P03"
@@ -43,10 +41,13 @@ type IngestResult struct {
 	FindingsOpen int   `json:"findings_open"`
 	Complete     bool  `json:"complete"`
 	// CoverageDropped is set when a run listed far fewer projects than are
-	// currently covered. Nothing is resolved for the missing ones and the run
+	// currently covered. Nothing is removed for the missing ones and the run
 	// is stored as incomplete, because a narrowed listing looks exactly like a
 	// fleet that vanished.
 	CoverageDropped bool `json:"coverage_dropped,omitempty"`
+	// Removed names the projects a complete run no longer listed and that were
+	// deleted with everything hanging off them.
+	Removed []string `json:"removed,omitempty"`
 }
 
 // Complete reports whether a run scanned everything it set out to. A run that
@@ -58,7 +59,8 @@ func (r RunInfo) Complete() bool {
 // Ingest stores one report in a single transaction. A project the runner could
 // not cover keeps its findings: absence from a scan that did not happen is not
 // evidence the flaw is gone. A complete run is evidence, so a project it no
-// longer lists has its findings resolved. A report that is not newer than the
+// longer lists (deleted, transferred or archived) is deleted, its open findings
+// counted as resolved. A report that is not newer than the
 // last one stored is refused, so a retried or late delivery cannot roll the
 // picture back.
 func (s *Store) Ingest(ctx context.Context, report Report, now time.Time) (IngestResult, error) {
@@ -85,7 +87,7 @@ func apply(tx *gorm.DB, report Report, now time.Time, result *IngestResult) erro
 			return err
 		}
 	}
-	if err := resolveVanished(tx, report, before, now, result); err != nil {
+	if err := removeVanished(tx, report, before, result); err != nil {
 		return err
 	}
 	if err := upsertLatest(tx, report.Latest, now); err != nil {
@@ -151,22 +153,15 @@ func ingestProject(tx *gorm.DB, project ProjectReport, now time.Time, result *In
 	return nil
 }
 
-// archivedReason is the not_covered value the runner gives an archived
-// repository. Ingest files such a project under the archive tier, so its
-// frozen findings leave the ranked inbox and the drift view.
-const archivedReason = "archived"
-
 func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, error) {
 	var id int64
 	err := tx.Raw(`
 		INSERT INTO projects
 			(github_repo_id, name, default_branch, covered, not_covered, last_scanned_at,
-			 ci_conclusion, filet_wired, filet_pin, deployed_version, go_directive, tier)
-		VALUES (?, ?, ?, ?, ?, CASE WHEN ? THEN ?::timestamptz END, ?, ?, ?, ?, ?,
-			CASE WHEN ? THEN 'archive' ELSE 'unclassified' END)
+			 ci_conclusion, filet_wired, filet_pin, deployed_version, go_directive)
+		VALUES (?, ?, ?, ?, ?, CASE WHEN ? THEN ?::timestamptz END, ?, ?, ?, ?, ?)
 		ON CONFLICT (github_repo_id) DO UPDATE SET
 			name = EXCLUDED.name,
-			tier = CASE WHEN EXCLUDED.tier = 'archive' THEN 'archive' ELSE projects.tier END,
 			default_branch = EXCLUDED.default_branch,
 			covered = EXCLUDED.covered,
 			not_covered = EXCLUDED.not_covered,
@@ -181,7 +176,6 @@ func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, er
 		project.GithubRepoID, project.Name, project.DefaultBranch, project.Covered, project.NotCovered,
 		project.Covered, now,
 		project.CIConclusion, project.FiletWired, project.FiletPin, project.DeployedVersion, project.GoDirective,
-		project.NotCovered == archivedReason,
 	).Scan(&id).Error
 	return id, err
 }

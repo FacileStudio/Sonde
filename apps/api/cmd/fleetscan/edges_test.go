@@ -136,7 +136,7 @@ func TestAScanReportsEdgesAndChecksForCoveredReposOnly(t *testing.T) {
 	if !checkMap(api.Conformance)["gate.filet"] || len(api.Conformance) == 0 {
 		t.Fatalf("api checks = %+v", api.Conformance)
 	}
-	for _, name := range []string{"yarny", "broken", "old", "docs"} {
+	for _, name := range []string{"yarny", "broken", "docs"} {
 		if got := projectNamed(t, report, name); len(got.Edges)+len(got.Conformance) != 0 {
 			t.Fatalf("%s carries edges or checks without a covering scan: %+v", name, got)
 		}

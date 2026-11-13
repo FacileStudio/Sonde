@@ -87,8 +87,10 @@ func checkEveryOtherRepo(t *testing.T, report fleet.Report) {
 	if got := projectNamed(t, report, "broken"); got.Covered || !strings.HasPrefix(got.NotCovered, "tree failed") {
 		t.Fatalf("broken = %+v", got)
 	}
-	if got := projectNamed(t, report, "old"); got.Covered || got.NotCovered != archivedReason || len(got.Findings) != 0 {
-		t.Fatalf("old = %+v: an archived repository is reported, not covered and counted nowhere", got)
+	for _, project := range report.Projects {
+		if project.Name == "old" {
+			t.Fatalf("old = %+v: an archived repository is not reported, so Sonde removes it", project)
+		}
 	}
 }
 
@@ -196,7 +198,7 @@ func TestOutWritesTheReportInsteadOfDeliveringIt(t *testing.T) {
 	}
 	var written fleet.Report
 	data, err := os.ReadFile(cfg.out)
-	if err != nil || json.Unmarshal(data, &written) != nil || len(written.Projects) != 7 || sonde.calls.Load() != 0 {
+	if err != nil || json.Unmarshal(data, &written) != nil || len(written.Projects) != 6 || sonde.calls.Load() != 0 {
 		t.Fatalf("written report wrong (err %v) or delivered anyway (%d calls)", err, sonde.calls.Load())
 	}
 }
