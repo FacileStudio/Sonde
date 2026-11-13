@@ -112,8 +112,10 @@ nothing about what the browser gets.
 │   │   │   ├── documentation/# The type the API reference registry is built from
 │   │   │   ├── env/          # Environment config loader and validation
 │   │   │   ├── fleet/        # Fleet maintenance: report ingest, ranked actions, version drift, holds
+│   │   │   ├── githubapp/    # GitHub App client: JWT, scoped installation tokens, repository permissions
 │   │   │   ├── httpapi/      # Monitors, incidents, export, status pages, public feed
 │   │   │   ├── monitors/     # Monitor store and validation
+│   │   │   ├── projects/     # Which projects a person may link a monitor to (GitHub read access)
 │   │   │   ├── retention/    # Daily rollup + prune job
 │   │   │   └── uptime/       # Uptime windows read from checks_hourly
 │   │   ├── cmd/fleetscan/    # Nightly fleet runner: GitHub API + douane -> one report to Sonde
@@ -134,7 +136,10 @@ nothing about what the browser gets.
 `checks_raw` is one row per probe. `checks_hourly` and `checks_daily` are rollups of
 `(monitor_id, bucket_start, total, failed, avg_latency_ms)`. `monitors`, `incidents`,
 `status_pages` and `status_page_monitors` are the rest of the domain; `users` and the
-`porte_*` tables are identity.
+`porte_*` tables are identity. `projects` is one FacileStudio GitHub repository: the fleet scan
+writes it, maintenance data hangs off it, and `monitors.project_id` links a monitor to it.
+`users.github_id` is the GitHub account Registre reports in the `connections` claim, empty
+until the person links one. See `docs/FLEET.md`.
 
 Every table that hangs off a monitor declares `ON DELETE CASCADE`, so deleting a monitor
 removes its whole history in one statement.
@@ -155,7 +160,7 @@ Copy `apps/api/.env.example` to `apps/api/.env` for local overrides. Full refere
 | `SONDE_RAW_RETENTION_DAYS` | `30` | Days of raw checks kept. Fails soft: a bad value silently becomes 30 |
 | `SONDE_FLEET_TOKEN` | empty | Token for the fleet runner's report delivery. Empty turns ingest off. At least 32 characters |
 | `SONDE_FLEET_ADMINS` | empty | Emails allowed to read fleet data, on top of `is_admin`. Empty closes the read routes |
-| `SONDE_FLEET_DISPATCH_TOKEN` | empty | Fine-grained GitHub token, Actions write on FacileStudio/Sonde only. Lets the Maintenance Rescan button queue `fleet-scan.yml`. Empty answers 412 |
+| `SONDE_GITHUB_APP_CLIENT_ID` / `SONDE_GITHUB_APP_PRIVATE_KEY` | empty | The `facile-fleet-scan` GitHub App: client id and base64 of the PEM key. Mints one-hour tokens for the Rescan button and for project access checks. Set both or neither; unset answers 412 |
 | `APP_ENV` | `production` in compose | `production` refuses to boot without `OIDC_ISSUER` |
 | `OIDC_ISSUER` | empty | `https://sso.facile.studio`. Empty disables SSO |
 | `OIDC_CLIENT_ID` | empty | `sonde` |

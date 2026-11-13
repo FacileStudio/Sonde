@@ -45,7 +45,7 @@ func (s *Store) Actions(ctx context.Context) ([]Action, error) {
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT f.project_id, p.name AS project_name, p.tier, f.advisory, f.aliases, f.severity, f.package,
 		       f.ecosystem, f.installed, f.fixed_in, f.kev, f.epss, f.first_seen
-		FROM fleet_findings f JOIN fleet_projects p ON p.id = f.project_id
+		FROM fleet_findings f JOIN projects p ON p.id = f.project_id
 		WHERE f.resolved_at IS NULL`).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to read the fleet actions", err)
@@ -82,7 +82,7 @@ func (s *Store) Drift(ctx context.Context, now time.Time) ([]DriftRow, error) {
 	var rows []pinRow
 	err := db.Raw(`
 		SELECT x.project_id, p.name AS project_name, x.package, x.resolved
-		FROM fleet_pins x JOIN fleet_projects p ON p.id = x.project_id
+		FROM fleet_pins x JOIN projects p ON p.id = x.project_id
 		WHERE p.tier NOT IN ('archive', 'experiment')`).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to read the fleet pins", err)
@@ -100,7 +100,7 @@ func (s *Store) Drift(ctx context.Context, now time.Time) ([]DriftRow, error) {
 
 // ProjectRow is a project with its open finding count.
 type ProjectRow struct {
-	schemas.FleetProject
+	schemas.Project
 	OpenFindings int `gorm:"column:open_findings"`
 }
 
@@ -111,7 +111,7 @@ func (s *Store) Projects(ctx context.Context) ([]ProjectRow, error) {
 	var rows []ProjectRow
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT p.*, (SELECT count(*) FROM fleet_findings f WHERE f.project_id = p.id AND f.resolved_at IS NULL) AS open_findings
-		FROM fleet_projects p ORDER BY p.covered DESC, open_findings DESC, lower(p.name)`).Scan(&rows).Error
+		FROM projects p ORDER BY p.covered DESC, open_findings DESC, lower(p.name)`).Scan(&rows).Error
 	if err != nil {
 		return nil, errors.Internal("failed to list the fleet projects", err)
 	}
@@ -126,12 +126,12 @@ type ProjectUpdate struct {
 }
 
 // UpdateProject changes the fields a person owns and leaves scan data alone.
-func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectUpdate) (*schemas.FleetProject, error) {
+func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectUpdate) (*schemas.Project, error) {
 	changes, err := in.changes()
 	if err != nil {
 		return nil, err
 	}
-	var project schemas.FleetProject
+	var project schemas.Project
 	db := s.db.WithContext(ctx)
 	if err := db.First(&project, id).Error; err != nil {
 		return nil, errors.NotFound("project not found")

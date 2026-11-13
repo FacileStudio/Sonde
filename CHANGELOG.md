@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- feat(api): monitors link to a project. `projects` is the renamed `fleet_projects` table, and `monitors.project_id` points at it (migration 00009 links existing monitors by name once). `PUT /api/monitors/{id}/project` sets or clears the link and `GET /api/projects` lists the projects the caller may link: those their GitHub account can at least read, or all of them for a fleet admin. Monitor JSON gains `project` (`{id, name}` or null), and `GET /api/fleet/projects` rows gain `monitors`.
+- feat(auth): Sonde asks Registre for the `connections` scope and stores the reported GitHub account id in `users.github_id` at each sign-in.
+- feat(client): a Repository section on the monitor page to link and unlink a project, and a Monitors column on the Maintenance Projects tab.
+
+### Changed
+
+- feat(fleet): the Rescan button mints a one-hour installation token of the `facile-fleet-scan` GitHub App, limited to Actions write on this repository, instead of using a personal token. `SONDE_FLEET_DISPATCH_TOKEN`, which production never had, is gone; set `SONDE_GITHUB_APP_CLIENT_ID` and `SONDE_GITHUB_APP_PRIVATE_KEY` (base64 of the PEM), and approve Actions write on the App. Until then the route answers 412 with the reason.
+- fix(fleet): the graph's `uptime_status` comes from the monitors linked to a project, not from monitors that happen to share its name.
+
 ## [0.7.8] - 2026-11-13
 
 ### Changed

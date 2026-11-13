@@ -20,6 +20,7 @@
 	} from '@facile/muse';
 	import MonitorForm from '$lib/components/MonitorForm.svelte';
 	import MonitorHistoryPanel from '$lib/components/MonitorHistory.svelte';
+	import MonitorProject from '$lib/components/MonitorProject.svelte';
 	import {
 		backend,
 		type Incident,
@@ -184,6 +185,7 @@
 			</Section>
 		{/if}
 
+		<MonitorProject {monitor} onChange={(updated) => (monitor = updated)} />
 		<div class="grid grid-cols-1 gap-10 lg:grid-cols-3">
 			<Section title={t('monitor.settings')} class="lg:col-span-2">
 				<Card>

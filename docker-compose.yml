@@ -129,9 +129,11 @@ services:
       # see docs/FLEET.md.
       SONDE_FLEET_TOKEN: ${SONDE_FLEET_TOKEN:-}
       SONDE_FLEET_ADMINS: ${SONDE_FLEET_ADMINS:-}
-      # A fine-grained GitHub token with Actions write on FacileStudio/Sonde
-      # only. It lets the Rescan button queue fleet-scan.yml; empty turns it off.
-      SONDE_FLEET_DISPATCH_TOKEN: ${SONDE_FLEET_DISPATCH_TOKEN:-}
+      # The facile-fleet-scan GitHub App: its client id and base64 of its PEM
+      # private key. It mints short-lived tokens for the Rescan button and for
+      # project access checks. Both empty turn those features off (412).
+      SONDE_GITHUB_APP_CLIENT_ID: ${SONDE_GITHUB_APP_CLIENT_ID:-}
+      SONDE_GITHUB_APP_PRIVATE_KEY: ${SONDE_GITHUB_APP_PRIVATE_KEY:-}
     healthcheck:
       # The image is distroless: no shell, no wget, no curl. Re-executing the
       # binary is the only probe available. Provided by tronc's healthcheck

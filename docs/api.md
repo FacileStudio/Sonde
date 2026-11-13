@@ -69,6 +69,8 @@ must not be able to set it.
 | GET | `/api/monitors/{id}` | session | One monitor |
 | PATCH | `/api/monitors/{id}` | session | The updated monitor |
 | DELETE | `/api/monitors/{id}` | session | Deletes the monitor and its whole history, by cascade |
+| PUT | `/api/monitors/{id}/project` | session | Links the monitor to a project (`{"project_id": n}`) or unlinks it (`null`). Needs GitHub read on the repository; 412 without the GitHub App or a linked GitHub account |
+| GET | `/api/projects` | session | The projects the caller's GitHub account can read, `[{id, name}]`. Fleet admins see all. 412 without the GitHub App or a linked GitHub account |
 | GET | `/api/monitors/{id}/incidents` | session | That monitor's incidents |
 | GET | `/api/monitors/{id}/uptime` | session | Uptime over 24h, 7d, 30d and 90d |
 | GET | `/api/incidents` | session | Incidents across the caller's monitors |
@@ -116,10 +118,10 @@ administrator whose email is in `SONDE_FLEET_ADMINS`; anyone else gets 403. See
 | GET | `/api/fleet/drift` | fleet admin | Per tracked package, the projects not on the latest version, with holds marked |
 | GET | `/api/fleet/graph` | fleet admin | Every project as a node, and the `lib`, `call`, `event`, `identity` and `logs` edges the runner derived from its files |
 | GET | `/api/fleet/conformance` | fleet admin | The check matrix: one row per project, checks that did not apply left out, worst project first |
-| GET | `/api/fleet/projects` | fleet admin | Every repository: covered ones first, the most open findings first |
+| GET | `/api/fleet/projects` | fleet admin | Every repository: covered ones first, the most open findings first, each with its linked `monitors` |
 | PATCH | `/api/fleet/projects/{id}` | fleet admin | Sets `tier`, `version_url`, `journal_app` |
 | GET | `/api/fleet/runs` | fleet admin | The newest deliveries and how complete each was |
-| POST | `/api/fleet/scans` | fleet admin | Queues the fleet-scan workflow on GitHub. Once every five minutes; 412 without `SONDE_FLEET_DISPATCH_TOKEN` |
+| POST | `/api/fleet/scans` | fleet admin | Queues the fleet-scan workflow on GitHub. Once every five minutes; 412 without the GitHub App env, or while the App lacks Actions write |
 | GET | `/api/fleet/policies` | fleet admin | Holds, expired ones included |
 | POST | `/api/fleet/policies` | fleet admin | Holds a package on a version. Needs a reason and an end within a year |
 | DELETE | `/api/fleet/policies/{id}` | fleet admin | Removes a hold |

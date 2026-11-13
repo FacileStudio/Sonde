@@ -53,6 +53,7 @@
 				<th scope="col">{t('maintenance.col.ci')}</th>
 				<th scope="col">{t('maintenance.col.filet')}</th>
 				<th scope="col">{t('maintenance.col.open')}</th>
+				<th scope="col">{t('maintenance.col.monitors')}</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -87,6 +88,17 @@
 						{/if}
 					</td>
 					<td class="tabular-nums">{project.open_findings}</td>
+					<td>
+						{#if project.monitors.length === 0}
+							<span class="text-fc-fg-muted">—</span>
+						{:else}
+							<div class="flex flex-wrap gap-1">
+								{#each project.monitors as monitor (monitor.id)}
+									<Badge tone="neutral">{monitor.name}</Badge>
+								{/each}
+							</div>
+						{/if}
+					</td>
 				</tr>
 			{/each}
 		</tbody>

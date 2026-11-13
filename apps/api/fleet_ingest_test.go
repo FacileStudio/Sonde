@@ -81,7 +81,7 @@ func TestClassifyingAProjectSurvivesTheNextScan(t *testing.T) {
 	admin := signIn(t, db, "admin@facile.studio")
 	ingest(t, router, nightly(covered(1, "a")))
 	var id int64
-	db.Table("fleet_projects").Select("id").Where("github_repo_id = 1").Scan(&id)
+	db.Table("projects").Select("id").Where("github_repo_id = 1").Scan(&id)
 
 	invalid := call(t, router, http.MethodPatch, "/api/fleet/projects/"+itoa(id), csrfHeaders(admin.Token), map[string]any{"tier": "boss"})
 	if invalid.Code != http.StatusBadRequest {
@@ -98,8 +98,8 @@ func TestClassifyingAProjectSurvivesTheNextScan(t *testing.T) {
 	ingest(t, router, nightly(covered(1, "renamed")))
 
 	var tier, name string
-	db.Table("fleet_projects").Select("tier").Where("id = ?", id).Scan(&tier)
-	db.Table("fleet_projects").Select("name").Where("id = ?", id).Scan(&name)
+	db.Table("projects").Select("tier").Where("id = ?", id).Scan(&tier)
+	db.Table("projects").Select("name").Where("id = ?", id).Scan(&name)
 	if tier != "deployed" || name != "renamed" {
 		t.Fatalf("tier = %q, name = %q: a scan must refresh the name and keep the tier", tier, name)
 	}

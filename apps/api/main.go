@@ -15,13 +15,13 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/database"
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
+	"github.com/FacileStudio/Sonde/apps/api/internal/githubapp"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
 	"github.com/FacileStudio/Sonde/apps/api/modules/auth"
 
 	"github.com/FacileStudio/Journal/sdk/journal"
-	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/healthcheck"
 	"github.com/FacileStudio/tronc/logger"
 	"github.com/FacileStudio/tronc/migrate"
@@ -94,6 +94,11 @@ func run() int {
 		return 1
 	}
 	backfillAvatars(users, appEnv.Porte.Issuer, appLogger)
+	github, err := githubapp.New(appEnv.GitHubApp)
+	if err != nil {
+		appLogger.Error("failed to configure the GitHub App", slog.Any("error", err))
+		return 1
+	}
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
 			appLogger.Error("failed to close database", slog.Any("error", err))
@@ -145,6 +150,7 @@ func run() int {
 		Engine:    engine,
 		Publisher: publisher,
 		Deletions: deletions,
+		GitHub:    github,
 		Env:       appEnv,
 		Logger:    appLogger,
 	})
@@ -195,7 +201,7 @@ func run() int {
 // backfillAvatars fills the picture URL of every account that signed in before
 // Sonde stored the claim. A failure is logged and boot goes on: a missing
 // picture draws the initial, which is no reason to refuse to monitor anything.
-func backfillAvatars(users *kit.Store, issuer string, logger *slog.Logger) {
+func backfillAvatars(users *auth.UserStore, issuer string, logger *slog.Logger) {
 	filled, err := users.BackfillPictures(context.Background(), issuer)
 	if err != nil {
 		logger.Warn("avatar backfill failed", slog.Any("error", err))

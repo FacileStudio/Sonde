@@ -159,18 +159,18 @@ const archivedReason = "archived"
 func upsertProject(tx *gorm.DB, project ProjectReport, now time.Time) (int64, error) {
 	var id int64
 	err := tx.Raw(`
-		INSERT INTO fleet_projects
+		INSERT INTO projects
 			(github_repo_id, name, default_branch, covered, not_covered, last_scanned_at,
 			 ci_conclusion, filet_wired, filet_pin, deployed_version, go_directive, tier)
 		VALUES (?, ?, ?, ?, ?, CASE WHEN ? THEN ?::timestamptz END, ?, ?, ?, ?, ?,
 			CASE WHEN ? THEN 'archive' ELSE 'unclassified' END)
 		ON CONFLICT (github_repo_id) DO UPDATE SET
 			name = EXCLUDED.name,
-			tier = CASE WHEN EXCLUDED.tier = 'archive' THEN 'archive' ELSE fleet_projects.tier END,
+			tier = CASE WHEN EXCLUDED.tier = 'archive' THEN 'archive' ELSE projects.tier END,
 			default_branch = EXCLUDED.default_branch,
 			covered = EXCLUDED.covered,
 			not_covered = EXCLUDED.not_covered,
-			last_scanned_at = COALESCE(EXCLUDED.last_scanned_at, fleet_projects.last_scanned_at),
+			last_scanned_at = COALESCE(EXCLUDED.last_scanned_at, projects.last_scanned_at),
 			ci_conclusion = EXCLUDED.ci_conclusion,
 			filet_wired = EXCLUDED.filet_wired,
 			filet_pin = EXCLUDED.filet_pin,

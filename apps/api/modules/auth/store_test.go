@@ -8,7 +8,6 @@ import (
 
 	"github.com/FacileStudio/Sonde/apps/api/migrations"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
-	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/testdb"
 
@@ -53,7 +52,7 @@ func sqlOf(t *testing.T, db *gorm.DB) *sql.DB {
 	return sqlDB
 }
 
-func newStore(t *testing.T, db *gorm.DB) *kit.Store {
+func newStore(t *testing.T, db *gorm.DB) *UserStore {
 	t.Helper()
 	store, err := NewUserStore(context.Background(), sqlOf(t, db))
 	if err != nil {

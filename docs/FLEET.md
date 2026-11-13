@@ -123,7 +123,8 @@ Paths under `node_modules/` and `vendor/` are ignored for every path check.
   `{id, name, tier, deployed_version, latest_tag, uptime_status, checks_ok, checks_total, open_act}`.
   `id` is 0 for a target edges name but the runner never listed. `latest_tag` is known for tracked
   libraries only. `uptime_status` is `up`, `down` or `unknown` from the newest check of the enabled
-  monitors whose name equals the project's, ignoring case, and empty when no monitor has that name.
+  monitors linked to the project (`monitors.project_id`), and empty when none is linked. A
+  monitor named like a project but not linked to it counts for nothing.
   `open_act` counts the `act` actions that touch the project.
 - `GET /api/fleet/conformance` returns `{checks, projects}`: every check id seen, and per project
   its checks with `passed` and `total`, the smallest passing share first.
@@ -174,15 +175,19 @@ GITHUB_TOKEN=$(gh auth token) DOUANE_BIN=$(which douane) /tmp/fleetscan -out /tm
    ID, shown on its settings page), `FLEET_APP_PRIVATE_KEY`, `SONDE_FLEET_TOKEN` and
    `FLEET_HEARTBEAT_TOKEN`, and the variables `SONDE_URL` (`https://sonde.facile.studio`) and
    `FLEET_SCAN_ENABLED` (`true`). Keep a copy of the App key in Casier.
-5. For the Rescan button on the Maintenance page, create a fine-grained personal access token
-   (https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token)
-   with resource owner FacileStudio, repository access "Only select repositories: Sonde", and
-   one repository permission: Actions, read and write. Set it as `SONDE_FLEET_DISPATCH_TOKEN` on
-   the Sonde deployment with the `dokploy-env-safe` flow, and keep a copy in Casier. The button
-   calls `POST /api/fleet/scans`, which queues the workflow through GitHub's dispatch API
+5. For the Rescan button, the same `facile-fleet-scan` App needs one more permission:
+   on the App's settings page (https://github.com/organizations/FacileStudio/settings/apps),
+   set Repository permissions > Actions to "Read and write", save, then approve the new
+   permission on the installation (Settings > GitHub Apps > facile-fleet-scan). GitHub has no
+   API for this; an org owner does it by hand. Then set `SONDE_GITHUB_APP_CLIENT_ID` (the
+   Client ID, `Iv23...`) and `SONDE_GITHUB_APP_PRIVATE_KEY` (`base64 -w0` of the App's PEM key)
+   on the Sonde deployment with the `dokploy-env-safe` flow. Sonde signs a JWT with the key and
+   mints a one-hour installation token limited to Actions write on `FacileStudio/Sonde`
+   (https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation),
+   then calls `POST /api/fleet/scans` through GitHub's dispatch API
    (https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event), at most
-   once every five minutes. Without the token the route answers 412 and the page shows why.
-   The queued run still needs step 4: without the App it completes as skipped.
+   once every five minutes. Without the env the route answers 412; while the installation lacks
+   Actions write it answers 412 "the GitHub App lacks Actions write: approve the new permission".
 6. Run the workflow once by hand. From then on, a night that fails or delivers an incomplete run
    sends no heartbeat, and 26 hours without one opens a Sonde incident on `fleet-scan`.
 
@@ -211,6 +216,31 @@ The runner reports an archived repository as not covered with reason `archived`.
 such a project to the `archive` tier, so its frozen findings rank as track and leave the
 inbox and the drift view. Unarchiving it does not restore the old tier: set it again on the
 Projects tab.
+
+## Projects and monitors
+
+`projects` (named `fleet_projects` before migration 00009) is the one record of a FacileStudio
+repository. The fleet scan writes it; findings, pins, edges and checks hang off it; and a
+monitor links to it through `monitors.project_id`. Migration 00009 linked every existing
+monitor whose name matched a project's, ignoring case. From then on a link is set by hand, so
+renaming a monitor or a repository keeps it. Deleting a project unlinks its monitors.
+
+Linking is open to every signed-in person, not just fleet admins, because a link reveals
+nothing: the maintenance data stays behind the fleet gate. The rule follows GitHub:
+
+- `GET /api/projects` lists the projects the caller's GitHub account can at least read.
+  Fleet admins see all of them.
+- `PUT /api/monitors/{id}/project` with `{"project_id": n}` links one of the caller's
+  monitors, and `null` unlinks it. It needs the same read access.
+- The GitHub account is the one Registre reports in the `connections` claim. Sonde asks for
+  the `connections` scope and stores `connections.github` in `users.github_id` at each
+  sign-in. Without it both routes answer 412 "link your GitHub account at
+  https://sso.facile.studio/account". Without the GitHub App env they answer 412 too.
+- Sonde resolves the account id to a login (`GET /user/{id}`), then asks
+  `GET /repos/FacileStudio/{repo}/collaborators/{login}/permission` with an installation
+  token limited to Metadata read. Each answer is cached ten minutes per account and repository.
+
+The Maintenance Projects tab shows the monitors linked to each repository, whoever owns them.
 
 ## Who can see it
 

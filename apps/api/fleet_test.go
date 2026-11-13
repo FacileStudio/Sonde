@@ -212,7 +212,7 @@ func TestAnInvalidReportChangesNothing(t *testing.T) {
 		t.Fatalf("duplicate repo = %d, want 400", got)
 	}
 	var rows int64
-	db.Table("fleet_projects").Count(&rows)
+	db.Table("projects").Count(&rows)
 	if rows != 0 {
 		t.Fatalf("a refused report wrote %d projects", rows)
 	}
@@ -233,7 +233,7 @@ func TestAnArchivedRepositoryLeavesTheInbox(t *testing.T) {
 		t.Fatalf("after archiving: %+v, want only one track", got)
 	}
 	var tier string
-	if err := db.Raw(`SELECT tier FROM fleet_projects WHERE github_repo_id = 7`).Scan(&tier).Error; err != nil || tier != "archive" {
+	if err := db.Raw(`SELECT tier FROM projects WHERE github_repo_id = 7`).Scan(&tier).Error; err != nil || tier != "archive" {
 		t.Fatalf("tier = %q (%v), want archive", tier, err)
 	}
 }

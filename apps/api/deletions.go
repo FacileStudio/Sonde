@@ -10,7 +10,6 @@ import (
 
 	"github.com/FacileStudio/porte"
 	"github.com/FacileStudio/porte/directory"
-	"github.com/FacileStudio/porte/kit"
 	portepg "github.com/FacileStudio/porte/pg"
 	"gorm.io/gorm"
 )
@@ -21,7 +20,7 @@ import (
 // holds. A subject it already handled is erased again when an identity holds
 // it once more. It returns nil when no issuer is configured, which is a dev setup
 // with no Registre to ask.
-func newDeletions(db *gorm.DB, sqlDB *sql.DB, users *kit.Store, appEnv env.Config, logger *slog.Logger) *directory.Deletions {
+func newDeletions(db *gorm.DB, sqlDB *sql.DB, users *auth.UserStore, appEnv env.Config, logger *slog.Logger) *directory.Deletions {
 	if !appEnv.Porte.Enabled() {
 		return nil
 	}

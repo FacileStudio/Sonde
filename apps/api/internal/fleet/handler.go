@@ -114,43 +114,6 @@ type Health struct {
 	GoDirective     string `json:"go_directive"`
 }
 
-// ProjectResponse is one project as the page shows it.
-type ProjectResponse struct {
-	ID            int64      `json:"id"`
-	GithubRepoID  int64      `json:"github_repo_id"`
-	Name          string     `json:"name"`
-	DefaultBranch string     `json:"default_branch"`
-	Tier          string     `json:"tier"`
-	VersionURL    string     `json:"version_url"`
-	JournalApp    string     `json:"journal_app"`
-	Covered       bool       `json:"covered"`
-	NotCovered    string     `json:"not_covered"`
-	LastScannedAt *time.Time `json:"last_scanned_at"`
-	Health        Health     `json:"health"`
-	OpenFindings  int        `json:"open_findings"`
-}
-
-func (h *Handler) Projects(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.store.Projects(r.Context())
-	if err != nil {
-		httpjson.WriteError(w, err)
-		return
-	}
-	out := make([]ProjectResponse, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, ProjectResponse{
-			ID: row.ID, GithubRepoID: row.GithubRepoID, Name: row.Name, DefaultBranch: row.DefaultBranch,
-			Tier: row.Tier, VersionURL: row.VersionURL, JournalApp: row.JournalApp, Covered: row.Covered,
-			NotCovered: row.NotCovered, LastScannedAt: row.LastScannedAt, OpenFindings: row.OpenFindings,
-			Health: Health{
-				CIConclusion: row.CIConclusion, FiletWired: row.FiletWired, FiletPin: row.FiletPin,
-				DeployedVersion: row.DeployedVersion, GoDirective: row.GoDirective,
-			},
-		})
-	}
-	httpjson.WriteJSON(w, http.StatusOK, out)
-}
-
 func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {

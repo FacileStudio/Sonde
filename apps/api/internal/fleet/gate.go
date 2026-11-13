@@ -15,7 +15,7 @@ import (
 // Config is what the fleet routes read from the environment. An empty Token
 // turns report ingest off, and an empty Admins list closes every read route.
 // Logger receives delivery outcomes and refused tokens; nil discards them.
-// Dispatch queues a rescan; an empty token answers failed_precondition.
+// Dispatch queues a rescan; without a GitHub App it answers failed_precondition.
 type Config struct {
 	Token    string
 	Admins   []string
@@ -43,6 +43,12 @@ func allowed(admins []string, email string) bool {
 	return false
 }
 
+// IsFleetAdmin reports whether identity may read fleet data: an
+// administrator whose email is on the allow-list.
+func IsFleetAdmin(identity kit.Identity, admins []string) bool {
+	return identity.IsAdmin && allowed(admins, identity.Email)
+}
+
 // Gate lets through a signed-in administrator who is also on the allow-list.
 // is_admin alone is not enough: the first account to sign in becomes admin, and
 // erasing the last admin promotes the lowest-numbered user, who under public
@@ -52,7 +58,7 @@ func Gate(requireAuth func(http.Handler) http.Handler, admins []string) func(htt
 	return func(next http.Handler) http.Handler {
 		return requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			identity, ok := kit.FromContext(r.Context())
-			if !ok || !identity.IsAdmin || !allowed(admins, identity.Email) {
+			if !ok || !IsFleetAdmin(identity, admins) {
 				httpjson.WriteError(w, errors.Forbidden("fleet access required"))
 				return
 			}
