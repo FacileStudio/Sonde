@@ -9,7 +9,7 @@ import (
 
 func coveredCount(tx *gorm.DB) (int, error) {
 	var count int64
-	err := tx.Model(&schemas.FleetProject{}).Where("covered").Count(&count).Error
+	err := tx.Model(&schemas.Project{}).Where("covered").Count(&count).Error
 	return int(count), err
 }
 
@@ -39,7 +39,7 @@ func resolveListed(tx *gorm.DB, report Report, now time.Time, result *IngestResu
 	for _, project := range report.Projects {
 		listed = append(listed, project.GithubRepoID)
 	}
-	gone := tx.Model(&schemas.FleetProject{}).Select("id").Where("github_repo_id NOT IN ?", listed)
+	gone := tx.Model(&schemas.Project{}).Select("id").Where("github_repo_id NOT IN ?", listed)
 	done := tx.Model(&schemas.FleetFinding{}).
 		Where("resolved_at IS NULL AND project_id IN (?)", gone).
 		Update("resolved_at", now)
@@ -47,7 +47,7 @@ func resolveListed(tx *gorm.DB, report Report, now time.Time, result *IngestResu
 		return done.Error
 	}
 	result.Resolved += int(done.RowsAffected)
-	return tx.Model(&schemas.FleetProject{}).
+	return tx.Model(&schemas.Project{}).
 		Where("github_repo_id NOT IN ?", listed).
 		Updates(map[string]any{"covered": false, "not_covered": notInLatestScan}).Error
 }

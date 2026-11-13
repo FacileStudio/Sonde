@@ -37,7 +37,7 @@ func (s *Store) Conformance(ctx context.Context) (ConformanceResponse, error) {
 	var rows []checkRow
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT c.project_id, p.name AS project_name, p.tier, c.check_id, c.ok, c.detail
-		FROM fleet_checks c JOIN fleet_projects p ON p.id = c.project_id
+		FROM fleet_checks c JOIN projects p ON p.id = c.project_id
 		ORDER BY lower(p.name), p.id, c.check_id`).Scan(&rows).Error
 	if err != nil {
 		return ConformanceResponse{}, errors.Internal("failed to read the fleet conformance", err)

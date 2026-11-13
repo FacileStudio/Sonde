@@ -98,6 +98,7 @@ var Documentation = documentation.Module{
 				{Status: 500, Code: "internal", Description: "Unexpected server error."},
 			},
 		},
+		monitorProjectRoute,
 		{
 			Method:       "GET",
 			Path:         "/monitors/{id}/incidents",

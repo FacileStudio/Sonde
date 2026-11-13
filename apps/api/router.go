@@ -14,8 +14,10 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/env"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
+	"github.com/FacileStudio/Sonde/apps/api/internal/githubapp"
 	"github.com/FacileStudio/Sonde/apps/api/internal/httpapi"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
+	"github.com/FacileStudio/Sonde/apps/api/internal/projects"
 	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
 	"github.com/FacileStudio/Sonde/apps/api/internal/webhooks"
@@ -53,6 +55,7 @@ func registry() documentation.Response {
 			fleet.Documentation,
 			httpapi.Documentation,
 			httpapi.StatusPagesDocumentation,
+			projects.Documentation,
 			users.Documentation,
 			webhooks.Documentation,
 		},
@@ -76,10 +79,11 @@ func refConfig() apiref.Config {
 type routerDeps struct {
 	DB        *gorm.DB
 	SQL       *sql.DB
-	Users     *kit.Store
+	Users     *auth.UserStore
 	Engine    *checker.Engine
 	Publisher *events.Publisher
 	Deletions *directory.Deletions
+	GitHub    *githubapp.Client
 	Env       env.Config
 	Logger    *slog.Logger
 }
@@ -120,7 +124,7 @@ func buildRouter(deps routerDeps) (chi.Router, error) {
 type identity struct {
 	sessions    *session.Manager
 	kit         *oidc.Kit
-	users       *kit.Store
+	users       *auth.UserStore
 	authService *auth.Service
 }
 
@@ -158,6 +162,7 @@ func mountAPI(r chi.Router, deps routerDeps, id identity) error {
 	db, appEnv := deps.DB, deps.Env
 	requireAuth := kit.RequireAuth(id.sessions, id.users)
 	webhookStore := webhooks.NewStore(db)
+	projectAccess := projects.NewAccess(db, deps.GitHub, appEnv.FleetAdmins)
 	if err := kit.Mount(r, kit.Config{Sessions: id.sessions, OIDC: id.kit}); err != nil {
 		return err
 	}
@@ -168,11 +173,15 @@ func mountAPI(r chi.Router, deps routerDeps, id identity) error {
 		Monitors:         monitors.NewStore(db),
 		Uptime:           uptime.NewService(db),
 		Stats:            stats.NewService(db),
+		Projects:         projectAccess,
 		Bus:              deps.Publisher,
 		JournalURL:       appEnv.JournalURL,
 		RawRetentionDays: appEnv.RawRetentionDays,
 	}), requireAuth)
 	webhooks.RegisterRoutes(r, webhookStore, webhooks.NewDispatcher(webhookStore, monitors.NewStore(db), deps.Logger), requireAuth)
-	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger, Dispatch: fleet.Dispatcher{Token: appEnv.FleetDispatchToken}})
+	fleet.RegisterRoutes(r, fleet.NewStore(db), requireAuth, fleet.Config{
+		Token: appEnv.FleetToken, Admins: appEnv.FleetAdmins, Logger: deps.Logger, Dispatch: fleet.Dispatcher{App: deps.GitHub},
+	})
+	projects.RegisterRoutes(r, projectAccess, requireAuth)
 	return nil
 }

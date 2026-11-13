@@ -31,8 +31,8 @@ func TestACompleteRunResolvesAProjectItNoLongerLists(t *testing.T) {
 
 	var covered bool
 	var reason string
-	db.Table("fleet_projects").Select("covered").Where("github_repo_id = 2").Scan(&covered)
-	db.Table("fleet_projects").Select("not_covered").Where("github_repo_id = 2").Scan(&reason)
+	db.Table("projects").Select("covered").Where("github_repo_id = 2").Scan(&covered)
+	db.Table("projects").Select("not_covered").Where("github_repo_id = 2").Scan(&reason)
 	if result.Resolved != 1 || result.FindingsOpen != 9 || covered || reason != "not in the latest scan" {
 		t.Fatalf("result = %+v, covered = %v, reason = %q", result, covered, reason)
 	}

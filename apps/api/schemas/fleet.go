@@ -2,9 +2,11 @@ package schemas
 
 import "time"
 
-// FleetProject is one GitHub repository the fleet scan knows about. Tier,
-// VersionURL and JournalApp are set by people and survive every scan.
-type FleetProject struct {
+// Project is one GitHub repository of the organisation, as the fleet scan
+// lists it. Monitors link to it by project_id and maintenance hangs its
+// packages, checks and edges off it. Tier, VersionURL and JournalApp are set
+// by people and survive every scan.
+type Project struct {
 	ID            int64  `gorm:"column:id;primaryKey"`
 	GithubRepoID  int64  `gorm:"column:github_repo_id;uniqueIndex"`
 	Name          string `gorm:"column:name"`
@@ -17,7 +19,7 @@ type FleetProject struct {
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
 
-// FleetScan is what the last scan learned about a project, embedded in FleetProject.
+// FleetScan is what the last scan learned about a project, embedded in Project.
 type FleetScan struct {
 	Covered         bool       `gorm:"column:covered"`
 	NotCovered      string     `gorm:"column:not_covered"`
@@ -29,7 +31,7 @@ type FleetScan struct {
 	GoDirective     string     `gorm:"column:go_directive"`
 }
 
-func (FleetProject) TableName() string { return "fleet_projects" }
+func (Project) TableName() string { return "projects" }
 
 // FleetRun is one report the scheduled runner delivered.
 type FleetRun struct {

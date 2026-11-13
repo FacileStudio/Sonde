@@ -15,6 +15,7 @@ type MonitorExpectation struct {
 }
 
 // Monitor is one watched thing: an HTTP URL, a TCP port, or a push heartbeat.
+// ProjectID links it to one row of projects, the GitHub repository it watches; nil when unlinked.
 type Monitor struct {
 	ID      int64  `gorm:"column:id;primaryKey"`
 	OwnerID int64  `gorm:"column:owner_id;index"`
@@ -24,8 +25,14 @@ type Monitor struct {
 	Target  string `gorm:"column:target"`
 	MonitorSchedule
 	MonitorExpectation
-	Enabled   bool      `gorm:"column:enabled"`
-	PushToken *string   `gorm:"column:push_token;uniqueIndex"`
+	Enabled   bool    `gorm:"column:enabled"`
+	PushToken *string `gorm:"column:push_token;uniqueIndex"`
+	ProjectID *int64  `gorm:"column:project_id"`
+	MonitorStamps
+}
+
+// MonitorStamps is when a monitor was created and last edited, embedded in Monitor.
+type MonitorStamps struct {
 	CreatedAt time.Time `gorm:"column:created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }

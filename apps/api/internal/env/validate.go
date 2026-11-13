@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/FacileStudio/Sonde/apps/api/internal/githubapp"
 )
 
 func (env Config) validate() error {
@@ -27,7 +29,8 @@ func (env Config) validateIntegrations() error {
 	if env.FleetToken != "" && len(env.FleetToken) < minFleetTokenLength {
 		return fmt.Errorf("SONDE_FLEET_TOKEN must be at least %d characters", minFleetTokenLength)
 	}
-	return nil
+	_, err := githubapp.New(env.GitHubApp)
+	return err
 }
 
 func (env Config) validateServer() error {

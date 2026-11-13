@@ -16,7 +16,6 @@ import (
 	auth "github.com/FacileStudio/Sonde/apps/api/modules/auth"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/porte"
-	"github.com/FacileStudio/porte/kit"
 	portepg "github.com/FacileStudio/porte/pg"
 	"github.com/FacileStudio/tronc/migrate"
 	"github.com/FacileStudio/tronc/testdb"
@@ -69,7 +68,7 @@ func rawSQL(t *testing.T, db *gorm.DB) *sql.DB {
 }
 
 // userStore is Sonde's user store over the test database, built as run builds it.
-func userStore(t *testing.T, db *gorm.DB) *kit.Store {
+func userStore(t *testing.T, db *gorm.DB) *auth.UserStore {
 	t.Helper()
 	store, err := auth.NewUserStore(context.Background(), rawSQL(t, db))
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
+	"github.com/FacileStudio/Sonde/apps/api/internal/projects"
 	"github.com/FacileStudio/Sonde/apps/api/schemas"
 	"github.com/FacileStudio/porte/kit"
 	"github.com/FacileStudio/tronc/errors"
@@ -24,19 +25,25 @@ type MonitorInput struct {
 }
 
 type MonitorResponse struct {
-	ID              int64     `json:"id"`
-	Slug            string    `json:"slug"`
-	Name            string    `json:"name"`
-	Type            string    `json:"type"`
-	Target          string    `json:"target"`
-	IntervalSeconds int       `json:"interval_seconds"`
-	TimeoutSeconds  int       `json:"timeout_seconds"`
-	ExpectedStatus  int       `json:"expected_status"`
-	ExpectedKeyword string    `json:"expected_keyword"`
-	Enabled         bool      `json:"enabled"`
-	PushToken       *string   `json:"push_token,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              int64         `json:"id"`
+	Slug            string        `json:"slug"`
+	Name            string        `json:"name"`
+	Type            string        `json:"type"`
+	Target          string        `json:"target"`
+	IntervalSeconds int           `json:"interval_seconds"`
+	TimeoutSeconds  int           `json:"timeout_seconds"`
+	ExpectedStatus  int           `json:"expected_status"`
+	ExpectedKeyword string        `json:"expected_keyword"`
+	Enabled         bool          `json:"enabled"`
+	PushToken       *string       `json:"push_token,omitempty"`
+	Project         *projects.Ref `json:"project"`
+	MonitorTimes
+}
+
+// MonitorTimes is when a monitor was created and last edited, embedded flat in MonitorResponse.
+type MonitorTimes struct {
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func newMonitorResponse(m *schemas.Monitor) MonitorResponse {
@@ -52,8 +59,7 @@ func newMonitorResponse(m *schemas.Monitor) MonitorResponse {
 		ExpectedKeyword: m.ExpectedKeyword,
 		Enabled:         m.Enabled,
 		PushToken:       m.PushToken,
-		CreatedAt:       m.CreatedAt,
-		UpdatedAt:       m.UpdatedAt,
+		MonitorTimes:    MonitorTimes{CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt},
 	}
 }
 
@@ -91,7 +97,7 @@ func (s *Service) createMonitor(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, err)
 		return
 	}
-	httpjson.WriteJSON(w, http.StatusCreated, newMonitorResponse(monitor))
+	s.writeMonitor(w, r, http.StatusCreated, monitor)
 }
 
 func (s *Service) listMonitors(w http.ResponseWriter, r *http.Request) {
@@ -105,9 +111,10 @@ func (s *Service) listMonitors(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, err)
 		return
 	}
-	out := make([]MonitorResponse, 0, len(found))
-	for i := range found {
-		out = append(out, newMonitorResponse(&found[i]))
+	out, err := s.monitorResponses(r.Context(), found)
+	if err != nil {
+		httpjson.WriteError(w, err)
+		return
 	}
 	httpjson.WriteJSON(w, http.StatusOK, out)
 }
@@ -128,7 +135,7 @@ func (s *Service) getMonitor(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, err)
 		return
 	}
-	httpjson.WriteJSON(w, http.StatusOK, newMonitorResponse(monitor))
+	s.writeMonitor(w, r, http.StatusOK, monitor)
 }
 
 func (s *Service) updateMonitor(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +169,7 @@ func (s *Service) updateMonitor(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, err)
 		return
 	}
-	httpjson.WriteJSON(w, http.StatusOK, newMonitorResponse(monitor))
+	s.writeMonitor(w, r, http.StatusOK, monitor)
 }
 
 func (s *Service) deleteMonitor(w http.ResponseWriter, r *http.Request) {

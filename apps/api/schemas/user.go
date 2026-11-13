@@ -3,6 +3,7 @@ package schemas
 import "time"
 
 // User is a Sonde account; accounts sign in through Registre, so PasswordHash stays empty on new rows.
+// GithubID is the numeric GitHub account Registre reports under connections, empty until linked.
 type User struct {
 	ID           int64     `gorm:"column:id;primaryKey"`
 	Email        string    `gorm:"column:email;uniqueIndex"`
@@ -11,6 +12,7 @@ type User struct {
 	PasswordHash string    `gorm:"column:password_hash"`
 	AvatarURL    string    `gorm:"column:avatar_url"`
 	Locale       string    `gorm:"column:locale"`
+	GithubID     string    `gorm:"column:github_id"`
 	CreatedAt    time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 

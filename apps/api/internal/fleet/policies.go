@@ -96,7 +96,7 @@ func projectExists(db *gorm.DB, id *int64) error {
 		return nil
 	}
 	var count int64
-	if err := db.Model(&schemas.FleetProject{}).Where("id = ?", *id).Count(&count).Error; err != nil {
+	if err := db.Model(&schemas.Project{}).Where("id = ?", *id).Count(&count).Error; err != nil {
 		return errors.Internal("failed to check the policy's project", err)
 	}
 	if count == 0 {

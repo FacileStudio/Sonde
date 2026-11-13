@@ -102,7 +102,7 @@ var Documentation = documentation.Module{
 			Method:       "POST",
 			Path:         "/fleet/scans",
 			Summary:      "Queue a rescan",
-			Description:  "Queues the fleet-scan workflow on GitHub Actions, which scans every repository and delivers a new report a few minutes later. One dispatch every five minutes. Disabled until SONDE_FLEET_DISPATCH_TOKEN is set.",
+			Description:  "Queues the fleet-scan workflow on GitHub Actions, which scans every repository and delivers a new report a few minutes later. One dispatch every five minutes. Answers 412 until SONDE_GITHUB_APP_CLIENT_ID and SONDE_GITHUB_APP_PRIVATE_KEY are set, and while the GitHub App lacks Actions write.",
 			Auth:         "session cookie (with X-Facile-CSRF) or bearer token, allow-listed administrator",
 			ResponseBody: ScanResult{},
 			Errors: []documentation.Error{

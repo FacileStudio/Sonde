@@ -177,7 +177,7 @@ func (s *Store) Update(ctx context.Context, ownerID int64, id int64, in Input) (
 	monitor.Enabled = in.Enabled
 	monitor.UpdatedAt = time.Now()
 
-	if err := s.db.WithContext(ctx).Save(monitor).Error; err != nil {
+	if err := s.db.WithContext(ctx).Omit("project_id").Save(monitor).Error; err != nil {
 		return nil, errors.Conflict("slug already exists")
 	}
 	return monitor, nil

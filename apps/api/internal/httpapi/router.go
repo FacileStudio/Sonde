@@ -12,6 +12,7 @@ import (
 	"github.com/FacileStudio/Sonde/apps/api/internal/checker"
 	"github.com/FacileStudio/Sonde/apps/api/internal/events"
 	"github.com/FacileStudio/Sonde/apps/api/internal/monitors"
+	"github.com/FacileStudio/Sonde/apps/api/internal/projects"
 	"github.com/FacileStudio/Sonde/apps/api/internal/retention"
 	"github.com/FacileStudio/Sonde/apps/api/internal/stats"
 	"github.com/FacileStudio/Sonde/apps/api/internal/uptime"
@@ -35,6 +36,7 @@ type Service struct {
 	monitors  *monitors.Store
 	uptime    *uptime.Service
 	stats     *stats.Service
+	projects  *projects.Access
 	bus       Bus
 	journal   string
 	retention int
@@ -47,6 +49,7 @@ type Deps struct {
 	Monitors         *monitors.Store
 	Uptime           *uptime.Service
 	Stats            *stats.Service
+	Projects         *projects.Access
 	Bus              Bus
 	JournalURL       string
 	RawRetentionDays int
@@ -58,6 +61,7 @@ func New(db *gorm.DB, deps Deps) *Service {
 		monitors:  deps.Monitors,
 		uptime:    deps.Uptime,
 		stats:     deps.Stats,
+		projects:  deps.Projects,
 		bus:       deps.Bus,
 		journal:   deps.JournalURL,
 		retention: deps.RawRetentionDays,
@@ -117,6 +121,7 @@ func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.H
 		r.With(requireAuth).Get("/", service.getMonitor)
 		r.With(requireAuth).Patch("/", service.updateMonitor)
 		r.With(requireAuth).Delete("/", service.deleteMonitor)
+		r.With(requireAuth).Put("/project", service.linkMonitorProject)
 		r.With(requireAuth).Get("/incidents", service.monitorIncidents)
 		r.With(requireAuth).Get("/uptime", service.monitorUptime)
 		r.With(requireAuth).Get("/uptime/summary", service.monitorUptimeSummary)
@@ -124,6 +129,13 @@ func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.H
 		r.With(requireAuth).Get("/history", service.monitorHistory)
 	})
 
+	registerStatusPages(router, service, requireAdmin)
+	router.Get("/public/status/{slug}", service.publicStatusPage)
+}
+
+// registerStatusPages mounts the config export and the status page routes,
+// all of them administrator-only.
+func registerStatusPages(router chi.Router, service *Service, requireAdmin func(http.Handler) http.Handler) {
 	router.With(requireAdmin).Get("/config/export", service.exportConfig)
 	router.Route("/status-pages", func(r chi.Router) {
 		r.With(requireAdmin).Post("/", service.createStatusPage)
@@ -134,8 +146,6 @@ func RegisterRoutes(router chi.Router, service *Service, requireAuth func(http.H
 			r.With(requireAdmin).Delete("/", service.deleteStatusPage)
 		})
 	})
-
-	router.Get("/public/status/{slug}", service.publicStatusPage)
 }
 
 func adminGate(requireAuth func(http.Handler) http.Handler) func(http.Handler) http.Handler {

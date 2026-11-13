@@ -51,10 +51,12 @@ func nodeNamed(t *testing.T, graph fleet.GraphResponse, name string) fleet.Graph
 	return fleet.GraphNode{}
 }
 
-func downMonitor(t *testing.T, db *gorm.DB, owner int64, name string) {
+func downMonitor(t *testing.T, db *gorm.DB, owner int64, name, project string) {
 	t.Helper()
 	var id int64
-	if err := db.Raw(`INSERT INTO monitors (owner_id, slug, name, type) VALUES (?, ?, ?, 'http') RETURNING id`, owner, name, name).Scan(&id).Error; err != nil {
+	err := db.Raw(`INSERT INTO monitors (owner_id, slug, name, type, project_id)
+		VALUES (?, ?, ?, 'http', (SELECT id FROM projects WHERE name = ?)) RETURNING id`, owner, name, name, project).Scan(&id).Error
+	if err != nil {
 		t.Fatalf("monitor: %v", err)
 	}
 	if err := db.Exec(`INSERT INTO checks_raw (monitor_id, ok) VALUES (?, false)`, id).Error; err != nil {
@@ -65,8 +67,9 @@ func downMonitor(t *testing.T, db *gorm.DB, owner int64, name string) {
 func TestTheGraphAndConformanceReadBackWhatTheRunnerDerived(t *testing.T) {
 	router, db := fleetRouter(t)
 	admin := signIn(t, db, "admin@facile.studio")
-	downMonitor(t, db, admin.User.ID, "courrier")
 	ingest(t, router, graphFixture(t))
+	downMonitor(t, db, admin.User.ID, "mail", "Courrier")
+	downMonitor(t, db, admin.User.ID, "tronc", "")
 
 	graph := readFleet[fleet.GraphResponse](t, router, "/api/fleet/graph", admin.Token)
 
@@ -80,8 +83,8 @@ func TestTheGraphAndConformanceReadBackWhatTheRunnerDerived(t *testing.T) {
 	if antenne := nodeNamed(t, graph, "Antenne"); antenne.ID != 0 {
 		t.Fatalf("Antenne = %+v: a target the runner never listed has no project id", antenne)
 	}
-	if tronc := nodeNamed(t, graph, "tronc"); tronc.LatestTag != "v0.17.1" || tronc.ID == 0 {
-		t.Fatalf("tronc = %+v", tronc)
+	if tronc := nodeNamed(t, graph, "tronc"); tronc.LatestTag != "v0.17.1" || tronc.ID == 0 || tronc.UptimeStatus != "" {
+		t.Fatalf("tronc = %+v: a monitor named like a project but not linked to it says nothing", tronc)
 	}
 
 	matrix := readFleet[fleet.ConformanceResponse](t, router, "/api/fleet/conformance", admin.Token)
