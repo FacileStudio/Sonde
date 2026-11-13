@@ -28,7 +28,8 @@ import type {
 	MaintenanceGraph,
 	MaintenanceProject,
 	MaintenanceRun,
-	MaintenanceTier
+	MaintenanceTier,
+	ProjectRef
 } from '$lib/maintenance-types';
 
 /* Re-exported so every call site keeps importing its types from the client it
@@ -85,6 +86,15 @@ export const backend = {
 	},
 	updateMonitor(id: number, input: MonitorInput) {
 		return apiFetch<Monitor>(`/monitors/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+	},
+	linkMonitorProject(id: number, projectId: number | null) {
+		return apiFetch<Monitor>(`/monitors/${id}/project`, {
+			method: 'PUT',
+			body: JSON.stringify({ project_id: projectId })
+		});
+	},
+	listProjects() {
+		return apiFetch<ProjectRef[]>('/projects');
 	},
 	deleteMonitor(id: number) {
 		return apiFetch<void>(`/monitors/${id}`, { method: 'DELETE' });

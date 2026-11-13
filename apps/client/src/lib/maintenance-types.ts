@@ -41,6 +41,12 @@ export type MaintenanceDrift = {
 	}[];
 };
 
+/** A GitHub repository of the organisation a monitor can be linked to. */
+export type ProjectRef = {
+	id: number;
+	name: string;
+};
+
 export type MaintenanceProject = {
 	id: number;
 	github_repo_id: number;
@@ -53,6 +59,7 @@ export type MaintenanceProject = {
 	not_covered: string;
 	last_scanned_at: string | null;
 	open_findings: number;
+	monitors: { id: number; name: string }[];
 	health: {
 		ci_conclusion: string;
 		filet_wired: boolean;

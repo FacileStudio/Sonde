@@ -136,6 +136,7 @@ export const maintenance = {
 	'maintenance.col.ci': ['CI', 'CI', 'CI', 'CI'],
 	'maintenance.col.filet': ['Filet', 'Filet', 'Filet', 'Filet'],
 	'maintenance.col.open': ['Open', 'Ouvertes', 'Abiertos', 'Offen'],
+	'maintenance.col.monitors': ['Monitors', 'Sondes', 'Monitores', 'Monitore'],
 	'maintenance.covered': ['Scanned', 'Analysé', 'Analizado', 'Gescannt'],
 	'maintenance.filetMissing': ['not in CI', 'absent de la CI', 'fuera de CI', 'nicht in CI'],
 	'maintenance.filetWired': ['wired', 'branché', 'conectado', 'eingebunden'],

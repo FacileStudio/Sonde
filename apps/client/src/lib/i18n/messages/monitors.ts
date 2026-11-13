@@ -172,6 +172,38 @@ export const monitors = {
 		'{failed} fallidas de {total} comprobaciones',
 		'{failed} von {total} Prüfungen fehlgeschlagen'
 	],
+	'monitor.project.title': ['Repository', 'Dépôt', 'Repositorio', 'Repository'],
+	'monitor.project.description': [
+		'The GitHub repository this monitor watches. Maintenance shows the monitor beside its packages and checks.',
+		'Le dépôt GitHub que cette sonde surveille. La maintenance affiche la sonde à côté de ses paquets et contrôles.',
+		'El repositorio de GitHub que vigila este monitor. Mantenimiento muestra el monitor junto a sus paquetes y comprobaciones.',
+		'Das GitHub-Repository, das dieser Monitor überwacht. Die Wartung zeigt den Monitor neben seinen Paketen und Prüfungen.'
+	],
+	'monitor.project.none': ['Not linked to a repository.', 'Lié à aucun dépôt.', 'Sin repositorio vinculado.', 'Mit keinem Repository verknüpft.'],
+	'monitor.project.pick': ['Choose a repository', 'Choisir un dépôt', 'Elige un repositorio', 'Repository wählen'],
+	'monitor.project.link': ['Link', 'Lier', 'Vincular', 'Verknüpfen'],
+	'monitor.project.unlink': ['Unlink', 'Délier', 'Desvincular', 'Lösen'],
+	'monitor.project.github': ['Open on GitHub', 'Ouvrir sur GitHub', 'Abrir en GitHub', 'Auf GitHub öffnen'],
+	'monitor.project.linked': ['Repository linked', 'Dépôt lié', 'Repositorio vinculado', 'Repository verknüpft'],
+	'monitor.project.unlinked': ['Repository unlinked', 'Dépôt délié', 'Repositorio desvinculado', 'Repository gelöst'],
+	'monitor.project.failed': [
+		'Could not change the repository.',
+		'Impossible de changer le dépôt.',
+		'No se pudo cambiar el repositorio.',
+		'Das Repository konnte nicht geändert werden.'
+	],
+	'monitor.project.unavailable': [
+		'Repositories unavailable',
+		'Dépôts indisponibles',
+		'Repositorios no disponibles',
+		'Repositories nicht verfügbar'
+	],
+	'monitor.project.empty': [
+		'Your GitHub account cannot read any repository Sonde knows.',
+		'Votre compte GitHub ne peut lire aucun dépôt connu de Sonde.',
+		'Tu cuenta de GitHub no puede leer ningún repositorio que Sonde conozca.',
+		'Ihr GitHub-Konto kann kein Repository lesen, das Sonde kennt.'
+	],
 	'monitor.heartbeat.title': ['Heartbeat', 'Signal de vie', 'Latido', 'Herzschlag'],
 	'monitor.heartbeat.description': [
 		'Have the job POST this URL every interval. A GET answers 200 without recording anything, so the method matters. Silence past the interval opens an incident.',

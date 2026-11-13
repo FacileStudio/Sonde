@@ -37,6 +37,7 @@ export type Monitor = {
 	expected_keyword: string;
 	enabled: boolean;
 	push_token?: string | null;
+	project: { id: number; name: string } | null;
 	created_at: string;
 	updated_at: string;
 };
