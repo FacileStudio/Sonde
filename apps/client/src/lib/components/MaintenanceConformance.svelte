@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, EmptyState, Table, icons } from '@facile/muse';
+	import { Badge, EmptyState, Table, Tooltip, icons } from '@facile/muse';
 	import type { MaintenanceCheck, MaintenanceConformance } from '$lib/backend';
 	import { t } from '$lib/i18n/index.svelte';
 
@@ -35,13 +35,15 @@
 					<td class="text-fc-sm whitespace-nowrap">{row.passed}/{row.total}</td>
 					{#each data.checks as id (id)}
 						{@const cell = row.cells.get(id)}
-						<td title={cell?.detail ?? ''}>
+						<td>
 							{#if !cell}
 								<span class="text-fc-xs text-fc-fg-muted">{t('maintenance.conformance.na')}</span>
 							{:else}
-								<Badge tone={cell.ok ? 'success' : 'danger'}>
-									{cell.ok ? t('maintenance.conformance.pass') : t('maintenance.conformance.fail')}
-								</Badge>
+								<Tooltip text={cell.detail} describe={false} disabled={!cell.detail}>
+									<Badge tone={cell.ok ? 'success' : 'danger'}>
+										{cell.ok ? t('maintenance.conformance.pass') : t('maintenance.conformance.fail')}
+									</Badge>
+								</Tooltip>
 								<span class="sr-only">{cell.detail}</span>
 							{/if}
 						</td>

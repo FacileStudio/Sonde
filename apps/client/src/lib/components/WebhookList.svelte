@@ -11,7 +11,8 @@
 		Switch,
 		Table,
 		icons,
-		toast
+		toast,
+		Tooltip
 	} from '@facile/muse';
 	import { backend, type Webhook } from '$lib/backend';
 	import { milliseconds } from '$lib/format';
@@ -178,20 +179,24 @@
 								>
 									{testingId === webhook.id ? t('webhooks.testing') : t('webhooks.test')}
 								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									icon={icons.edit}
-									aria-label={t('webhooks.editAria', { name: webhook.name || webhook.url })}
-									onclick={() => openEdit(webhook)}
-								/>
-								<Button
-									variant="ghost-danger"
-									size="sm"
-									icon={icons.remove}
-									aria-label={t('webhooks.deleteAria', { name: webhook.name || webhook.url })}
-									onclick={() => (deleting = webhook)}
-								/>
+								<Tooltip text={t('webhooks.editAria', { name: webhook.name || webhook.url })} describe={false} class="contents">
+									<Button
+										variant="ghost"
+										size="sm"
+										icon={icons.edit}
+										aria-label={t('webhooks.editAria', { name: webhook.name || webhook.url })}
+										onclick={() => openEdit(webhook)}
+									/>
+								</Tooltip>
+								<Tooltip text={t('webhooks.deleteAria', { name: webhook.name || webhook.url })} describe={false} class="contents">
+									<Button
+										variant="ghost-danger"
+										size="sm"
+										icon={icons.remove}
+										aria-label={t('webhooks.deleteAria', { name: webhook.name || webhook.url })}
+										onclick={() => (deleting = webhook)}
+									/>
+								</Tooltip>
 								<Switch
 									checked={webhook.enabled}
 									onchange={() => toggle(webhook)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Tooltip } from '@facile/muse';
 	/*
 	 * The uptime strip: one tick per bucket, green up, red down, hollow for a
 	 * bucket nobody probed. muse ships no such primitive (CHARTE §12 covers
@@ -74,12 +75,13 @@
 	     horizontal scrollbar. -->
 	<div class="flex items-end gap-px" style="height: {height}px" aria-hidden="true">
 		{#each buckets as bucket (bucket.bucket_start)}
-			<div
-				class="h-full min-w-[2px] flex-1 rounded-fc-xs transition-opacity hover:opacity-70 {FILL[
-					tone(bucket)
-				]} {tone(bucket) === 'empty' ? 'opacity-40' : ''}"
-				title={describe(bucket)}
-			></div>
+			<Tooltip text={describe(bucket)} describe={false} class="contents">
+				<div
+					class="h-full min-w-[2px] flex-1 rounded-fc-xs transition-opacity hover:opacity-70 {FILL[
+						tone(bucket)
+					]} {tone(bucket) === 'empty' ? 'opacity-40' : ''}"
+				></div>
+			</Tooltip>
 		{:else}
 			<div class="h-full w-full rounded-fc-xs bg-fc-field opacity-40"></div>
 		{/each}

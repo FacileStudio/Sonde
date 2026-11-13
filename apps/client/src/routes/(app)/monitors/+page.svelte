@@ -14,7 +14,8 @@
 		StatusDot,
 		Table,
 		icons,
-		toast
+		toast,
+		Tooltip
 	} from '@facile/muse';
 	import MonitorDrawer from '$lib/components/MonitorDrawer.svelte';
 	import UptimeBar from '$lib/components/UptimeBar.svelte';
@@ -208,20 +209,12 @@
 						<td class="text-fc-sm text-fc-fg-muted">{since(monitor.last_check_at)}</td>
 						<td>
 							<div class="flex justify-end gap-1">
-								<Button
-									variant="ghost"
-									size="sm"
-									icon={icons.edit}
-									aria-label={t('monitors.openAria', { name: monitor.name })}
-									href={`/monitors/${monitor.id}`}
-								/>
-								<Button
-									variant="ghost-danger"
-									size="sm"
-									icon={icons.remove}
-									aria-label={t('monitors.deleteAria', { name: monitor.name })}
-									onclick={() => askDelete(monitor)}
-								/>
+								<Tooltip text={t('monitors.openAria', { name: monitor.name })} describe={false} class="contents">
+									<Button variant="ghost" size="sm" icon={icons.edit} aria-label={t('monitors.openAria', { name: monitor.name })} href={`/monitors/${monitor.id}`} />
+								</Tooltip>
+								<Tooltip text={t('monitors.deleteAria', { name: monitor.name })} describe={false} class="contents">
+									<Button variant="ghost-danger" size="sm" icon={icons.remove} aria-label={t('monitors.deleteAria', { name: monitor.name })} onclick={() => askDelete(monitor)} />
+								</Tooltip>
 							</div>
 						</td>
 					</tr>
