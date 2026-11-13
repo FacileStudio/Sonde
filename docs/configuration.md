@@ -20,7 +20,8 @@ error it returns stops the process before the database is opened.
 | `SONDE_RAW_RETENTION_DAYS` | no | `30` | Days of raw checks kept before the pruner deletes them |
 | `SONDE_FLEET_TOKEN` | no | empty | Bearer token the fleet runner presents to `POST /api/fleet/reports`. Empty turns ingest off (404). At least 32 characters, or the app refuses to boot |
 | `SONDE_FLEET_ADMINS` | no | empty | Comma-separated emails allowed to read fleet data. The account must also be an administrator. Empty closes every fleet read route |
-| `SONDE_FLEET_DISPATCH_TOKEN` | no | empty | Fine-grained GitHub token, Actions read and write on FacileStudio/Sonde only. Lets the Maintenance page queue a rescan. Empty answers 412 |
+| `SONDE_GITHUB_APP_CLIENT_ID` | no | empty | Client id (`Iv23...`) of the `facile-fleet-scan` GitHub App. Set with the key, or neither |
+| `SONDE_GITHUB_APP_PRIVATE_KEY` | no | empty | Base64 of the App's PEM private key. Lets the Rescan button dispatch `fleet-scan.yml` (Actions write) and checks which repositories a person may link to a monitor (Metadata read). Unset, both answer 412. A key that does not parse refuses boot |
 
 The `CORS_ALLOWED_ORIGINS` default is `http://localhost:3000`, `http://127.0.0.1:3000`,
 `http://localhost:5173`, `http://127.0.0.1:5173`. An explicitly empty list is rejected —
