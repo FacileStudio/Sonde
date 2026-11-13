@@ -129,6 +129,7 @@ func (h *Handler) Rescan(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, err)
 		return
 	}
+	h.scans.dispatched(h.now())
 	h.logger.Info("fleet rescan queued", "run_url", result.RunURL)
 	httpjson.WriteJSON(w, http.StatusAccepted, result)
 }

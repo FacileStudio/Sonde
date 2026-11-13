@@ -25,8 +25,9 @@ func ingestLimit() func(http.Handler) http.Handler {
 	})
 }
 
-// RegisterRoutes mounts the fleet API. The report route sits outside the
-// session gate on purpose, since its caller is a scheduled job holding a token;
+// RegisterRoutes mounts the fleet API. The report and progress routes sit
+// outside the session gate on purpose, since their caller is a scheduled job
+// holding a token;
 // every other route goes through Gate.
 func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handler) http.Handler, cfg Config) {
 	h := NewHandler(store, cfg.logger())
@@ -35,6 +36,7 @@ func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handl
 
 	router.Route("/fleet", func(r chi.Router) {
 		r.With(IngestAuth(cfg.Token, cfg.logger()), ingestLimit()).Post("/reports", h.Ingest)
+		r.With(IngestAuth(cfg.Token, cfg.logger()), progressLimit()).Post("/scans/progress", h.ScanProgress)
 
 		r.Group(func(r chi.Router) {
 			r.Use(gate)
@@ -46,6 +48,7 @@ func RegisterRoutes(router chi.Router, store *Store, requireAuth func(http.Handl
 			r.Patch("/projects/{id}", h.UpdateProject)
 			r.Get("/runs", h.Runs)
 			r.With(rescanLimit()).Post("/scans", h.Rescan)
+			r.Get("/scans/current", h.CurrentScan)
 			r.Get("/policies", h.ListPolicies)
 			r.Post("/policies", h.CreatePolicy)
 			r.Delete("/policies/{id}", h.DeletePolicy)

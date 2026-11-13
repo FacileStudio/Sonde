@@ -23,18 +23,17 @@ func TestAFindingKeepsItsKeyWhenItsCVEIsAssignedLater(t *testing.T) {
 	}
 }
 
-func TestACompleteRunResolvesAProjectItNoLongerLists(t *testing.T) {
+func TestACompleteRunRemovesAProjectItNoLongerListsAndKeepsTheRest(t *testing.T) {
 	router, db := fleetRouter(t)
 	ingest(t, router, nightly(append(fleetOf(9), covered(2, "gone", flaw("CVE-2026-1")))...))
 
 	result := ingest(t, router, nightly(fleetOf(9)...))
 
-	var covered bool
-	var reason string
-	db.Table("projects").Select("covered").Where("github_repo_id = 2").Scan(&covered)
-	db.Table("projects").Select("not_covered").Where("github_repo_id = 2").Scan(&reason)
-	if result.Resolved != 1 || result.FindingsOpen != 9 || covered || reason != "not in the latest scan" {
-		t.Fatalf("result = %+v, covered = %v, reason = %q", result, covered, reason)
+	var gone, kept int64
+	db.Table("projects").Where("github_repo_id = 2").Count(&gone)
+	db.Table("projects").Count(&kept)
+	if result.Resolved != 1 || result.FindingsOpen != 9 || gone != 0 || kept != 9 {
+		t.Fatalf("result = %+v, gone = %d, kept = %d", result, gone, kept)
 	}
 }
 

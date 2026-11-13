@@ -12,7 +12,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/FacileStudio/Sonde/apps/api/internal/fleet"
 )
 
 const (
@@ -26,8 +29,9 @@ type config struct {
 	sondeURL, fleetToken        string
 	douaneBin, out              string
 	workers                     int
-	retryWait                   time.Duration
+	retryWait, progressEvery    time.Duration
 	acceptShrink                bool
+	runID                       int64
 }
 
 func envOr(key, fallback string) string {
@@ -53,6 +57,7 @@ func loadConfig(args []string) (config, error) {
 	cfg.githubToken = os.Getenv("GITHUB_TOKEN")
 	cfg.sondeURL = os.Getenv("SONDE_URL")
 	cfg.fleetToken = os.Getenv("SONDE_FLEET_TOKEN")
+	cfg.runID, _ = strconv.ParseInt(os.Getenv("GITHUB_RUN_ID"), 10, 64)
 	return cfg, cfg.validate()
 }
 
@@ -69,9 +74,10 @@ func (c config) validate() error {
 }
 
 type runner struct {
-	cfg    config
-	github *githubClient
-	root   string
+	cfg      config
+	github   *githubClient
+	root     string
+	progress *progress
 }
 
 func main() { os.Exit(run()) }
@@ -98,14 +104,13 @@ func scan(ctx context.Context, cfg config) error {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(root) }()
-	r := &runner{cfg: cfg, github: newGithubClient(cfg.githubAPI, cfg.githubToken, cfg.retryWait), root: root}
-
-	repos, archived, err := r.listRepos(ctx)
-	if err != nil {
-		return fmt.Errorf("list repositories: %w", err)
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
+	r := &runner{
+		cfg: cfg, github: newGithubClient(cfg.githubAPI, cfg.githubToken, cfg.retryWait), root: root,
+		progress: startProgress(ctx, cfg),
 	}
-	fetched := append(r.collectAll(ctx, repos), archivedRepos(archived)...)
-	verdicts, err := r.sweep(ctx, fetched)
+	fetched, verdicts, err := r.gather(ctx)
 	if err != nil {
 		return err
 	}
@@ -113,6 +118,20 @@ func scan(ctx context.Context, cfg config) error {
 		started: started, finished: time.Now().UTC(), douaneVersion: douaneVersion(ctx, cfg.douaneBin),
 		acceptShrink: cfg.acceptShrink,
 	}, fetched, verdicts, r.latest(ctx))
-	log.Printf("fleetscan: %d repositories listed, %d expected, %d scanned", len(repos), report.Run.ReposExpected, report.Run.ReposScanned)
+	log.Printf("fleetscan: %d expected, %d scanned", report.Run.ReposExpected, report.Run.ReposScanned)
+	r.progress.phase(fleet.PhaseDelivering, len(fetched))
 	return r.finish(ctx, report)
+}
+
+// gather lists, fetches and sweeps the repositories, reporting each phase.
+func (r *runner) gather(ctx context.Context) ([]fetchedRepo, map[string]verdict, error) {
+	repos, err := r.listRepos(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list repositories: %w", err)
+	}
+	r.progress.phase(fleet.PhaseScanning, len(repos))
+	fetched := r.collectAll(ctx, repos)
+	r.progress.phase(fleet.PhaseDouane, len(repos))
+	verdicts, err := r.sweep(ctx, fetched)
+	return fetched, verdicts, err
 }

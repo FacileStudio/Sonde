@@ -14,20 +14,25 @@ func fleetOf(n int) []fleet.ProjectReport {
 	return projects
 }
 
-func TestAMuchShorterCompleteRunResolvesNothingAndIsStoredIncomplete(t *testing.T) {
+func TestAMuchShorterCompleteRunRemovesNothingAndIsStoredIncomplete(t *testing.T) {
 	router, db := fleetRouter(t)
 	ingest(t, router, nightly(fleetOf(88)...))
 
 	narrowed := ingest(t, router, nightly(fleetOf(1)...))
 
 	var stored bool
+	var projects int64
 	db.Table("fleet_runs").Select("complete").Order("id DESC").Limit(1).Scan(&stored)
+	db.Table("projects").Count(&projects)
+	if projects != 88 || len(narrowed.Removed) != 0 {
+		t.Fatalf("%d projects left, removed %v: a narrowed listing must delete nothing", projects, narrowed.Removed)
+	}
 	if narrowed.Resolved != 0 || narrowed.FindingsOpen != 88 || narrowed.Complete || stored || !narrowed.CoverageDropped {
 		t.Fatalf("result = %+v, stored complete = %v: a narrowed listing must not resolve the fleet", narrowed, stored)
 	}
 }
 
-func TestAConfirmedShrinkResolvesTheProjectsThatLeft(t *testing.T) {
+func TestAConfirmedShrinkRemovesTheProjectsThatLeft(t *testing.T) {
 	router, _ := fleetRouter(t)
 	ingest(t, router, nightly(fleetOf(88)...))
 	report := nightly(fleetOf(1)...)
@@ -35,8 +40,8 @@ func TestAConfirmedShrinkResolvesTheProjectsThatLeft(t *testing.T) {
 
 	confirmed := ingest(t, router, report)
 
-	if confirmed.Resolved != 87 || !confirmed.Complete || confirmed.CoverageDropped {
-		t.Fatalf("result = %+v: accept_shrink lets a real departure resolve", confirmed)
+	if confirmed.Resolved != 87 || len(confirmed.Removed) != 87 || !confirmed.Complete || confirmed.CoverageDropped {
+		t.Fatalf("result = %+v: accept_shrink lets a real departure remove its projects", confirmed)
 	}
 }
 

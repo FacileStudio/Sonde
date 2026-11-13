@@ -21,7 +21,7 @@ func scanComplete(t *testing.T, failures, conflicts int32) (*fakeSonde, error) {
 	return sonde, err
 }
 
-func TestACompleteRunSucceedsAndCountsNoArchivedRepository(t *testing.T) {
+func TestACompleteRunSucceedsAndLeavesArchivedRepositoriesOut(t *testing.T) {
 	quietLogs(t)
 	sonde, err := scanComplete(t, 0, 0)
 	if err != nil {
@@ -29,8 +29,8 @@ func TestACompleteRunSucceedsAndCountsNoArchivedRepository(t *testing.T) {
 	}
 	report := onlyReport(t, sonde)
 
-	if report.Run.ReposExpected != 2 || report.Run.ReposScanned != 2 || len(report.Projects) != 3 {
-		t.Fatalf("run = %+v with %d projects: the archived repository is reported but counted nowhere", report.Run, len(report.Projects))
+	if report.Run.ReposExpected != 2 || report.Run.ReposScanned != 2 || len(report.Projects) != 2 {
+		t.Fatalf("run = %+v with %d projects: an archived repository is not reported at all", report.Run, len(report.Projects))
 	}
 }
 

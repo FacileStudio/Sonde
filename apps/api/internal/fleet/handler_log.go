@@ -8,8 +8,9 @@ import (
 )
 
 // logDelivery records what an accepted report changed. A run that listed far
-// fewer projects than are covered is called out, since nothing was resolved
-// for the ones it no longer sees.
+// fewer projects than are covered is called out, since nothing was removed
+// for the ones it no longer sees, and the projects a complete run removed are
+// named.
 func (h *Handler) logDelivery(result IngestResult) {
 	h.logger.Info("fleet report stored",
 		slog.Int64("run_id", result.RunID),
@@ -22,6 +23,10 @@ func (h *Handler) logDelivery(result IngestResult) {
 	if result.CoverageDropped {
 		h.logger.Warn("fleet report listed far fewer projects than are covered; none were resolved",
 			slog.Int64("run_id", result.RunID), slog.Int("projects", result.Projects))
+	}
+	if len(result.Removed) > 0 {
+		h.logger.Info("fleet report removed projects it no longer lists",
+			slog.Int64("run_id", result.RunID), slog.Any("projects", result.Removed))
 	}
 }
 

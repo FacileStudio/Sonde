@@ -13,8 +13,8 @@ scheduled runner -> POST /api/fleet/reports -> fleet_* tables -> /api/fleet/acti
 `apps/api/cmd/fleetscan` runs nightly from `.github/workflows/fleet-scan.yml`. It lists the
 organisation's repositories, reads each default branch's tree, fetches the files douane needs
 through the contents API, runs `douane sweep` over them, and delivers one gzip report. It never
-clones and never runs a repository's code. Archived repositories are sent as not covered with
-the reason `archived` and are never treated as vanished.
+clones and never runs a repository's code. Archived repositories are left out of the report
+entirely, so a complete run removes them from Sonde (see "Archived and deleted repositories").
 
 It fetches every lockfile douane recognises, including the ones it cannot parse (`yarn.lock`,
 `pnpm-lock.yaml`, `requirements.txt`, `.csproj` and the rest of douane's list), so douane can
@@ -210,12 +210,48 @@ delivered an incomplete run.
    but was incomplete exits non-zero; the Maintenance page shows which repositories were not
    covered and why.
 
-## Archived repositories
+## Archived and deleted repositories
 
-The runner reports an archived repository as not covered with reason `archived`. Ingest moves
-such a project to the `archive` tier, so its frozen findings rank as track and leave the
-inbox and the drift view. Unarchiving it does not restore the old tier: set it again on the
-Projects tab.
+The runner skips archived repositories: they are not reported and not counted in
+`repos_expected`. A complete run that is not stored as `coverage_dropped` deletes every project it
+no longer lists, whether the repository was deleted, transferred or archived. The foreign keys
+remove its findings, pins, checks, edges and holds, and set `monitors.project_id` to null; edges
+other projects drew to it are deleted by name. Its open findings count towards `resolved`, the
+ingest result names it in `removed`, and the server logs the names at info.
+
+A narrowed GitHub App installation looks exactly like a fleet that vanished, so the shrink guard
+in "The report" still applies: a complete run listing under 90% of covered projects (or more than
+5 fewer) deletes nothing until it is run with `accept_shrink`. The `archive` tier is no longer set
+by ingest; it stays for classifying a live repository by hand.
+
+## Live scan progress
+
+The Maintenance page follows a scan while it runs, whether the Rescan button, the nightly
+schedule or a hand run started it.
+
+- `GET /api/fleet/scans/current` (fleet gate) lists the five newest runs of `fleet-scan.yml`
+  with an installation token limited to Actions read, prefers one `in_progress` over a newer one
+  queued behind it, and reads that run's job steps. The answer is cached 2.5 seconds, so many
+  viewers cost one GitHub lookup. States: `queued`, `in_progress`, `delivering` (the runner said
+  so), `completed` (conclusion `success`), `failed` (any other conclusion) and `idle` (no run, or
+  a finished run older than ten minutes). For two minutes after a dispatch it answers `queued`
+  until GitHub lists the new run. Without the GitHub App, or while GitHub fails, it answers from
+  the runner's progress alone, treating an update older than 30 seconds as idle.
+- `POST /api/fleet/scans/progress` takes `{run_id, phase, repos_done, repos_total, current}`
+  with `SONDE_FLEET_TOKEN`, through the same `IngestAuth` as reports, decoded strictly, in its own
+  rate-limit bucket (2 per second, burst 20). `run_id` is the workflow's `GITHUB_RUN_ID`; phases
+  are `listing`, `scanning`, `douane` and `delivering`. The newest update is kept in memory; a
+  restart forgets it, along with the last delivery's counts.
+- The runner posts at most once a second, only inside GitHub Actions (`GITHUB_RUN_ID` set) and
+  never with `-out`. A post that fails is dropped without logging: the repository names it
+  carries go to Sonde only, never to the public workflow log, and a scan never fails over
+  progress.
+- The page polls every 2 seconds while a scan runs and the tab is visible. When the run ends it
+  reloads, and names the new run's repositories, new findings and resolved findings.
+
+Deploy the server before the runner, as for report fields: the workflow builds the runner from
+the default branch, and a server that predates the route answers its posts 404. The runner
+ignores that, so the scan still delivers, but nothing shows until the server is deployed.
 
 ## Projects and monitors
 
@@ -265,11 +301,11 @@ Empty turns ingest off.
   flaw that flips between its CVE and its GHSA name between nights is neither resolved nor new.
   A finding also keeps its key when a new alias appears, for example a CVE assigned after its
   GHSA.
-- **A complete run** (`repos_scanned == repos_expected > 0`) also resolves the findings of
-  projects it no longer lists, and marks them not covered. A complete run that lists far fewer
+- **A complete run** (`repos_scanned == repos_expected > 0`) also deletes the projects it no
+  longer lists, with everything hanging off them. A complete run that lists far fewer
   repositories than are currently covered (below 90%, or more than 5 fewer) is stored as
-  incomplete with `coverage_dropped` and resolves nothing, and the server logs a warning, so a
-  narrowed App installation cannot empty the inbox. When repositories really were deleted or
+  incomplete with `coverage_dropped` and deletes nothing, and the server logs a warning, so a
+  narrowed App installation cannot empty the fleet. When repositories really were deleted or
   transferred, run the workflow once by hand with `accept_shrink` checked (`fleetscan
   -accept-shrink`, or `FLEET_ACCEPT_SHRINK=true`).
 - **Deliveries are serialised.** A report that is not newer than the last stored one is refused

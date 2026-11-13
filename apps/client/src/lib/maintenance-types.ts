@@ -118,3 +118,27 @@ export type MaintenanceConformance = {
 		checks: MaintenanceCheck[];
 	}[];
 };
+
+export type MaintenanceScanState = 'idle' | 'queued' | 'in_progress' | 'delivering' | 'completed' | 'failed';
+
+export type MaintenanceScanPhase = 'listing' | 'scanning' | 'douane' | 'delivering';
+
+/** The scan in flight: GitHub's run and steps, and the runner's own progress. */
+export type MaintenanceScan = {
+	state: MaintenanceScanState;
+	conclusion: string;
+	run_url: string;
+	started_at: string | null;
+	steps: { name: string; status: string; conclusion: string | null }[];
+	progress: { phase: MaintenanceScanPhase; repos_done: number; repos_total: number; current: string } | null;
+	last_report_at: string | null;
+	last_delivery: {
+		run_id: number;
+		repos_scanned: number;
+		repos_expected: number;
+		new_findings: number;
+		resolved: number;
+		removed: number;
+		at: string;
+	} | null;
+};

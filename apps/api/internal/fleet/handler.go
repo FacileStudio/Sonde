@@ -20,11 +20,12 @@ type Handler struct {
 	now        func() time.Time
 	logger     *slog.Logger
 	dispatcher Dispatcher
+	scans      *scanTracker
 }
 
 // NewHandler serves the fleet routes over store and reports deliveries to logger.
 func NewHandler(store *Store, logger *slog.Logger) *Handler {
-	return &Handler{store: store, now: time.Now, logger: logger}
+	return &Handler{store: store, now: time.Now, logger: logger, scans: &scanTracker{}}
 }
 
 // Ingest accepts a gzip-compressed report. Compression is required rather than
@@ -50,7 +51,14 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request) (IngestResult, 
 	if err := report.Validate(now); err != nil {
 		return IngestResult{}, err
 	}
-	return h.store.Ingest(r.Context(), report, now)
+	result, err := h.store.Ingest(r.Context(), report, now)
+	if err == nil {
+		h.scans.delivered(Delivery{
+			RunID: result.RunID, ReposScanned: report.Run.ReposScanned, ReposExpected: report.Run.ReposExpected,
+			NewFindings: result.NewFindings, Resolved: result.Resolved, Removed: len(result.Removed), At: now,
+		})
+	}
+	return result, err
 }
 
 // ActionsResponse is the ranked inbox.

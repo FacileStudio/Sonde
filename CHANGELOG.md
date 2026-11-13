@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- feat(fleet): live rescan progress. `GET /api/fleet/scans/current` (fleet gate) answers the newest fleet-scan run on GitHub Actions, whatever started it: state (`idle`, `queued`, `in_progress`, `delivering`, `completed`, `failed`), link, start time, job steps, the runner's progress, and what the last report changed. GitHub is asked with an Actions-read installation token at most once every 2.5 s, whoever polls.
+- feat(fleet): `POST /api/fleet/scans/progress` takes the runner's position (`run_id`, `phase`, `repos_done`, `repos_total`, `current`) with `SONDE_FLEET_TOKEN`, decoded strictly and rate-limited apart from reports. Kept in memory only.
+- feat(fleetscan): the runner posts its progress at most once a second while it runs in GitHub Actions (`GITHUB_RUN_ID`). A failed post is dropped silently and never fails the scan or reaches the public log.
+- feat(client): the Rescan button shows a spinner at once, and a panel follows the scan every 2 s while the tab is visible: phase, a progress bar, the repository being read, the GitHub job steps, elapsed time and a link to the run. A finished scan reloads the page and says "Scan finished: N repos, X new findings, Y resolved"; a failed one stays on screen with its link. Opening the page during a scan shows the panel too.
+
+### Changed
+
+- feat(fleet)!: archived and deleted repositories leave Sonde. The runner no longer reports archived repositories, and a complete run that is not `coverage_dropped` deletes the projects it no longer lists, with their findings, pins, checks, edges and holds; linked monitors are unlinked. Their open findings count as resolved and the server logs the removed names. Archived repositories no longer move to the `archive` tier on their own; the tier stays for hand classification. The `coverage_dropped` guard and `accept_shrink` still stop a narrowed listing from deleting anything.
+
+### Deploy
+
+- Deploy the server before the next scan: the new runner posts to `/api/fleet/scans/progress`, which an older server answers 404 (ignored, so the scan still delivers, but no progress shows).
+
 ## [0.8.0] - 2026-11-13
 
 ### Added
