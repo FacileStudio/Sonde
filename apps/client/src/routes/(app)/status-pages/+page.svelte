@@ -10,7 +10,8 @@
 		Skeleton,
 		Table,
 		icons,
-		toast
+		toast,
+		Tooltip
 	} from '@facile/muse';
 	import StatusPageDrawer from '$lib/components/StatusPageDrawer.svelte';
 	import { backend, type AuthUser, type Monitor, type StatusPage } from '$lib/backend';
@@ -156,20 +157,24 @@
 								>
 									{t('common.view')}
 								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									icon={icons.edit}
-									aria-label={t('statusPages.editAria', { title: existing.title })}
-									onclick={() => openEdit(existing)}
-								/>
-								<Button
-									variant="ghost-danger"
-									size="sm"
-									icon={icons.remove}
-									aria-label={t('statusPages.deleteAria', { title: existing.title })}
-									onclick={() => askDelete(existing)}
-								/>
+								<Tooltip text={t('statusPages.editAria', { title: existing.title })} describe={false} class="contents">
+									<Button
+										variant="ghost"
+										size="sm"
+										icon={icons.edit}
+										aria-label={t('statusPages.editAria', { title: existing.title })}
+										onclick={() => openEdit(existing)}
+									/>
+								</Tooltip>
+								<Tooltip text={t('statusPages.deleteAria', { title: existing.title })} describe={false} class="contents">
+									<Button
+										variant="ghost-danger"
+										size="sm"
+										icon={icons.remove}
+										aria-label={t('statusPages.deleteAria', { title: existing.title })}
+										onclick={() => askDelete(existing)}
+									/>
+								</Tooltip>
 							</div>
 						</td>
 					</tr>
