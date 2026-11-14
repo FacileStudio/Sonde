@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-14
+
+### Changed
+
+- build(api): tronc v0.23.1, tronc/migrate v0.1.1, tronc/testdb v0.1.2 and porte v0.20.1 (chi v5.5.0, go-jose v4.1.9). No behaviour change.
+
 ## [0.10.0] - 2026-11-14
 
 ### Added
