@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-11-14
+
+### Fixed
+
+- fix(client): on the landing, "Commencer gratuitement" and every "Choisir" pricing button open the Facile sign-up page in the visitor's language (https://sso.facile.studio/signup?lang=…) instead of the Spaces page, which asked a signed-out visitor to sign in (muse v0.26.0).
+
 ## [0.11.1] - 2026-11-14
 
 ### Changed
