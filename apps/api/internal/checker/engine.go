@@ -150,6 +150,7 @@ func (e *Engine) Transitions() <-chan Transition { return e.transitions }
 // reload interval rather than only at boot, so a monitor created, edited,
 // disabled or deleted through the API takes effect without a restart.
 func (e *Engine) Run(ctx context.Context) error {
+	e.reset()
 	starts, err := e.reload(ctx)
 	if err != nil {
 		return err

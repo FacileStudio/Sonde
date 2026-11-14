@@ -107,7 +107,7 @@ nothing about what the browser gets.
 ├── apps/
 │   ├── api/                  # Go API
 │   │   ├── internal/         # Sonde's own domain, one package per concern
-│   │   │   ├── checker/      # Probe engine, HTTP/TCP probes, push heartbeats, recorder
+│   │   │   ├── checker/      # Probe engine (runs on the replica holding the sonde-checker advisory lock), HTTP/TCP probes, push heartbeats, recorder
 │   │   │   ├── database/     # GORM connection
 │   │   │   ├── documentation/# The type the API reference registry is built from
 │   │   │   ├── env/          # Environment config loader and validation

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-11-14
+
+### Fixed
+
+- fix(api): the probe engine runs on one replica only. Each instance takes a Postgres advisory lock (tronc `joblock`, key `sonde-checker`), so a rolling deploy with two copies up no longer probes twice or opens an incident twice. A replica without the lock still loads the push tokens and answers heartbeats. tronc v0.24.0.
+
 ## [0.11.2] - 2026-11-14
 
 ### Fixed
