@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-14
+
+### Added
+
+- feat(client): an animated demo on the landing (mise-en-scene v0.2.1): four monitors turn green, a cron job sends `sonde push`, and one API goes down, opens an incident and recovers.
+- feat(client): a CLI section on the landing that shows the install commands for the visitor's device, and a public `/downloads` page with every option (install script, `facile install sonde`, Homebrew cask).
+
+### Changed
+
+- build(client): muse v0.23.0, so the app uses the Magnetik typeface and the device-only `DownloadSection`.
+- feat(client): shorter landing copy in all four locales. The page description no longer claims multi-region probes, which Sonde does not run.
+
 ## [0.9.0] - 2026-11-14
 
 ### Added
