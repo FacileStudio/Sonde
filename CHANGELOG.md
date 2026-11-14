@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-14
+
+### Added
+
+- feat(client): three animated cards on the landing: a site goes down and the alert goes out within the minute, a client's public status page turns red, and a silent cron job opens an incident.
+- feat(client): "Create a free account" leads the hero and the closing call to action, with sign-in beside it (muse v0.24.0 `LandingCta`).
+- feat(client): a "Works with" block for Antenne, a per-app plan note linked to the suite pricing, and a "For developers" block with the CLI, the API reference, the source and the self-hosting guide.
+
+### Changed
+
+- fix(client): the landing subtitle now says Sonde alerts you and your clients follow a public status page; the title, meta tags and footer tagline follow the suite copy in en, fr, es and de.
+- fix(client): the "1 ouvert(s)" badge uses real plural forms in French and Spanish, and "à l'instant" no longer wraps under the demo's terminal.
+- build(client): muse v0.24.0 and mise-en-scene v0.2.2; muse's `Icon` now draws the app's bundled Solar and MDI glyphs through `registerIcons`.
+
 ## [0.10.1] - 2026-11-14
 
 ### Changed
