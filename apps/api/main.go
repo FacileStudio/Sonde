@@ -122,7 +122,7 @@ func run() int {
 	pruner := retention.New(db, appEnv.RawRetentionDays, appLogger)
 
 	go func() {
-		if err := engine.Run(backgroundCtx); err != nil {
+		if err := engine.RunExclusive(backgroundCtx, sqlDB); err != nil {
 			appLogger.Error("checker stopped", slog.Any("error", err))
 		}
 	}()
