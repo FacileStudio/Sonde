@@ -3,118 +3,123 @@ import type { Row } from '../row';
 /** The public landing page. */
 export const landing = {
 	'landing.title': [
-		'Sonde · Uptime monitoring and status pages',
-		'Sonde · Surveillance de disponibilité et pages de statut',
-		'Sonde · Monitorización de disponibilidad y páginas de estado',
-		'Sonde · Verfügbarkeitsüberwachung und Statusseiten'
+		'Sonde · Know a site is down before your clients do',
+		'Sonde · Sachez qu’un site tombe avant vos clients',
+		'Sonde · Entérate de que una web cae antes que tus clientes',
+		'Sonde · Wissen, dass eine Website ausfällt, bevor Kunden es merken'
 	],
 	'landing.description': [
-		'HTTP, TCP and cron heartbeat monitors, public status pages, and an alert as soon as a service goes down.',
-		'Sondes HTTP, TCP et signaux cron, pages d’état publiques, et une alerte dès qu’un service tombe.',
-		'Monitores HTTP, TCP y latidos cron, páginas de estado públicas y una alerta en cuanto un servicio cae.',
-		'HTTP-, TCP- und Cron-Herzschlag-Monitore, öffentliche Statusseiten und eine Warnung, sobald ein Dienst ausfällt.'
+		'Sonde alerts you the moment a site, a port or a cron job goes down, and your clients follow the status on a public page. Free to start.',
+		'Sonde vous prévient dès qu’un site, un port ou une tâche cron tombe, et vos clients suivent l’état sur une page publique. Gratuit pour commencer.',
+		'Sonde te avisa en cuanto cae una web, un puerto o una tarea cron, y tus clientes siguen el estado en una página pública. Gratis para empezar.',
+		'Sonde meldet sich, sobald eine Website, ein Port oder ein Cronjob ausfällt, und Ihre Kunden sehen den Status auf einer öffentlichen Seite.'
 	],
 	'landing.nav.features': ['Features', 'Fonctions', 'Funciones', 'Funktionen'],
 	'landing.nav.pricing': ['Pricing', 'Tarifs', 'Precios', 'Preise'],
+	'landing.nav.developers': ['Developers', 'Développeurs', 'Desarrolladores', 'Entwickler'],
 	'landing.hero.line1': ['Is it up?', 'Est-ce en ligne ?', '¿Está en línea?', 'Ist es online?'],
-	'landing.hero.line2': [
-		'Know in a minute.',
-		'Réponse en une minute.',
-		'Respuesta en un minuto.',
-		'Antwort in einer Minute.'
-	],
+	'landing.hero.line2': ['Know in a minute.', 'Réponse en une minute.', 'Lo sabes en un minuto.', 'Antwort in einer Minute.'],
 	'landing.hero.text': [
-		'Sonde checks your sites, ports and cron jobs, and tells your clients when something breaks.',
-		'Sonde surveille vos sites, ports et tâches cron, et prévient vos clients quand ça casse.',
-		'Sonde vigila tus sitios, puertos y tareas cron, y avisa a tus clientes cuando algo falla.',
-		'Sonde prüft Ihre Websites, Ports und Cron-Jobs und informiert Ihre Kunden, wenn etwas ausfällt.'
+		'Sonde alerts you the moment a site, a port or a cron job goes down, and your clients follow the status on a public page.',
+		'Sonde vous prévient dès qu’un site, un port ou une tâche cron tombe, et vos clients suivent l’état sur une page publique.',
+		'Sonde te avisa en cuanto cae una web, un puerto o una tarea cron, y tus clientes siguen el estado en una página pública.',
+		'Sonde meldet sich, sobald eine Website, ein Port oder ein Cronjob ausfällt, und Ihre Kunden sehen den Status auf einer öffentlichen Seite.'
 	],
-	'landing.feature.probes.title': [
-		'HTTP, TCP and push monitors',
-		'Sondes HTTP, TCP et push',
-		'Monitores HTTP, TCP y push',
-		'HTTP-, TCP- und Push-Monitore'
+	'landing.hero.note': [
+		'Free to start. Open source code, and your data stays yours.',
+		'Gratuit pour commencer. Code ouvert, vos données restent les vôtres.',
+		'Gratis para empezar. Código abierto, tus datos siguen siendo tuyos.',
+		'Kostenlos starten. Offener Code, Ihre Daten bleiben Ihre.'
 	],
+	'landing.cards.title': [
+		'What Sonde does for you',
+		'Ce que Sonde fait pour vous',
+		'Lo que Sonde hace por ti',
+		'Was Sonde für Sie erledigt'
+	],
+	'landing.features.title': ['Everything a monitor needs', 'Tout ce qu’il faut pour surveiller', 'Todo lo necesario para vigilar', 'Alles, was Überwachung braucht'],
+	'landing.features.line': [
+		'What you get from the first monitor.',
+		'Ce que vous avez dès la première sonde.',
+		'Lo que tienes desde el primer monitor.',
+		'Was Sie ab dem ersten Monitor bekommen.'
+	],
+	'landing.feature.probes.title': ['Sites, ports and cron jobs', 'Sites, ports et tâches cron', 'Webs, puertos y tareas cron', 'Websites, Ports und Cronjobs'],
 	'landing.feature.probes.text': [
-		'Check a URL, a port or a cron heartbeat. A job that goes quiet opens an incident.',
-		'Testez une URL, un port ou le signal d’une tâche cron. Une tâche muette ouvre un incident.',
-		'Comprueba una URL, un puerto o el latido de una tarea cron. Una tarea callada abre un incidente.',
-		'Prüfen Sie eine URL, einen Port oder den Herzschlag eines Cron-Jobs. Ein stiller Job eröffnet einen Vorfall.'
+		'Check a URL over HTTP, a port over TCP, or the heartbeat of a cron job.',
+		'Testez une URL en HTTP, un port en TCP ou le signal d’une tâche cron.',
+		'Comprueba una URL por HTTP, un puerto por TCP o el latido de una tarea cron.',
+		'Prüfen Sie eine URL per HTTP, einen Port per TCP oder den Herzschlag eines Cronjobs.'
 	],
-	'landing.feature.uptime.title': [
-		'Uptime from 24 hours to 90 days',
-		'Disponibilité de 24 h à 90 jours',
-		'Disponibilidad de 24 h a 90 días',
-		'Verfügbarkeit von 24 Stunden bis 90 Tagen'
-	],
+	'landing.feature.uptime.title': ['Uptime over 24 hours to 90 days', 'Disponibilité sur 24 h à 90 jours', 'Disponibilidad de 24 h a 90 días', 'Verfügbarkeit über 24 Stunden bis 90 Tage'],
 	'landing.feature.uptime.text': [
-		'Hourly and daily rollups answer at once, and old checks get pruned.',
-		'Des agrégats horaires et journaliers répondent tout de suite, et les vieilles mesures sont purgées.',
-		'Los agregados por hora y por día responden al instante, y las mediciones antiguas se purgan.',
-		'Stündliche und tägliche Aggregate antworten sofort, alte Messungen werden gelöscht.'
+		'See at a glance how long each service held up.',
+		'Voyez d’un coup d’œil combien de temps chaque service a tenu.',
+		'Ve de un vistazo cuánto aguantó cada servicio.',
+		'Sehen Sie auf einen Blick, wie lange jeder Dienst lief.'
 	],
-	'landing.feature.status.title': [
-		'Public status pages',
-		'Pages d’état publiques',
-		'Páginas de estado públicas',
-		'Öffentliche Statusseiten'
+	'landing.feature.incidents.title': ['Incidents that close themselves', 'Des incidents qui se ferment seuls', 'Incidentes que se cierran solos', 'Vorfälle, die sich selbst schließen'],
+	'landing.feature.incidents.text': [
+		'Sonde opens the incident when it breaks and closes it on recovery, with its duration.',
+		'Sonde ouvre l’incident à la panne et le clôt au retour, avec sa durée.',
+		'Sonde abre el incidente con la caída y lo cierra al volver, con su duración.',
+		'Sonde eröffnet den Vorfall beim Ausfall und schließt ihn bei der Rückkehr, mit seiner Dauer.'
 	],
-	'landing.feature.status.text': [
-		'One page per project, so clients see the state without asking you.',
-		'Une page par projet : vos clients voient l’état sans vous écrire.',
-		'Una página por proyecto: tus clientes ven el estado sin preguntarte.',
-		'Eine Seite pro Projekt, damit Kunden den Zustand sehen, ohne nachzufragen.'
+	'landing.feature.webhooks.title': ['Signed webhooks', 'Webhooks signés', 'Webhooks firmados', 'Signierte Webhooks'],
+	'landing.feature.webhooks.text': [
+		'Every outage and recovery can also reach your own endpoint, signed with HMAC.',
+		'Chaque panne et chaque retour peut aussi partir vers votre propre adresse, signé en HMAC.',
+		'Cada caída y cada vuelta también puede llegar a tu propio endpoint, firmada con HMAC.',
+		'Jeder Ausfall und jede Erholung kann auch an Ihren eigenen Endpunkt gehen, mit HMAC signiert.'
 	],
-	'landing.feature.alerts.title': [
-		'Alerts through Antenne',
-		'Alertes via Antenne',
-		'Alertas con Antenne',
-		'Alarme über Antenne'
+	'landing.with.antenne': [
+		'Alerts reach your phone or your inbox.',
+		'Les alertes arrivent sur votre téléphone ou par mail.',
+		'Las alertas llegan a tu móvil o a tu correo.',
+		'Alarme kommen aufs Telefon oder per Mail.'
 	],
-	'landing.feature.alerts.text': [
-		'Incidents open and close on their own, and Antenne sends the alert.',
-		'Les incidents s’ouvrent et se ferment seuls, et Antenne envoie l’alerte.',
-		'Los incidentes se abren y se cierran solos, y Antenne envía la alerta.',
-		'Vorfälle öffnen und schließen sich selbst, Antenne verschickt die Warnung.'
+	'landing.plan.included': [
+		'Included in every plan, the free one too.',
+		'Inclus dans chaque offre, gratuite comprise.',
+		'Incluido en todos los planes, también el gratuito.',
+		'In jedem Tarif enthalten, auch im kostenlosen.'
 	],
-	'landing.nav.download': ['CLI', 'CLI', 'CLI', 'CLI'],
-	'landing.cta.title': [
-		'Watch your first service',
-		'Surveillez votre premier service',
-		'Vigila tu primer servicio',
-		'Überwachen Sie Ihren ersten Dienst'
+	'landing.dev.line': [
+		'A CLI, heartbeats for your cron jobs and an API. Open source.',
+		'Un CLI, des heartbeats pour vos tâches cron et une API. Code ouvert.',
+		'Un CLI, heartbeats para tus tareas cron y una API. Código abierto.',
+		'Eine CLI, Heartbeats für Ihre Cronjobs und eine API. Open Source.'
 	],
-	'landing.cta.text': [
-		'Sign in with your Facile account and add a monitor.',
-		'Connectez-vous avec votre compte Facile et ajoutez une sonde.',
-		'Inicia sesión con tu cuenta de Facile y añade un monitor.',
-		'Melden Sie sich mit Ihrem Facile-Konto an und legen Sie einen Monitor an.'
-	],
-	'landing.demo.label': [
-		'Four monitors turn green, a cron job sends a heartbeat, and one API goes down and recovers.',
-		'Quatre sondes passent au vert, une tâche cron envoie un signal, puis une API tombe et revient.',
-		'Cuatro monitores se ponen en verde, una tarea cron envía un latido y una API cae y se recupera.',
-		'Vier Monitore werden grün, ein Cron-Job sendet einen Herzschlag, eine API fällt aus und erholt sich.'
-	],
-	'landing.demo.summary': ['{up} of {total} up', '{up} sur {total} en ligne', '{up} de {total} en línea', '{up} von {total} online'],
-	'landing.demo.timeout': ['timeout', 'expiré', 'agotado', 'Timeout'],
-	'downloads.title': ['Downloads', 'Téléchargements', 'Descargas', 'Downloads'],
-	'downloads.heading': ['Install the CLI', 'Installer la CLI', 'Instala la CLI', 'Die CLI installieren'],
-	'downloads.intro': [
+	'landing.dev.cli': [
 		'Send heartbeats from cron and read your monitors from the shell.',
-		'Envoyez des signaux depuis cron et consultez vos sondes dans le terminal.',
-		'Envía latidos desde cron y consulta tus monitores en la terminal.',
-		'Senden Sie Herzschläge aus Cron und lesen Sie Ihre Monitore im Terminal.'
+		'Envoyez des heartbeats depuis cron et consultez vos sondes dans le terminal.',
+		'Envía heartbeats desde cron y consulta tus monitores en la terminal.',
+		'Senden Sie Heartbeats aus Cron und lesen Sie Ihre Monitore im Terminal.'
 	],
-	'downloads.cta': ['Install the CLI', 'Installer la CLI', 'Instalar la CLI', 'CLI installieren'],
-	'downloads.install.script': ['Install script', 'Script d’installation', 'Script de instalación', 'Installationsskript'],
-	'downloads.install.facile': ['With facile', 'Avec facile', 'Con facile', 'Mit facile'],
-	'downloads.install.brew': ['Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'],
+	'landing.dev.api': [
+		'Every monitor, incident and status page over a documented HTTP API.',
+		'Chaque sonde, incident et page d’état par une API HTTP documentée.',
+		'Cada monitor, incidente y página de estado mediante una API HTTP documentada.',
+		'Jeder Monitor, Vorfall und jede Statusseite über eine dokumentierte HTTP-API.'
+	],
+	'landing.dev.source': [
+		'The code is open: read it, audit it, take it with you.',
+		'Le code est ouvert : lisez-le, auditez-le, emportez-le.',
+		'El código es abierto: léelo, audítalo, llévatelo.',
+		'Der Code ist offen: lesen, prüfen, mitnehmen.'
+	],
+	'landing.cta.title': ['Watch your first service', 'Surveillez votre premier service', 'Vigila tu primer servicio', 'Überwachen Sie Ihren ersten Dienst'],
+	'landing.cta.text': [
+		'Create a free Facile account and add a monitor in a minute.',
+		'Créez un compte Facile gratuit et ajoutez une sonde en une minute.',
+		'Crea una cuenta gratuita de Facile y añade un monitor en un minuto.',
+		'Erstellen Sie ein kostenloses Facile-Konto und legen Sie in einer Minute einen Monitor an.'
+	],
 	'landing.tagline': [
-		'Uptime monitoring for your services, cron jobs and status pages.',
-		'La surveillance de disponibilité de vos services, tâches cron et pages d’état.',
-		'Monitorización de disponibilidad para tus servicios, tareas cron y páginas de estado.',
-		'Verfügbarkeitsüberwachung für Ihre Dienste, Cron-Jobs und Statusseiten.'
+		'Know a site is down before your clients do.',
+		'Sachez qu’un site tombe avant vos clients.',
+		'Entérate de que una web cae antes que tus clientes.',
+		'Wissen, dass eine Website ausfällt, bevor Kunden es merken.'
 	],
 	'landing.column.product': ['Product', 'Produit', 'Producto', 'Produkt'],
 	'landing.column.facile': ['Facile', 'Facile', 'Facile', 'Facile'],

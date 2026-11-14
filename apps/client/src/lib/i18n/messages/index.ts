@@ -1,6 +1,7 @@
 import type { Catalogs, Message } from '@facile/muse';
 import { incidents } from './incidents';
 import { landing } from './landing';
+import { landingDemo } from './landing-demo';
 import { maintenance } from './maintenance';
 import { maintenanceScan } from './maintenance-scan';
 import { monitorForms } from './monitor-forms';
@@ -12,7 +13,7 @@ import { shell } from './shell';
 import { status } from './status';
 import type { Row } from '../row';
 
-const rows = { ...shell, ...landing, ...monitors, ...monitorForms, ...incidents, ...status, ...settings, ...settingsBus, ...settingsWebhooks, ...maintenance, ...maintenanceScan };
+const rows = { ...shell, ...landing, ...landingDemo, ...monitors, ...monitorForms, ...incidents, ...status, ...settings, ...settingsBus, ...settingsWebhooks, ...maintenance, ...maintenanceScan };
 
 export type AppKey = keyof typeof rows;
 type AppCatalog = Record<AppKey, Message>;

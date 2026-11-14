@@ -6,11 +6,13 @@
 	import { theme } from '$lib/theme.svelte';
 	import mdi from '$lib/icons/mdi.json';
 	import solar from '$lib/icons/solar.json';
+	import { registerBundledIcons } from '$lib/icons/register';
 
 	let { children } = $props();
 
 	const i18n = provideLocale(localeSource);
 	bindLocale(() => i18n.locale);
+	registerBundledIcons();
 
 	if (browser) {
 		theme.restore();

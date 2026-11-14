@@ -112,7 +112,7 @@
 				</span>
 			{/if}
 		</div>
-		<span class="md-summary" style:width={compact ? '96px' : '120px'}>
+		<span class="md-summary" style:width={compact ? '124px' : '140px'}>
 			<Roll value={t('landing.demo.summary', { up, total: monitors.length })} />
 		</span>
 	</div>
@@ -159,7 +159,7 @@
 			</div>
 		</Window>
 
-		<Terminal style={compact ? 'top:336px;left:24px;width:310px;height:132px' : 'top:330px;left:560px;width:384px;height:124px'}>
+		<Terminal style={compact ? 'top:336px;left:24px;width:310px;height:132px' : 'top:344px;left:560px;width:384px;height:124px'}>
 			<div class="mb-3 flex items-center gap-2 text-fc-on-inverse-muted">
 				<span class="size-2 rounded-fc-pill bg-fc-success"></span>crontab · 0 3 * * *
 			</div>
@@ -192,6 +192,7 @@
 	}
 	.md-summary {
 		text-align: right;
+		white-space: nowrap;
 		font-family: var(--font-fc-mono);
 		font-size: 12px;
 		color: var(--color-fc-fg-muted);
@@ -202,7 +203,7 @@
 	}
 	.md-row {
 		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) 52px 140px 72px;
+		grid-template-columns: auto minmax(0, 1fr) 52px 120px 92px;
 		align-items: center;
 		gap: 12px;
 		height: 52px;
@@ -233,6 +234,7 @@
 	}
 	.md-latency {
 		text-align: right;
+		white-space: nowrap;
 		font-family: var(--font-fc-mono);
 		font-size: 12px;
 		color: var(--color-fc-fg-muted);

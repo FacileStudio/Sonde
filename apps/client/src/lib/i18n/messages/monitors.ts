@@ -73,7 +73,12 @@ export const monitors = {
 	'monitors.col.uptime': ['Uptime', 'Disponibilité', 'Disponibilidad', 'Verfügbarkeit'],
 	'monitors.col.latency': ['Latency', 'Latence', 'Latencia', 'Latenz'],
 	'monitors.col.checked': ['Checked', 'Vérifiée', 'Comprobado', 'Geprüft'],
-	'monitors.openBadge': ['{count} open', '{count} ouvert(s)', '{count} abierto(s)', '{count} offen'],
+	'monitors.openBadge': [
+		'{count} open',
+		{ one: '{count} ouvert', other: '{count} ouverts' },
+		{ one: '{count} abierto', other: '{count} abiertos' },
+		'{count} offen'
+	],
 	'monitors.uptimeLabel': [
 		'{name} uptime, last 24 hours',
 		'Disponibilité de {name}, 24 dernières heures',
