@@ -9,10 +9,10 @@ export const landing = {
 		'Sonde · Verfügbarkeitsüberwachung und Statusseiten'
 	],
 	'landing.description': [
-		'Heartbeats, multi-region probes and a public status page, with an alert as soon as a service goes down.',
-		'Heartbeats, sondes multi-régions et page de statut publique, avec une alerte dès qu’un service tombe.',
-		'Heartbeats, sondas multirregión y una página de estado pública, con una alerta en cuanto un servicio cae.',
-		'Heartbeats, Prüfungen aus mehreren Regionen und eine öffentliche Statusseite, mit einer Warnung, sobald ein Dienst ausfällt.'
+		'HTTP, TCP and cron heartbeat monitors, public status pages, and an alert as soon as a service goes down.',
+		'Sondes HTTP, TCP et signaux cron, pages d’état publiques, et une alerte dès qu’un service tombe.',
+		'Monitores HTTP, TCP y latidos cron, páginas de estado públicas y una alerta en cuanto un servicio cae.',
+		'HTTP-, TCP- und Cron-Herzschlag-Monitore, öffentliche Statusseiten und eine Warnung, sobald ein Dienst ausfällt.'
 	],
 	'landing.nav.features': ['Features', 'Fonctions', 'Funciones', 'Funktionen'],
 	'landing.nav.pricing': ['Pricing', 'Tarifs', 'Precios', 'Preise'],
@@ -24,10 +24,10 @@ export const landing = {
 		'Antwort in einer Minute.'
 	],
 	'landing.hero.text': [
-		'Sonde watches your HTTP endpoints, TCP ports and cron jobs, opens incidents when they stop answering, and publishes status pages your clients can read themselves.',
-		'Sonde surveille vos points d’accès HTTP, vos ports TCP et vos tâches cron, ouvre un incident quand ils ne répondent plus et publie des pages d’état que vos clients lisent eux-mêmes.',
-		'Sonde vigila tus endpoints HTTP, puertos TCP y tareas cron, abre incidentes cuando dejan de responder y publica páginas de estado que tus clientes pueden leer por sí mismos.',
-		'Sonde überwacht Ihre HTTP-Endpunkte, TCP-Ports und Cron-Jobs, eröffnet Vorfälle, wenn sie nicht mehr antworten, und veröffentlicht Statusseiten, die Ihre Kunden selbst lesen können.'
+		'Sonde checks your sites, ports and cron jobs, and tells your clients when something breaks.',
+		'Sonde surveille vos sites, ports et tâches cron, et prévient vos clients quand ça casse.',
+		'Sonde vigila tus sitios, puertos y tareas cron, y avisa a tus clientes cuando algo falla.',
+		'Sonde prüft Ihre Websites, Ports und Cron-Jobs und informiert Ihre Kunden, wenn etwas ausfällt.'
 	],
 	'landing.feature.probes.title': [
 		'HTTP, TCP and push monitors',
@@ -36,22 +36,22 @@ export const landing = {
 		'HTTP-, TCP- und Push-Monitore'
 	],
 	'landing.feature.probes.text': [
-		'Probe URLs for status and keywords, check ports, let cron jobs heartbeat. Silence is an incident.',
-		'Testez des URL (statut, mot-clé), vérifiez des ports, laissez vos tâches cron envoyer un signal. Le silence est un incident.',
-		'Comprueba URL (estado y palabra clave) y puertos, y deja que las tareas cron envíen su latido. El silencio es un incidente.',
-		'Prüfen Sie URLs auf Status und Stichwort, testen Sie Ports und lassen Sie Cron-Jobs einen Herzschlag senden. Schweigen ist ein Vorfall.'
+		'Check a URL, a port or a cron heartbeat. A job that goes quiet opens an incident.',
+		'Testez une URL, un port ou le signal d’une tâche cron. Une tâche muette ouvre un incident.',
+		'Comprueba una URL, un puerto o el latido de una tarea cron. Una tarea callada abre un incidente.',
+		'Prüfen Sie eine URL, einen Port oder den Herzschlag eines Cron-Jobs. Ein stiller Job eröffnet einen Vorfall.'
 	],
 	'landing.feature.uptime.title': [
-		'Uptime that adds up',
-		'Une disponibilité qui se calcule',
-		'Una disponibilidad que cuadra',
-		'Verfügbarkeit, die stimmt'
+		'Uptime from 24 hours to 90 days',
+		'Disponibilité de 24 h à 90 jours',
+		'Disponibilidad de 24 h a 90 días',
+		'Verfügbarkeit von 24 Stunden bis 90 Tagen'
 	],
 	'landing.feature.uptime.text': [
-		'Rollup aggregates answer 24h to 90d uptime instantly, without a database the size of a planet.',
-		'Des agrégats donnent la disponibilité de 24 h à 90 jours instantanément, sans base de données grosse comme une planète.',
-		'Los agregados responden al instante la disponibilidad de 24 h a 90 días, sin una base de datos del tamaño de un planeta.',
-		'Aggregierte Werte liefern die Verfügbarkeit von 24 Stunden bis 90 Tagen sofort, ohne eine Datenbank von Planetengröße.'
+		'Hourly and daily rollups answer at once, and old checks get pruned.',
+		'Des agrégats horaires et journaliers répondent tout de suite, et les vieilles mesures sont purgées.',
+		'Los agregados por hora y por día responden al instante, y las mediciones antiguas se purgan.',
+		'Stündliche und tägliche Aggregate antworten sofort, alte Messungen werden gelöscht.'
 	],
 	'landing.feature.status.title': [
 		'Public status pages',
@@ -60,10 +60,10 @@ export const landing = {
 		'Öffentliche Statusseiten'
 	],
 	'landing.feature.status.text': [
-		'Publish per-project status pages so clients see green without asking you.',
-		'Publiez une page d’état par projet : vos clients voient que tout va bien sans vous le demander.',
-		'Publica una página de estado por proyecto y que tus clientes vean el verde sin preguntarte.',
-		'Veröffentlichen Sie pro Projekt eine Statusseite, damit Ihre Kunden Grün sehen, ohne nachzufragen.'
+		'One page per project, so clients see the state without asking you.',
+		'Une page par projet : vos clients voient l’état sans vous écrire.',
+		'Una página por proyecto: tus clientes ven el estado sin preguntarte.',
+		'Eine Seite pro Projekt, damit Kunden den Zustand sehen, ohne nachzufragen.'
 	],
 	'landing.feature.alerts.title': [
 		'Alerts through Antenne',
@@ -72,11 +72,44 @@ export const landing = {
 		'Alarme über Antenne'
 	],
 	'landing.feature.alerts.text': [
-		'Incidents flow straight into the Facile alert bus. No notification zoo included, on purpose.',
-		'Les incidents partent directement dans le bus d’alertes Facile. Pas de zoo de notifications, volontairement.',
-		'Los incidentes van directamente al bus de alertas de Facile. Sin zoo de notificaciones, a propósito.',
-		'Vorfälle fließen direkt in den Facile-Alarmbus. Ein Zoo aus Benachrichtigungen fehlt absichtlich.'
+		'Incidents open and close on their own, and Antenne sends the alert.',
+		'Les incidents s’ouvrent et se ferment seuls, et Antenne envoie l’alerte.',
+		'Los incidentes se abren y se cierran solos, y Antenne envía la alerta.',
+		'Vorfälle öffnen und schließen sich selbst, Antenne verschickt die Warnung.'
 	],
+	'landing.nav.download': ['CLI', 'CLI', 'CLI', 'CLI'],
+	'landing.cta.title': [
+		'Watch your first service',
+		'Surveillez votre premier service',
+		'Vigila tu primer servicio',
+		'Überwachen Sie Ihren ersten Dienst'
+	],
+	'landing.cta.text': [
+		'Sign in with your Facile account and add a monitor.',
+		'Connectez-vous avec votre compte Facile et ajoutez une sonde.',
+		'Inicia sesión con tu cuenta de Facile y añade un monitor.',
+		'Melden Sie sich mit Ihrem Facile-Konto an und legen Sie einen Monitor an.'
+	],
+	'landing.demo.label': [
+		'Four monitors turn green, a cron job sends a heartbeat, and one API goes down and recovers.',
+		'Quatre sondes passent au vert, une tâche cron envoie un signal, puis une API tombe et revient.',
+		'Cuatro monitores se ponen en verde, una tarea cron envía un latido y una API cae y se recupera.',
+		'Vier Monitore werden grün, ein Cron-Job sendet einen Herzschlag, eine API fällt aus und erholt sich.'
+	],
+	'landing.demo.summary': ['{up} of {total} up', '{up} sur {total} en ligne', '{up} de {total} en línea', '{up} von {total} online'],
+	'landing.demo.timeout': ['timeout', 'expiré', 'agotado', 'Timeout'],
+	'downloads.title': ['Downloads', 'Téléchargements', 'Descargas', 'Downloads'],
+	'downloads.heading': ['Install the CLI', 'Installer la CLI', 'Instala la CLI', 'Die CLI installieren'],
+	'downloads.intro': [
+		'Send heartbeats from cron and read your monitors from the shell.',
+		'Envoyez des signaux depuis cron et consultez vos sondes dans le terminal.',
+		'Envía latidos desde cron y consulta tus monitores en la terminal.',
+		'Senden Sie Herzschläge aus Cron und lesen Sie Ihre Monitore im Terminal.'
+	],
+	'downloads.cta': ['Install the CLI', 'Installer la CLI', 'Instalar la CLI', 'CLI installieren'],
+	'downloads.install.script': ['Install script', 'Script d’installation', 'Script de instalación', 'Installationsskript'],
+	'downloads.install.facile': ['With facile', 'Avec facile', 'Con facile', 'Mit facile'],
+	'downloads.install.brew': ['Homebrew', 'Homebrew', 'Homebrew', 'Homebrew'],
 	'landing.tagline': [
 		'Uptime monitoring for your services, cron jobs and status pages.',
 		'La surveillance de disponibilité de vos services, tâches cron et pages d’état.',

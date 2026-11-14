@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	optimizeDeps: {
-		exclude: ['@facile/muse']
+		exclude: ['@facile/muse', '@facile/client']
 	},
 	server: {
 		proxy: {
