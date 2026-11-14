@@ -84,6 +84,12 @@ export const landing = {
 		'Incluido en todos los planes, también el gratuito.',
 		'In jedem Tarif enthalten, auch im kostenlosen.'
 	],
+	'landing.dev.selfHost': [
+		'https://suite.facile.studio/en/auto-hebergement',
+		'https://suite.facile.studio/auto-hebergement',
+		'https://suite.facile.studio/es/auto-hebergement',
+		'https://suite.facile.studio/de/auto-hebergement'
+	],
 	'landing.dev.line': [
 		'A CLI, heartbeats for your cron jobs and an API. Open source.',
 		'Un CLI, des heartbeats pour vos tâches cron et une API. Code ouvert.',

@@ -1,7 +1,7 @@
 {
   "name": "Sonde",
   "short_name": "Sonde",
-  "description": "Heartbeats, multi-region probes and a public status page, with an alert as soon as a service goes down.",
+  "description": "Sonde alerts you the moment a site, a port or a cron job goes down, and your clients follow the status on a public page. Free to start.",
   "icons": [
     {
       "src": "/icon-192.png",

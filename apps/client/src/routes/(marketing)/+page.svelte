@@ -25,7 +25,6 @@
 
 	const ICON = 'solar:radar-bold-duotone';
 	const WIDTH = 'mx-auto w-full max-w-5xl px-4 sm:px-6';
-	const SELF_HOST = 'https://suite.facile.studio/auto-hebergement';
 
 	let checking = $state(true);
 
@@ -141,7 +140,7 @@
 			/>
 
 			<div id="developers" class="{WIDTH} scroll-mt-20 py-16 sm:py-20">
-				<ForDevelopers rows={developer} description={t('landing.dev.line')} selfHostHref={SELF_HOST} />
+				<ForDevelopers rows={developer} description={t('landing.dev.line')} selfHostHref={t('landing.dev.selfHost')} />
 			</div>
 
 			<section class="{WIDTH} py-16 text-center sm:py-24">
