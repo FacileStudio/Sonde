@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-14
+
+### Changed
+
+- feat(client): the plan note shows once under the plans instead of on every card, and the CLI install command wraps between words on phones (muse v0.25.1).
+- feat(client): the self-hosting button opens the Suite page in the visitor's language.
+- build(client): the link preview image and the manifest description carry the current Sonde description, without "multi-region probes".
+
 ## [0.11.0] - 2026-11-14
 
 ### Added
