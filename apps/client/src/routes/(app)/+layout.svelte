@@ -4,8 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { Button, EmptyState, MobileNav, PageTransition, SideBar, Spinner, icons } from '@facile/muse';
 	import { backend, type AuthUser } from '$lib/backend';
-	import { rememberLocale, setSessionLocale, t } from '$lib/i18n/index.svelte';
-	import { theme, type ThemeMode } from '$lib/theme.svelte';
+	import { setSessionLocale, t } from '$lib/i18n/index.svelte';
 
 	let { children } = $props();
 
@@ -76,12 +75,8 @@
 	}
 
 	const userMenu = $derived({
-		subscription: { href: 'https://sso.facile.studio/spaces' },
 		helpHref: 'https://github.com/FacileStudio/Sonde/tree/master/docs',
-		onSignOut: signOut,
-		onLocaleChange: rememberLocale,
-		theme: theme.mode,
-		onThemeChange: (next: string) => theme.set(next as ThemeMode)
+		onSignOut: signOut
 	});
 	const settingsActive = $derived(isActive('/settings'));
 
