@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-16
+
+### Changed
+
+- Bump muse to v0.32.0. Tabs match the Button height (36px on pointer devices, 44px on touch).
+- The user menu now lists Account, Settings, Help and Sign out. The subscription link moved to the Preferences section of Settings.
+
 ## [0.11.4] - 2026-11-16
 
 ### Security
