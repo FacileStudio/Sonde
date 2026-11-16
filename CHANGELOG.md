@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.11.4] - 2026-11-16
+
 ### Security
 
 - The client no longer loads a script from another origin. The Vision tracker is a pinned copy served from `/vision-tracker.js`, and `script-src` no longer lists `https://vision.facile.studio`. The tracker still sends its page-view beacons to Vision as images.
