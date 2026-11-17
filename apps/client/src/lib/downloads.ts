@@ -13,9 +13,9 @@ export const INSTALL_METHODS: CliCommand[] = [
 	},
 	{
 		get label() {
-			return t('downloads.install.facile');
+			return t('downloads.install.kit');
 		},
-		command: 'facile install sonde'
+		command: 'kit add sonde'
 	},
 	{
 		get label() {

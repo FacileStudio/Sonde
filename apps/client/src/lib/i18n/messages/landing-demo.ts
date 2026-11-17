@@ -62,6 +62,6 @@ export const landingDemo = {
 		'Senden Sie Herzschläge aus Cron und lesen Sie Ihre Monitore im Terminal.'
 	],
 	'downloads.install.script': ['Install script', 'Script d’installation', 'Script de instalación', 'Installationsskript'],
-	'downloads.install.facile': ['With facile', 'Avec facile', 'Con facile', 'Mit facile'],
+	'downloads.install.kit': ['With kit', 'Avec kit', 'Con kit', 'Mit kit'],
 	'downloads.install.brew': ['Homebrew', 'Homebrew', 'Homebrew', 'Homebrew']
 } satisfies Record<string, Row>;
